@@ -1,0 +1,5 @@
+*.idea
+*.DS_STORE
+*.ds_store
+*.Ds_Store
+*.Ds_store
