@@ -16,13 +16,6 @@ class Correlate:
         pass
 
 class TestSyntheticData(unittest.TestCase):
-    simple_synth1 = np.zeros((1000))
-    simple_synth1[0]=1
-    simple_synth2 = np.zeros((1000))
-    simple_synth2[500]=1
-
-    noisy_synth1= np.random.rand(1000)
-    noisy_synth2= np.concatenate((np.random.rand(500),noisy_synth1[500::]))
 
     def setUp(self):
         self.corr = Correlate()
@@ -35,7 +28,7 @@ class TestSyntheticData(unittest.TestCase):
 
         """
         source_tau_shift = 0.0
-        target_tau_shift = float(self.corr.tau_shift(self.simple_synth1,self.simple_synth2))
+        target_tau_shift = 5.0
         self.assertAlmostEqual(source_tau_shift,target_tau_shift,5,"tau shift not implemented")
 
     def test_correlation_identity(self):
@@ -49,10 +42,14 @@ class TestSyntheticData(unittest.TestCase):
         target=0
         self.assertAlmostEqual(source,target, 5, "corr identity not implemented")
 
+    def test_for_edge_effects(self):
+        """
+        ensure no gibbs phenomena
 
-
-
-
+        """
+        source = 1
+        target = 0
+        self.assertAlmostEqual(source,target,5,'not implemented')
 
 
 if __name__ == '__main__':
