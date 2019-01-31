@@ -23,3 +23,10 @@ def bandpass(arr,**kwargs):
 def cross_correlate(arr1,arr2,**kwargs):
     return None
 
+def process_all(arr,**kwargs):
+    arr  = resample(arr,**kwargs)
+    arr  = demean(arr,**kwargs)
+    arr  = detrend(arr,**kwargs)
+    arr  = whiten(arr,**kwargs)
+    arr  = t_normalize(arr,**kwargs)
+    return arr
