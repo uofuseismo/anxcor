@@ -29,7 +29,7 @@ class TestSignalProcessingStackNumpyArray(unittest.TestCase):
         target=0
         source = numpy_array_signal_functions.process_all(None)
         self.assertAlmostEqual(source,target,5,"sig process steps not implemented")
-        
+
 
 class TestSignalProcessingStackNumpyMatrix(unittest.TestCase):
 
