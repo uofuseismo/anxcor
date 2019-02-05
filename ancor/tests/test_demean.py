@@ -39,4 +39,15 @@ class TestDemean(unittest.TestCase):
         target = 0
         self.assertAlmostEqual(source, target, 5, 'not implemented')
 
-        
+    def test_trend_removed(self):
+        source = 1
+        target = 0
+        self.assertAlmostEqual(source, target, 5, 'not implemented')
+
+    def test_edge_effects(self):
+        source = 1
+        target = 0
+        self.assertAlmostEqual(source, target, 5, 'not implemented')
+
+if __name__ == '__main__':
+    unittest.main()
