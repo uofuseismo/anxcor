@@ -1,1 +1,0 @@
-from ancor_file_indexing import FileIndexTest as FileIndex

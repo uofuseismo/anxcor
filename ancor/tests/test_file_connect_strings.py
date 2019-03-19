@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from obspy import read
 
-from ancor.ancor import FileIndex
+from ancor_file_indexing import FileIndex
 
 good_strings_directory = 'test_data/test_file_connect/test_date_strings/test_good_date_strings'
 bad_strings_directory  = 'test_data/test_file_connect/test_date_strings/test_bad_date_strings'
@@ -43,7 +43,7 @@ class TestDateStringFMT(unittest.TestCase):
         datetime_format = '%m%d%Y'
         target = self.source_directory(datetime_format,target_dir)
         fileIndex = FileIndex()
-        fileIndex.source_directory=target_dir
+        fileIndex.set_directory(target_dir)
         source = fileIndex.get_file_map()
         self.assertEqual(target, source,p(target,source))
 
@@ -52,8 +52,8 @@ class TestDateStringFMT(unittest.TestCase):
         datetime_format = '%Y%m%d'
         target = self.source_directory(datetime_format,target_dir)
         fileIndex = FileIndex()
-        fileIndex.source_directory = target_dir
-        fileIndex.fmt = datetime_format
+        fileIndex.set_directory(target_dir)
+        fileIndex.set_format(datetime_format)
         source = fileIndex.get_file_map()
         self.assertEqual(target, source, p(target, source))
 
@@ -62,10 +62,12 @@ class TestDateStringFMT(unittest.TestCase):
         datetime_format = '%Y%m%d'
         target = self.source_directory(datetime_format,target_dir)
         fileIndex = FileIndex()
-        fileIndex.fmt = datetime_format
-        fileIndex.source_directory = target_dir
+        fileIndex.set_format(datetime_format)
+        fileIndex.method = 'file_datestring'
+        fileIndex.set_directory(target_dir)
         source = fileIndex.get_file_map()
         self.assertEqual(target, source, p(target, source))
+
 
 class TestObspyDates(unittest.TestCase):
 
@@ -83,9 +85,9 @@ class TestObspyDates(unittest.TestCase):
         datetime_format = '%Y%m%d'
         target = self.source_directory(datetime_format,target_dir)
         fileIndex = FileIndex()
-        fileIndex.fmt = datetime_format
-        fileIndex.method = 'obspy_read'
-        fileIndex.source_directory = target_dir
+        fileIndex.set_format(datetime_format)
+        fileIndex.set_method('obspy_read')
+        fileIndex.set_directory(target_dir)
         source = fileIndex.get_file_map()
         self.assertEqual(target, source,p(source,target))
 
