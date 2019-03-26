@@ -29,3 +29,10 @@ def create_workingdir(working_dir,extension):
 
 def delete_dirs(dir):
     shutil.rmtree(dir)
+
+def delete_file(file):
+    os.remove(file)
+
+def file_exists(file):
+    from os import path
+    return path.exists(file) and path.isfile(file)

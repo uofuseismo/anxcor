@@ -2,6 +2,9 @@ import unittest
 from ancor_windowmap import WindowMap
 from ancor_file_indexing import FileIndex
 from datetime import  datetime, timedelta
+from ancor.ancor import os_utils
+
+save_dir = 'test_data/test_file_connect_windowmap/test_save_directory'
 class MockFileIndex(FileIndex):
 
     def __init__(self):
@@ -84,6 +87,13 @@ class TestWindowMap(unittest.TestCase):
         source = len(map[8]['windows'])
         self.assertEqual(target, source)
 
+    def test_save_file(self):
+        test_save_file = save_dir + os_utils.sep + 'job_file.json'
+        self.windowmap.window_length = 10000
+        self.windowmap.overlap_percent = 0.0
+        self.windowmap.save_readable_job(test_save_file)
+        self.assertTrue(os_utils.file_exists(test_save_file))
+        os_utils.delete_file(test_save_file)
 
 if __name__ == '__main__':
     unittest.main()

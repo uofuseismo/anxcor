@@ -1,6 +1,8 @@
 
 from datetime import datetime
 from datetime import timedelta
+import regex_utils
+import json
 
 class WindowMap:
 
@@ -50,10 +52,10 @@ class WindowMap:
                 wavebank_sourcefile = wavebank_sourcefile + files_for_date
             unraveled_window = [val for sublist in windows for val in sublist]
             wavebank_sourcefile_list.append({
-                'files'    : wavebank_sourcefile_list,
+                'files'    : wavebank_sourcefile,
                 'windows'  : windows,
-                'max time'     : max(unraveled_window),
-                'min time'     : min(unraveled_window)
+                'max time'     : regex_utils.create_str_from_dt_float(max(unraveled_window)),
+                'min time'     : regex_utils.create_str_from_dt_float(min(unraveled_window))
             })
         return wavebank_sourcefile_list
 
@@ -62,8 +64,8 @@ class WindowMap:
         key_map = {}
         format  = self.file_index.get_format()
         for starttime, endtime in window_list:
-            start_key = starttime.strftime(format)
-            end_key   = endtime.strftime(format)
+            start_key = datetime.fromtimestamp(starttime).strftime(format) #starttime.strftime(format)
+            end_key   = datetime.fromtimestamp(endtime).strftime(format) #endtime.strftime(format)
 
             if start_key==end_key:
                 key = (start_key,)
@@ -84,7 +86,10 @@ class WindowMap:
         start_time = min_date
         date_list = []
         while start_time < max_date:
-            time_range = (start_time, start_time+delta)
+            ts_1 = start_time.timestamp()
+            ts_2 = start_time+delta
+            ts_2 = ts_2.timestamp()
+            time_range = (ts_1,ts_2)
             date_list.append(time_range)
             start_time+=delta_increment
 
@@ -105,3 +110,8 @@ class WindowMap:
         max_date = max(datetime_list) + timedelta(days=1)
         min_date = min(datetime_list)
         return max_date, min_date
+
+    def save_readable_job(self,job_file_dir):
+        jobs = self.map_jobs_to_files()
+        with open(job_file_dir,'w') as json_file:
+            json.dump(jobs,json_file)

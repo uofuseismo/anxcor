@@ -5,9 +5,9 @@ from obspy import read
 
 from ancor_file_indexing import FileIndex
 
-good_strings_directory = 'test_data/test_file_connect/test_date_strings/test_good_date_strings'
-bad_strings_directory  = 'test_data/test_file_connect/test_date_strings/test_bad_date_strings'
-obspy_dates_directory  = 'test_data/test_file_connect/test_obspy_dates/obspy_dates'
+good_strings_directory = 'test_data/test_file_connect_windowmap/test_date_strings/test_good_date_strings'
+bad_strings_directory  = 'test_data/test_file_connect_windowmap/test_date_strings/test_bad_date_strings'
+obspy_dates_directory  = 'test_data/test_file_connect_windowmap/test_obspy_dates/obspy_dates'
 
 def join(one,two):
     return os.path.join(one,two)
