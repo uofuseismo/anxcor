@@ -1,5 +1,4 @@
-from ancor_file_indexing import FileIndex
-import os_utils
+
 from datetime import datetime
 from datetime import timedelta
 
@@ -106,36 +105,3 @@ class WindowMap:
         max_date = max(datetime_list) + timedelta(days=1)
         min_date = min(datetime_list)
         return max_date, min_date
-
-
-class AncorBankGenerator:
-
-    def __init__(self,working_directory,**kwargs):
-        self.working_directory = working_directory
-        self.window_map = WindowMap(**kwargs)
-
-    def get_jobs(self):
-        mapped_job = self.window_map.map_jobs()
-        return mapped_job
-
-    def set_window_length(self,window_length):
-        self.window_map.window_length = window_length
-
-    def set_overlap_percent(self, overlap_percent):
-        self.window_map.overlap_percent = overlap_percent
-
-    def generate_job(self,**kwargs):
-        jobs = self.get_jobs()
-        for job in jobs:
-            ancorbank = AncorBank(job,self.working_directory,**kwargs)
-            yield ancorbank
-
-
-class AncorBank:
-
-    def __init__(self,job_data,working_directory, clean_after_use=True):
-        window_number  = job_data['window_number']
-        self.directory = working_directory + os_utils.sep + str(working_directory)
-        self.windows   = job_data['window_list']
-        self.files     = job_data['file_list']
-        self.clean_after_use = clean_after_use

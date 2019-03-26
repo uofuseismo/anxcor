@@ -1,6 +1,8 @@
 import os
+import shutil
 
 sep = os.sep
+time_format = '"D%d_M%m_Y%Y__H%H:M%M:S%S"'
 
 def join(one,two):
     return os.path.join(one,two)
@@ -19,3 +21,11 @@ def get_files_with_extensions(list_of_files,extensions):
         if potential_file.lower().endswith(tuple(extensions)):
             list_of_valid_files.append(potential_file)
     return list_of_valid_files
+
+def create_workingdir(working_dir,extension):
+    dir = working_dir + sep + extension
+    os.mkdir(dir)
+    return dir
+
+def delete_dirs(dir):
+    shutil.rmtree(dir)
