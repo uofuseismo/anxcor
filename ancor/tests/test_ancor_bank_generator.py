@@ -1,5 +1,5 @@
 import unittest
-from ancor_wavebank_generator import WindowMap
+from ancor_windowmap import WindowMap
 from ancor_file_indexing import FileIndex
 from datetime import  datetime, timedelta
 class MockFileIndex(FileIndex):
@@ -83,7 +83,6 @@ class TestWindowMap(unittest.TestCase):
         target = 30
         source = len(map[8]['windows'])
         self.assertEqual(target, source)
-
 
 
 if __name__ == '__main__':
