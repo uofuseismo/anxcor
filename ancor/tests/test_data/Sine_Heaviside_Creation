@@ -1,0 +1,2 @@
+The sine and heaviside functions were created in python and exported to .SAC format via obspy and trace and stream objects.
+These functions could be used on several different unit tests (Taper, remove mean, remove trend, filter, etc)
