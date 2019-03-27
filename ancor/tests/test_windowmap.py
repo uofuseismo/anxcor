@@ -5,25 +5,13 @@ from datetime import  datetime, timedelta
 from ancor.ancor import os_utils
 
 save_dir = 'test_data/test_file_connect_windowmap/test_save_directory'
-class MockFileIndex(FileIndex):
-
-    def __init__(self):
-        super().__init__()
-        self.map = {}
-        self.map['0']=[]
-        self.map['08242009'] =['test_data/test_ancor_bank_generator/test_date_keys/date_key_dir/20090824.sac']
-        self.map['08262009'] =['test_data/test_ancor_bank_generator/test_date_keys/date_key_dir/20090826.sac']
-        self.map['08282009'] =['test_data/test_ancor_bank_generator/test_date_keys/date_key_dir/20090828.sac']
-
-
-    def get_file_map(self,**kwargs):
-        return self.map
 
 
 class TestWindowMap(unittest.TestCase):
 
     def setUp(self):
-        self.windowmap = WindowMap(file_index=MockFileIndex())
+        file_index = FileIndex(directory='test_data/test_file_connect_windowmap/test_date_keys/date_key_dir',format='%Y%m%d')
+        self.windowmap = WindowMap(file_index=file_index)
 
     def test_date_extraction(self):
         min_date_target = datetime.strptime('08242009','%m%d%Y')

@@ -16,5 +16,5 @@ def create_str_from_dt(dt: datetime):
 def create_str_from_dt_float(dt: float):
     return datetime.datetime.fromtimestamp(dt).strftime(_standard_datetime_pattern)
 
-def create_dt_from_str(st):
-    return None
+def create_dt_from_str(st,format=_standard_datetime_pattern):
+    return datetime.datetime.strptime(st,format)
