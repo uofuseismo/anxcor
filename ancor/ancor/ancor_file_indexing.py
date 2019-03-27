@@ -8,15 +8,28 @@ import regex_utils
 from datetime import datetime
 import os_utils
 
-class FileIndexData:
+class _FileIndexData:
     valid_extension = ['.sac']
     _valid_methods=['file_datestring','obspy_read']
-    def __init__(self):
+    def __init__(self,directory=None,method='file_datestring',format='%m%d%y'):
+        """
+
+        Parameters
+        ----------
+        directory: str
+            directory of the source files
+
+        method: {'file_datestring','obspy_read}, optional
+            one of the valid date parsing methods
+
+        format: str, optional
+            a datetime format string used to parse the files
+        """
         self.file_map = {}
-        self._directory = None
+        self._directory = directory
         self._should_reset = True
-        self._method = 'file_datestring'
-        self._fmt = '%m%d%Y'
+        self._method = method
+        self._fmt    = format
 
     def get_directory(self):
         return self._directory
@@ -41,7 +54,7 @@ class FileIndexData:
 
 
 
-class FileIndex(FileIndexData):
+class FileIndex(_FileIndexData):
     method_docstring = "Method 1: \n"+ \
                "\t 'file_datestring'\n"+\
                "-------------------------"+\
@@ -57,8 +70,23 @@ class FileIndex(FileIndexData):
 
     valid_extension = ['.sac']
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, directory: str = None, method: str = 'file_datestring', format: str = '%m%d%y'):
+        """
+
+        Parameters
+        ----------
+        directory: str
+            directory of the source files
+
+        method: str {'file_datestring','obspy_read}, optional
+            one of the valid date parsing methods. can be either 'file_datestring' if the date
+            is contained inside the file name, or 'obspy_read' if you want to read the metadata in the file
+
+        format: str, optional
+            a datetime format string used to parse the files
+        """
+        super().__init__(directory=directory,method=method,format=format)
+        self._has_indexed = False
 
 
     def _create_map(self):
@@ -90,8 +118,13 @@ class FileIndex(FileIndexData):
 
         """
         if create_new_map:
-            self.file_map[0] = []
+            self.file_map['0'] = []
             self._create_map()
+        elif create_new_map is False and self._has_indexed is False:
+            self.file_map['0'] = []
+            self._create_map()
+            self._has_indexed=True
+
         return {**self.file_map}
 
     def get_keys(self,create_new_map=False):
