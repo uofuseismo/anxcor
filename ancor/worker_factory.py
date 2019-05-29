@@ -6,28 +6,36 @@ class Worker:
 
     def __init__(self,**kwargs):
         self.pz_file=None
+        self.zero_step = None
         self.steps=[]
+
+    def add_zero_step(self,step):
+        self.zero_step = step
 
 
     def __call__(self,trace_list: List[Trace], response_file):
 
         #TODO: remove response before working on things
-
+        if self.zero_step is not None:
+            trace_list = self.zero_step(trace_list)
         for step in self.steps:
             trace_list = step(trace_list,response_file)
         return trace_list
 
-
-    def set_pole_zero_file(self,pz_file):
-        self.pz_file=pz_file
-
     def append_step(self,step):
         self.steps.append(step)
+
+    def add_kwarg(self,**kwarg):
+        for step in self.steps:
+            step.add_kwarg(**kwarg)
 
 
 
 def _shapiro(**kwargs):
     worker=Worker()
+    worker.append_step(processors.RemoveMeanTrend())
+    worker.append_step(processors.Taper())
+    worker.append_step(processors.Resample(target=4.0))
     worker.append_step(processors.OneBit())
     return worker
 
@@ -35,6 +43,8 @@ def _shapiro(**kwargs):
 def _bensen(**kwargs):
     worker=Worker()
     worker.append_step(processors.RemoveMeanTrend())
+    worker.append_step(processors.Taper())
+    worker.append_step(processors.Resample(target=4.0))
     worker.append_step(processors.Taper())
     worker.append_step(processors.BandPass(freqmin=50.0,freqmax=1.0/200))
     worker.append_step(processors.Taper())
@@ -51,7 +61,7 @@ def _berg(**kwargs):
     worker.append_step(processors.Taper())
     worker.append_step(processors.BandPass(freqmin=1/5.0, freqmax=1.0 / 150))
     worker.append_step(processors.Taper())
-    worker.append_step(processors.BergNorm(freqmin=1/50.0, freqmax=1/15.0,time_window=128))
+    worker.append_step(processors.MaxMeanComponentNorm(freqmin=1 / 50.0, freqmax=1 / 15.0, time_window=128))
     worker.append_step(processors.Taper())
     worker.append_step(processors.SpectralWhiten())
     return worker

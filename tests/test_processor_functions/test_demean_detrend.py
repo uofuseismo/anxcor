@@ -1,5 +1,7 @@
 import unittest
 
+from .synthetic_trace_factory import linear_noise_ramp
+
 class TestDemean(unittest.TestCase):
 
     def setUp(self):
