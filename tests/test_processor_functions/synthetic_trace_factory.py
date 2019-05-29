@@ -5,6 +5,18 @@ from scipy import fftpack
 import pandas as pd
 import matplotlib.pyplot as plt
 
+
+def linear_ramp_trend(sampling_rate=40.0, duration = 5.0,height=1.0,mean=0.5):
+    header={
+        'sampling_rate' : sampling_rate,
+        'starttime'     : UTCDateTime()
+            }
+    data  = np.random.uniform(-1,1,(int(duration*sampling_rate)))
+    data += np.linspace(0,height,num=int(duration*sampling_rate))
+    data += mean*np.ones(int(duration*sampling_rate))
+    return Trace(data=data,header=header)
+
+
 def create_random_trace(sampling_rate=40.0, duration = 5.0):
     header={
         'sampling_rate' : sampling_rate,

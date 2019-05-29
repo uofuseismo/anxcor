@@ -1,6 +1,7 @@
 import unittest
-
-from .synthetic_trace_factory import linear_noise_ramp
+from ancor_processor import RemoveMeanTrend
+from .synthetic_trace_factory import linear_ramp_trend
+import numpy as np
 
 class TestDemean(unittest.TestCase):
 
@@ -21,35 +22,29 @@ class TestDemean(unittest.TestCase):
 
 
         '''
+        trace = linear_ramp_trend()
+        process = RemoveMeanTrend()
+        trace = process([trace])[0]
+        mean = np.mean(trace)
+        self.assertAlmostEqual(mean,0,5,"mean not removed")
 
-        source = 1
-        target = 0
-        self.assertAlmostEqual(source, target, 5, 'not implemented')
 
-    def test_signal_unaltered(self):
+    def test_detrend(self):
         '''
-        Test for ensuring the signal is unaltered
+        Test for removing the mean for the whole file
 
-        subtract source file from processed file: should equal a constant (can be zero).
-        The result will be an array; if the array varies 'significantly' over its length, fail
-        will have to determine what is 'significantly'
+        Subtract target file from processed file: should equal zero
 
         :return:
+
+
+
         '''
-
-        source = 1
-        target = 0
-        self.assertAlmostEqual(source, target, 5, 'not implemented')
-
-    def test_trend_removed(self):
-        source = 1
-        target = 0
-        self.assertAlmostEqual(source, target, 5, 'not implemented')
-
-    def test_edge_effects(self):
-        source = 1
-        target = 0
-        self.assertAlmostEqual(source, target, 5, 'not implemented')
+        trace = linear_ramp_trend()
+        process = RemoveMeanTrend()
+        trace = process([trace])[0]
+        coeffs= np.polyfit(np.linspace(0,1,num=len(trace.data)),trace.data, 1)
+        self.assertAlmostEqual(coeffs[0],0,5,"trend not removed")
 
 if __name__ == '__main__':
     unittest.main()

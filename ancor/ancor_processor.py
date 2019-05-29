@@ -41,6 +41,8 @@ class Taper(AncorProcessorBase):
 
 
 class Response(AncorProcessorBase):
+
+
     #TODO: implement remove instrument response
     def __init__(self,response_file=None):
         super().__init__()
