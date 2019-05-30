@@ -1,4 +1,4 @@
-from ancor_processor import AncorProcessorBase
+from process import AncorProcessorBase
 from typing import List
 from obspy.core import Trace
 

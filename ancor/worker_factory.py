@@ -1,4 +1,4 @@
-import ancor_processor as processors
+import process as process
 from typing import List
 from obspy.core import Trace
 
@@ -9,18 +9,20 @@ class Worker:
         self.zero_step = None
         self.steps=[]
 
-    def add_zero_step(self,step):
-        self.zero_step = step
 
+    def __call__(self,trace_list: List[Trace]):
+        trace_list=self._sanitize_traces(trace_list)
 
-    def __call__(self,trace_list: List[Trace], response_file):
-
-        #TODO: remove response before working on things
-        if self.zero_step is not None:
-            trace_list = self.zero_step(trace_list)
         for step in self.steps:
-            trace_list = step(trace_list,response_file)
+            trace_list = step(trace_list)
         return trace_list
+
+    def _sanitize_traces(self, trace_list):
+        new_trace_list = []
+        for trace in trace_list:
+            if trace.stats['npts'] > 1:
+                new_trace_list.append(trace)
+        return new_trace_list
 
     def append_step(self,step):
         self.steps.append(step)
@@ -33,37 +35,40 @@ class Worker:
 
 def _shapiro(**kwargs):
     worker=Worker()
-    worker.append_step(processors.RemoveMeanTrend())
-    worker.append_step(processors.Taper())
-    worker.append_step(processors.Resample(target=4.0))
-    worker.append_step(processors.OneBit())
+    worker.append_step(process.RemoveMeanTrend())
+    worker.append_step(process.RemoveMeanTrend())
+    worker.append_step(process.Taper())
+    worker.append_step(process.Resample(target=4.0))
+    worker.append_step(process.OneBit())
     return worker
 
 
 def _bensen(**kwargs):
     worker=Worker()
-    worker.append_step(processors.RemoveMeanTrend())
-    worker.append_step(processors.Taper())
-    worker.append_step(processors.Resample(target=4.0))
-    worker.append_step(processors.Taper())
-    worker.append_step(processors.BandPass(freqmin=50.0,freqmax=1.0/200))
-    worker.append_step(processors.Taper())
-    worker.append_step(processors.RunningAbsoluteMeanNorm(time_window=100.0))
-    worker.append_step(processors.Taper())
-    worker.append_step(processors.SpectralWhiten())
+    worker.append_step(process.RemoveMeanTrend())
+    worker.append_step(process.Taper())
+    worker.append_step(process.Resample(target=4.0))
+    worker.append_step(process.RemoveMeanTrend())
+    worker.append_step(process.Taper())
+    worker.append_step(process.BandPass(freqmin=50.0, freqmax=1.0 / 200))
+    worker.append_step(process.Taper())
+    worker.append_step(process.RunningAbsoluteMeanNorm(time_window=100.0))
+    worker.append_step(process.Taper())
+    worker.append_step(process.SpectralWhiten())
     return worker
 
 def _berg(**kwargs):
     worker = Worker()
-    worker.append_step(processors.Taper())
-    worker.append_step(processors.Resample(target=4.0))
-    worker.append_step(processors.RemoveMeanTrend())
-    worker.append_step(processors.Taper())
-    worker.append_step(processors.BandPass(freqmin=1/5.0, freqmax=1.0 / 150))
-    worker.append_step(processors.Taper())
-    worker.append_step(processors.MaxMeanComponentNorm(freqmin=1 / 50.0, freqmax=1 / 15.0, time_window=128))
-    worker.append_step(processors.Taper())
-    worker.append_step(processors.SpectralWhiten())
+    worker.append_step(process.RemoveMeanTrend())
+    worker.append_step(process.Taper())
+    worker.append_step(process.Resample(target=4.0))
+    worker.append_step(process.RemoveMeanTrend())
+    worker.append_step(process.Taper())
+    worker.append_step(process.BandPass(freqmin=1 / 5.0, freqmax=1.0 / 150))
+    worker.append_step(process.Taper())
+    worker.append_step(process.MaxMeanComponentNorm(freqmin=1 / 50.0, freqmax=1 / 15.0, time_window=128))
+    worker.append_step(process.Taper())
+    worker.append_step(process.SpectralWhiten())
     return worker
 
 

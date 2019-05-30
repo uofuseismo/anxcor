@@ -1,5 +1,5 @@
 import unittest
-from ancor_processor import RemoveMeanTrend
+from process import RemoveMeanTrend
 from .synthetic_trace_factory import linear_ramp_trend
 import numpy as np
 

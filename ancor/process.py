@@ -43,16 +43,12 @@ class Taper(AncorProcessorBase):
 class Response(AncorProcessorBase):
 
 
-    #TODO: implement remove instrument response
-    def __init__(self,response_file=None):
+    def __init__(self, **kwargs):
         super().__init__()
-        self.response_file=response_file
+        self.resp_kwargs = kwargs
 
     def _operate_per_trace(self, trace: Trace) ->Trace:
-        if self.response_file is not None:
-            trace.remove_response()
-        else:
-            trace.remove_response(self.response_file)
+        trace.remove_response(**self.resp_kwargs)
         return trace
 
 
@@ -141,13 +137,12 @@ class Resample(AncorProcessorBase):
                      freq=nyquist,
                      zerophase      =self.zerophase,
                      corners        =self.corners)
-
         trace.interpolate(sampling_rate=self.target, method='linear')
 
         return trace
 
     def _calculate_nyquist(self, trace):
-        return trace.stats.sampling_rate/2
+        return trace.stats['sampling_rate']/2.0001
 
 
 class MaxMeanComponentNorm(AncorProcessorBase):
