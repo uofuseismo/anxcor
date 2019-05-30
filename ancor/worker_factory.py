@@ -38,7 +38,7 @@ def _shapiro(**kwargs):
     worker.append_step(process.RemoveMeanTrend())
     worker.append_step(process.RemoveMeanTrend())
     worker.append_step(process.Taper())
-    worker.append_step(process.Resample(target=4.0))
+    worker.append_step(process.Downsample(target_rate=4.0))
     worker.append_step(process.OneBit())
     return worker
 
@@ -47,7 +47,7 @@ def _bensen(**kwargs):
     worker=Worker()
     worker.append_step(process.RemoveMeanTrend())
     worker.append_step(process.Taper())
-    worker.append_step(process.Resample(target=4.0))
+    worker.append_step(process.Downsample(target_rate=4.0))
     worker.append_step(process.RemoveMeanTrend())
     worker.append_step(process.Taper())
     worker.append_step(process.BandPass(freqmin=50.0, freqmax=1.0 / 200))
@@ -61,7 +61,7 @@ def _berg(**kwargs):
     worker = Worker()
     worker.append_step(process.RemoveMeanTrend())
     worker.append_step(process.Taper())
-    worker.append_step(process.Resample(target=4.0))
+    worker.append_step(process.Downsample(target_rate=4.0))
     worker.append_step(process.RemoveMeanTrend())
     worker.append_step(process.Taper())
     worker.append_step(process.BandPass(freqmin=1 / 5.0, freqmax=1.0 / 150))

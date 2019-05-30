@@ -124,12 +124,28 @@ class SpectralWhiten(AncorProcessorBase):
        super().__init__()
 
 
-class Resample(AncorProcessorBase):
-    def __init__(self,target, zerophase=True, corners=2):
+class Downsample(AncorProcessorBase):
+    def __init__(self, target_rate, zerophase=True, corners=2, interpolation='weighted_average_slopes'):
+        """
+            Resamples traces. order is:
+            - lowpass filter below the nyquist
+            - linearly interpolate
+        Parameters
+        ----------
+        target_rate: float
+            target sampling rate
+        zerophase: bool
+            if true, the resulting lowpass filter will not result in a phase shift
+        corners: int
+            number of corner frequencies in the filter
+        interpolation: str
+            interpolation type to perform after filtering. defaults to 'linear'
+        """
         super().__init__()
-        self.target = target
+        self.target = target_rate
         self.zerophase = zerophase
         self.corners = corners
+        self.interpolation = interpolation
 
     def _operate_per_trace(self, trace: Trace) -> Trace:
         nyquist = self._calculate_nyquist(trace)
@@ -137,7 +153,7 @@ class Resample(AncorProcessorBase):
                      freq=nyquist,
                      zerophase      =self.zerophase,
                      corners        =self.corners)
-        trace.interpolate(sampling_rate=self.target, method='linear')
+        trace.interpolate(sampling_rate=self.target, method=self.interpolation)
 
         return trace
 
