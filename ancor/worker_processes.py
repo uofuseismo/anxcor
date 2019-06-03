@@ -202,15 +202,6 @@ class MaxMeanComponentNorm(AncorProcessorBase):
         normed_traces  = self._normalize(trace_list,abs_inv_means)
         return normed_traces
 
-    def _initial_bp(self,trace):
-        trace = trace.copy()
-        trace.filter('bandpass', freqmax=self.freqmax,
-                         freqmin=self.freqmax,
-                         zerophase=self.zerophase,
-                         corners=self.corners)
-
-        return trace
-
     def _compile_rolling_means(self,trace_list,samples):
 
         components    = len(trace_list)
@@ -219,7 +210,7 @@ class MaxMeanComponentNorm(AncorProcessorBase):
         rma_matrix = np.zeros((components,total_samples))
         for index,trace in enumerate(trace_list):
             copied_trace        = self._initial_bp(trace)
-            rolling_mean        = self._rolling_mean(trace)
+            rolling_mean        = self._rolling_mean(copied_trace)
             rma_matrix[index,:] = rolling_mean
 
         return np.amax(rma_matrix,axis=0)
@@ -229,9 +220,15 @@ class MaxMeanComponentNorm(AncorProcessorBase):
             trace.data /= norm_array
         return trace_list
 
-    def _calculate_samples(self,trace):
-        delta = trace.stats.delta
-        return self.time_window/delta
+    def _initial_bp(self,trace):
+        trace = trace.copy()
+        trace.filter('bandpass', freqmax=self.freqmax,
+                         freqmin=self.freqmax,
+                         zerophase=self.zerophase,
+                         corners=self.corners)
+
+        return trace
+
 
     def _rolling_mean(self,trace: Trace):
         smoothing_pnts = int(self.time_window * trace.stats.sampling_rate)
@@ -289,7 +286,7 @@ class RunningAbsoluteMeanNorm(AncorProcessorBase):
 
     def _rolling_mean(self,trace: Trace):
         smoothing_pnts = int(self.time_window * trace.stats.sampling_rate)
-        convolve_ones  = np.ones((smoothing_pnts,))
-        running_mean   = np.convolve(np.abs(trace.data), convolve_ones, mode='same')/ smoothing_pnts
+        convolve_ones  = np.ones((smoothing_pnts,))/ smoothing_pnts
+        running_mean   = np.convolve(np.abs(trace.data), convolve_ones, mode='same')
 
         return running_mean

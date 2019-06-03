@@ -40,7 +40,6 @@ class TestBasicTemporalNormalization(unittest.TestCase):
 
         tau_shift   = 35
         sample_shift= int(tau_shift * sampling_rate)
-        time_array  = np.linspace(-duration,duration,num=2*10*duration + 1)
         noise_loc_1 = create_random_trace(sampling_rate=40,duration=duration)
         noise_loc_2 = shift_trace(sample_shift,noise_loc_1)
 
