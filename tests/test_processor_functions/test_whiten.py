@@ -14,7 +14,6 @@ class TestStreamBandpassFiltering(unittest.TestCase):
          currently not implemented
 
         """
-        plt.figure()
         process         = SpectralWhiten(0.125,0.1)
 
         trace    = create_sinsoidal_trace(sampling_rate=100,period=0.5,    duration=3)
@@ -34,7 +33,6 @@ class TestStreamBandpassFiltering(unittest.TestCase):
          currently not implemented
 
         """
-        plt.figure()
         process = SpectralWhiten(0.125, 0.1)
 
         trace = create_sinsoidal_trace(sampling_rate=100, period=0.5, duration=3)
@@ -56,7 +54,6 @@ class TestStreamBandpassFiltering(unittest.TestCase):
          currently not implemented
 
         """
-        plt.figure()
         process = SpectralWhiten(0.125, 0.1)
 
         trace = create_sinsoidal_trace(sampling_rate=100, period=0.5, duration=3)

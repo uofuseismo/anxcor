@@ -102,31 +102,6 @@ class BandPass(AncorProcessorBase):
         return trace
 
 
-class RunningAbsoluteMeanNorm(AncorProcessorBase):
-
-
-    def __init__(self,time_window):
-        super().__init__()
-        self.time_window=time_window
-
-
-    def _operate_per_trace(self, trace: Trace) -> Trace:
-        samples     = self._calculate_samples(trace)
-        abs_mean    = self._rolling_mean(trace.data, samples)
-        trace.data /= abs_mean
-
-        return trace
-
-    def _rolling_mean(self,data,samples):
-        padded_data = np.pad(data,pad_width=samples/2,mode='constant')
-        rma = np.abs(pd.Series(padded_data).rolling(window=samples).mean().iloc[samples:].values)
-        return rma
-
-    def _calculate_samples(self,trace):
-        delta = trace.stats.delta
-        return self.time_window/delta
-
-
 class SpectralWhiten(AncorProcessorBase):
 
     def __init__(self,frequency_smoothing_interval,taper_percent):
@@ -153,7 +128,7 @@ class SpectralWhiten(AncorProcessorBase):
 
         target_width = fft.next_fast_len(array_len)
 
-        spectrum    = fft.fftshift(fft.fft(time_domain_original.data,target_width))
+        spectrum    = fft.fftshift(fft.fft(time_domain_original,target_width))
         frequencies = fft.fftfreq(array_len, d=delta)
 
         smoothing_pnts = int(-(-self.smoothing_interval//frequencies[1]))
@@ -223,30 +198,29 @@ class MaxMeanComponentNorm(AncorProcessorBase):
         return trace_list
 
     def _all_component_ops(self,trace_list: List[Trace]):
-        new_traces     = self._initial_bp(trace_list)
-        abs_inv_means  = self._rolling_mean(new_traces)
+        abs_inv_means  = self._compile_rolling_means(trace_list)
         normed_traces  = self._normalize(trace_list,abs_inv_means)
         return normed_traces
 
-    def _initial_bp(self,trace_list):
-        for trace in trace_list:
-            trace.filter('bandpass', freqmax=self.freqmax,
+    def _initial_bp(self,trace):
+        trace = trace.copy()
+        trace.filter('bandpass', freqmax=self.freqmax,
                          freqmin=self.freqmax,
                          zerophase=self.zerophase,
                          corners=self.corners)
 
-        return trace_list
+        return trace
 
-    def _rolling_mean(self,trace_list,samples):
-        averaging_samples = self._calculate_samples(trace_list[0])
+    def _compile_rolling_means(self,trace_list,samples):
 
         components    = len(trace_list)
-        total_samples = max(trace_list[0].data.size)
+        total_samples = len(trace_list[0].data)
 
         rma_matrix = np.zeros((components,total_samples))
         for index,trace in enumerate(trace_list):
-            padded_data = np.pad(trace.data, pad_width=samples / 2, mode='constant')
-            rma_matrix[index,:] = np.abs(pd.Series(padded_data).rolling(window=averaging_samples).mean().iloc[samples:].values)
+            copied_trace        = self._initial_bp(trace)
+            rolling_mean        = self._rolling_mean(trace)
+            rma_matrix[index,:] = rolling_mean
 
         return np.amax(rma_matrix,axis=0)
 
@@ -258,3 +232,64 @@ class MaxMeanComponentNorm(AncorProcessorBase):
     def _calculate_samples(self,trace):
         delta = trace.stats.delta
         return self.time_window/delta
+
+    def _rolling_mean(self,trace: Trace):
+        smoothing_pnts = int(self.time_window * trace.stats.sampling_rate)
+        convolve_ones  = np.ones((smoothing_pnts,)) / smoothing_pnts
+        running_mean   = np.convolve(np.abs(trace.data), convolve_ones, mode='same')
+        return running_mean
+
+
+class RunningAbsoluteMeanNorm(AncorProcessorBase):
+
+
+    def __init__(self, time_window: float,
+                        freqmin=1 / 50.0,
+                        freqmax=1 / 15.0,
+                        corners=2,
+                        zerophase=True,
+                        taper_percent=0.1):
+        """
+            Removes effect of earthquakes from trace by dividing by a running mean
+        Parameters
+        ----------
+        time_window: float
+            seconds to perform running mean over
+        """
+        super().__init__()
+        self.freqmin = freqmin
+        self.freqmax = freqmax
+        self.time_window = time_window
+        self.zerophase = zerophase
+        self.corners = corners
+        self.percent = taper_percent
+
+
+    def _operate_per_trace(self, trace: Trace) -> Trace:
+
+        bd_trace       = self._initial_bp(trace)
+
+        abs_mean    = self._rolling_mean(bd_trace)
+
+        trace.data /= abs_mean
+        trace.taper(self.percent)
+
+        return trace
+
+    def _initial_bp(self,trace):
+        trace = trace.copy()
+        trace.taper(self.percent)
+        trace.filter('bandpass',
+                        freqmax=self.freqmax,
+                        freqmin=self.freqmin,
+                        zerophase=self.zerophase,
+                        corners=self.corners)
+
+        return trace
+
+    def _rolling_mean(self,trace: Trace):
+        smoothing_pnts = int(self.time_window * trace.stats.sampling_rate)
+        convolve_ones  = np.ones((smoothing_pnts,))
+        running_mean   = np.convolve(np.abs(trace.data), convolve_ones, mode='same')/ smoothing_pnts
+
+        return running_mean
