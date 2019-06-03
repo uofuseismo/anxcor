@@ -1,7 +1,7 @@
 import unittest
 from .synthetic_trace_factory import create_triangle_trace,create_random_trace, create_sinsoidal_trace
 import numpy as np
-from process import BandPass
+from worker_processes import BandPass
 from scipy import fftpack
 from scipy import interpolate, signal
 import pandas as pd

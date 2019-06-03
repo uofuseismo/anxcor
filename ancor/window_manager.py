@@ -1,6 +1,5 @@
 from obspy.core.utcdatetime import UTCDateTime
 from multiprocessing import Pool
-import os
 from worker_factory import Worker
 import psutil
 import copy
@@ -57,7 +56,7 @@ class WindowManager:
         directory: str
             directory to save the windows to
         max_windows: int
-            maximum number of windows to process.py
+            maximum number of windows to worker_processes.py
         starttime:
             starting time of windowing
         endtime:
@@ -113,10 +112,11 @@ class WindowManager:
         worker_arguments = []
         window_number=0
         for starttime, endtime in start_stop_array:
+            database_worker_list = []
             for database, worker in self.databases:
-                worker_arguments.append(
-                    (window_number, directory, format, starttime, endtime, copy.deepcopy(worker), copy.deepcopy(database)))
+                database_worker_list.append([copy.deepcopy(worker), copy.deepcopy(database)])
 
+            worker_arguments.append( (window_number, directory, format, starttime, endtime,database_worker_list))
             window_number+=1
 
         return worker_arguments

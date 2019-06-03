@@ -2,7 +2,7 @@ from typing import List
 from obspy.core import Trace
 import numpy as np
 import pandas as pd
-
+import scipy.fftpack as fft
 
 class AncorProcessorBase:
 
@@ -31,6 +31,15 @@ class AncorProcessorBase:
 class Taper(AncorProcessorBase):
 
     def __init__(self,type='hann',percent=0.05):
+        """
+
+        Parameters
+        ----------
+        type: str
+            filter type. defaults to "hann" for hanning
+        percent: float
+            percent off each end to taper
+        """
         super().__init__()
         self.type = type
         self.percent = percent
@@ -119,9 +128,44 @@ class RunningAbsoluteMeanNorm(AncorProcessorBase):
 
 
 class SpectralWhiten(AncorProcessorBase):
-    #TODO: Implement spectral whitening
-    def __init__(self):
-       super().__init__()
+
+    def __init__(self,frequency_smoothing_interval,taper_percent):
+        """
+            Whitens the frequency response by dividing the original spectrum by
+            a running mean of the absolute value of the original spectrum.
+        Parameters
+        ----------
+        frequency_smoothing_interval: float
+            smoothing interval (in hz)
+        taper_percent:
+            percent taper to perform prior to whitening
+        """
+        super().__init__()
+        self.smoothing_interval=frequency_smoothing_interval
+        self.percent = taper_percent
+
+
+    def _operate_per_trace(self, trace: Trace) -> Trace:
+        trace.taper(self.percent)
+        array_len            = trace.stats.npts
+        time_domain_original = trace.data
+        delta                = trace.stats.delta
+
+        target_width = fft.next_fast_len(array_len)
+
+        spectrum    = fft.fftshift(fft.fft(time_domain_original.data,target_width))
+        frequencies = fft.fftfreq(array_len, d=delta)
+
+        smoothing_pnts = int(-(-self.smoothing_interval//frequencies[1]))
+        convolve_ones  = np.ones((smoothing_pnts,))/smoothing_pnts
+        running_spec   = np.convolve(np.abs(spectrum), convolve_ones, mode='same')
+
+        spectrum      /= running_spec
+        spectrum       = fft.ifftshift(spectrum)
+
+        trace.data     = np.real(fft.ifft(spectrum))[:array_len]
+
+        return trace
 
 
 class Downsample(AncorProcessorBase):

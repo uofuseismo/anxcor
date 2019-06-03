@@ -57,7 +57,7 @@ new_stream1.plot()
 new_stream2.plot()
 
 #%%
-# Load the Data to process.py for Target
+# Load the Data to worker_processes.py for Target
 
 new_stream1 = obspy.read(directory+subdir+name+offset+step1)
 new_stream2 = obspy.read(directory+subdir+name+offset+step2)

@@ -1,4 +1,4 @@
-import process as process
+import worker_processes as process
 from typing import List
 from obspy.core import Trace
 

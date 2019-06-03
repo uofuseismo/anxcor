@@ -51,7 +51,7 @@ new_stream = obspy.read(directory+subdir+name+shape+"_"+str(tp)+"_"+step)
 new_stream.plot()
 
 #%%
-# Load the Data to process.py for Target
+# Load the Data to worker_processes.py for Target
 step="source.sac"
 new_stream = obspy.read(directory+subdir+name+shape+"_"+str(tp)+"_"+step)
 step = "target.sac"

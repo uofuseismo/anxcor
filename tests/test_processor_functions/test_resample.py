@@ -1,7 +1,7 @@
 import unittest
 from .synthetic_trace_factory import create_triangle_trace,create_random_trace, create_sinsoidal_trace
 import numpy as np
-from process import Downsample
+from worker_processes import Downsample
 
 
 class TestStreamBandpassFiltering(unittest.TestCase):
