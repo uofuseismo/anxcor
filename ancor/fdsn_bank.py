@@ -1,7 +1,7 @@
 from obspy.clients.fdsn import RoutingClient, Client
 from obspy.core import UTCDateTime
 
-class IRISClient:
+class IRISBank:
 
 
     def __init__(self,**query_kwargs):

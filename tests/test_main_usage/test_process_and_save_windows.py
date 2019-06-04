@@ -2,7 +2,7 @@ import unittest
 from ancor.os_utils import delete_file, delete_dirs, file_exists
 from obsplus import WaveBank
 from obspy.core import UTCDateTime
-from ancor import worker_factory, window_manager, IRISClient
+from ancor import worker_factory, window_manager, IRISBank
 import os
 
 
@@ -124,7 +124,7 @@ class TestMassProcessIRISRouter(unittest.TestCase):
             delete_file(temp_repo + '/.index.h5')
 
     def test_insuficcient_args(self):
-        database_1   = IRISClient(minlongitude=-111.5,maxlongitude=-111,minlatitude=40,maxlatitude=41)
+        database_1   = IRISBank(minlongitude=-111.5,maxlongitude=-111,minlatitude=40,maxlatitude=41)
         worker = worker_factory.build_worker()
         manager = window_manager.WindowManager()
 
@@ -141,7 +141,7 @@ class TestMassProcessIRISRouter(unittest.TestCase):
     def test_windows_amount(self):
 
         target = 4
-        database_1   = IRISClient(minlongitude=-111.5,maxlongitude=-111,minlatitude=40,maxlatitude=41)
+        database_1   = IRISBank(minlongitude=-111.5,maxlongitude=-111,minlatitude=40,maxlatitude=41)
 
         min_time = UTCDateTime(1240561632.5)
         worker = worker_factory.build_worker()
@@ -154,7 +154,7 @@ class TestMassProcessIRISRouter(unittest.TestCase):
         self.assertEqual(source,target,'incorrect generated time windows')
 
     def test_windows_time(self):
-        database_1    = IRISClient(minlongitude=-111.5,maxlongitude=-111,minlatitude=40,maxlatitude=41)
+        database_1    = IRISBank(minlongitude=-111.5,maxlongitude=-111,minlatitude=40,maxlatitude=41)
         target = 5
         min_time = UTCDateTime(1240561632.5)
         max_time = UTCDateTime(1240561632.5 + 3600*target)
@@ -168,7 +168,7 @@ class TestMassProcessIRISRouter(unittest.TestCase):
         self.assertEqual(target,source,'incorrect generated time windows')
 
     def test_process_save(self):
-        database_1    = IRISClient(minlongitude=-111.5,maxlongitude=-111,minlatitude=40,maxlatitude=41)
+        database_1    = IRISBank(minlongitude=-111.5,maxlongitude=-111,minlatitude=40,maxlatitude=41)
         target = 99
         min_time = UTCDateTime(1240561632.5)
         max_time = UTCDateTime(1240564632.5)
@@ -189,7 +189,7 @@ class TestMassProcessIRISRouter(unittest.TestCase):
 
 
     def test_onebit_worker(self):
-        database_1    = IRISClient(minlongitude=-111.5,maxlongitude=-111,minlatitude=40,maxlatitude=41)
+        database_1    = IRISBank(minlongitude=-111.5,maxlongitude=-111,minlatitude=40,maxlatitude=41)
 
         target = 99
         min_time = UTCDateTime(1240561632.5)

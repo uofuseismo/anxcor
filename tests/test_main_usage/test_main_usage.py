@@ -1,19 +1,30 @@
 from ancor   import WindowManager, IRISBank
 from ancor   import worker_factory
-from .helper_classes import SetTrimVerify
-from obsplus import WaveBank
 
-database_1     = WaveBank('test_data/test_ancor_bank/test_waveforms')
-hv_worker_1    = worker_factory.build_worker('berg')
-hv_worker_1.add_zero_step(SetTrimVerify())
 
-database_2      = IRISBank(database_1, max_distance=40000)
+
+
+database_2      = IRISBank(latitude=38.44, longitude=-112.7, minradius=0, maxradius=0.5)
 hv_worker_2     = worker_factory.build_worker('berg et. al. 2018')
 hv_worker_2.step['downsample'].set_sampling_rate(10.0)
 
-window_manager = WindowManager(window_length=60*5, overlap_percent=75)
-window_manager.add_database(database_1, hv_worker_1)
+window_manager = WindowManager(window_length=60*5)
 window_manager.add_database(database_2, hv_worker_2)
 
 
-correlations = window_manager.correlate_windows(window_retain=40)
+
+"""
+ways I want to use window_manager
+
+
+process_windows([given list of window starting times],window_length=something, mode='cpu_limited' or mode='ram_limited')
+# will output windows to worker directories
+
+
+correlate_windows('directory of windowed files',max tau shift,save_to_file=True)
+# returns a dict of {'station source' : {'station receiver' : { 'component 1' : {'component 2' : np.ndarray } } } } 
+
+process_and_correlate_windows(all combined arguments
+
+
+"""

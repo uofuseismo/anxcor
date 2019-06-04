@@ -45,3 +45,21 @@ def _write_trace_to_file(format, process_directory, trace):
 
 def process_and_save_to_file(args):
     process_with_file_write(*args)
+
+
+def window_worker(starttime,duration,worker,database):
+    stream         = database.get_waveforms(starttime=starttime, endtime=starttime+duration)
+    component_dict = _collect_components(stream)
+    traces = []
+    for key, value in component_dict.items():
+        traces = traces + worker(value)
+
+    return traces
+
+def write_worker(filepath,traces,format='sac'):
+    for trace in traces:
+        station = trace.stats['station']
+        component = trace.stats['channel']
+        starttime = trace.stats['starttime'].isoformat()
+        name = '/station:{}.{}.{}.{}'.format(station, component, starttime, format)
+        trace.write(filepath + name, format=format)
