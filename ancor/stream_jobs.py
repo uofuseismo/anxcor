@@ -3,14 +3,18 @@ from obspy.core import UTCDateTime
 
 def _collect_components(stream):
     station_dict = {}
+
     for trace in stream.traces:
+        network = trace.stats.network
+        station = trace.stats.station
 
-        key = trace.stats.station
+        if network not in station_dict:
+            station_dict[network]={}
 
-        if key not in station_dict:
-            station_dict[key] = []
+        if station not in station_dict[network]:
+            station_dict[network][station]=[]
 
-        station_dict[key].append(trace)
+        station_dict[network][station].append(trace)
 
     return station_dict
 
@@ -39,20 +43,24 @@ def _write_trace_to_file(format, process_directory, trace):
     station = trace.stats['station']
     component = trace.stats['channel']
     starttime = trace.stats['starttime'].isoformat()
-    name = '/station:{}.{}.{}.{}'.format(station, component, starttime, format)
+    name = '/{}.{}.{}.{}'.format(station, component, starttime, format)
     trace.write(process_directory + name, format=format)
 
 
 def process_and_save_to_file(args):
     process_with_file_write(*args)
 
+def window_correlator(stream,worker):
+    correlations = worker(stream)
+    return correlations
 
 def window_worker(starttime,duration,worker,database):
     stream         = database.get_waveforms(starttime=starttime, endtime=starttime+duration)
-    component_dict = _collect_components(stream)
+    network_dict = _collect_components(stream)
     traces = []
-    for key, value in component_dict.items():
-        traces = traces + worker(value)
+    for network, station_dict in network_dict.items():
+        for station, component_traces in station_dict.items():
+            traces = traces + worker(component_traces)
 
     return traces
 
@@ -61,5 +69,5 @@ def write_worker(filepath,traces,format='sac'):
         station = trace.stats['station']
         component = trace.stats['channel']
         starttime = trace.stats['starttime'].isoformat()
-        name = '/station:{}.{}.{}.{}'.format(station, component, starttime, format)
+        name = '/{}.{}.{}.{}'.format(station, component, starttime, format)
         trace.write(filepath + name, format=format)

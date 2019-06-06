@@ -4,15 +4,9 @@ import numpy as np
 from worker_processes import Downsample
 
 
-class TestStreamBandpassFiltering(unittest.TestCase):
+class TestDownsample(unittest.TestCase):
 
     def test_phase_shift_not_introduced(self):
-        """
-         tests to ensure phase shifts are not introduced to bandpass filter
-
-         currently not implemented
-
-        """
         target_rate     = 20
         process         = Downsample(target_rate=target_rate)
         trace_initial   = create_sinsoidal_trace(sampling_rate=100,period=0.5,    duration=0.5)
@@ -22,7 +16,3 @@ class TestStreamBandpassFiltering(unittest.TestCase):
         source        = np.argmax(trace_processed) * trace_processed.stats.delta
 
         self.assertAlmostEqual(target,source,int(np.log10(1/target_rate)),"filter introduced phase shift")
-
-
-if __name__ == '__main__':
-    unittest.main()

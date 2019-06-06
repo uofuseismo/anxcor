@@ -43,3 +43,6 @@ def delete_file(file):
 def file_exists(file):
     from os import path
     return path.exists(file) and path.isfile(file)
+
+def folder_exists(folder):
+    return os.path.isdir(folder)

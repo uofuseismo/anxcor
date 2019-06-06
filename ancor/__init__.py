@@ -1,4 +1,3 @@
 from fdsn_bank import IRISBank
 from window_manager import WindowManager
-from worker_factory import Worker
 import worker_processes

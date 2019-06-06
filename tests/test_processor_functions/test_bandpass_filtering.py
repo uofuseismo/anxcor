@@ -1,5 +1,5 @@
 import unittest
-from .synthetic_trace_factory import create_triangle_trace,create_random_trace, create_sinsoidal_trace
+from .synthetic_trace_factory import create_random_trace, create_sinsoidal_trace
 import numpy as np
 from worker_processes import BandPass
 from scipy import fftpack
@@ -7,7 +7,7 @@ from scipy import interpolate, signal
 import pandas as pd
 
 
-class TestStreamBandpassFiltering(unittest.TestCase):
+class TestBandpassFiltering(unittest.TestCase):
 
     def _get_frequency_of_trace(self,trace,sample_point=20.0):
         sample_rate = trace.stats['sampling_rate']
@@ -22,12 +22,6 @@ class TestStreamBandpassFiltering(unittest.TestCase):
         return amplitude
 
     def test_filter_frequency_out_of_band(self):
-        """
-         tests to make sure that frequencies added outside the bandpassed range are not retained
-
-         currently not implemented
-
-        """
         process = BandPass(freqmin=0.5, freqmax=20)
         trace  = create_random_trace(sampling_rate=100)
         trace  = process([trace])[0]
@@ -36,12 +30,6 @@ class TestStreamBandpassFiltering(unittest.TestCase):
         self.assertAlmostEqual(source,target,3,"frequency not removed")
 
     def test_filter_frequency_in_band(self):
-        """
-         tests to ensure frequencies are retained in band
-
-         currently not implemented
-
-        """
         process = BandPass(freqmin=0.5, freqmax=20)
         trace = create_random_trace(sampling_rate=100)
         trace = process([trace])[0]
@@ -50,12 +38,6 @@ class TestStreamBandpassFiltering(unittest.TestCase):
         self.assertGreater(source,target,"bandpass filter removing desired frequency")
 
     def test_phase_shift_not_introduced(self):
-        """
-         tests to ensure phase shifts are not introduced to bandpass filter
-
-         currently not implemented
-
-        """
         process         = BandPass(freqmin=0.25, freqmax=20,zerophase=True)
         trace_initial   = create_sinsoidal_trace(sampling_rate=100,period=0.25,    duration=0.25)
         trace_processed = create_sinsoidal_trace(sampling_rate=100, period=0.25, duration=0.25)
@@ -64,7 +46,3 @@ class TestStreamBandpassFiltering(unittest.TestCase):
         correction =  source_1 - (len(trace_initial.data) -1)
         target = 0
         self.assertEqual(correction,target,"filter introduced phase shift")
-
-
-if __name__ == '__main__':
-    unittest.main()

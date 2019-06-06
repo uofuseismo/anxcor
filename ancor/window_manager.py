@@ -1,13 +1,14 @@
-from obspy.core.utcdatetime import UTCDateTime
+
+from obspy.core import  read, Stream
 from multiprocessing import Pool
 from collections.abc import Iterable
-from worker_factory import Worker
+from ancor.worker_processes import Worker
 import psutil
 import os_utils
 import copy
 import numpy as np
 import os
-from stream_jobs import process_and_save_to_file, window_worker, write_worker
+from stream_jobs import process_and_save_to_file, window_worker, write_worker, window_correlator
 
 
 
@@ -38,7 +39,19 @@ class WindowManager:
         if self._verify_db_worker_pair(database, worker):
             self.database_worker_pairs.append({'database' : database,'worker' : worker})
 
-    def process_windows(self,output_directory,window_starttimes, mode='cpu_limited'):
+    def process_windows(self,output_directory, window_starttimes, mode='test'):
+        """
+            Performs preprocessing prior to crosscorrelations with the intended result being lots of treated files on disk
+        Parameters
+        ----------
+        output_directory
+        window_starttimes
+        mode
+
+        Returns
+        -------
+
+        """
         if self._verify_mode(mode) and self._verify_starttimes(window_starttimes) and self._valid_dir(output_directory):
             compute_object = get_compute(mode)
             compute_object.set_args(starttimes      =window_starttimes, window_length=self.window_length,
@@ -46,12 +59,66 @@ class WindowManager:
             compute_object.process()
 
 
-    def correlate_windows(self,source_directory, output_directory=None, max_tau_shift=None):
-        if self._valid_dir(output_directory) and self._valid_dir(source_directory):
-            pass
+    def correlate_windows(self,source_directory_list, corr_worker,output_directory=None,mode='test'):
+        """
+            takes files on disk and performs component-wise crosscorrelations
+        Parameters
+        ----------
+        source_directory_list: List[str]
+            list object containing source directories
+        corr_worker:
+            correlation worker of choice
+        output_directory:
+            directory to save the correlation output. if none, will return a list of correlated traces
+        mode: str
+            computation mode to execute the correlation
 
-    def process_and_correlate_windows(self, window_starttimes, mode='cpu_limited',
+        Returns
+        -------
+
+        """
+        if self._valid_dir(output_directory) and self._valid_dirs(source_directory_list):
+            compute_object = get_compute(mode)
+            result         = compute_object.correlate(source_directory_list, corr_worker, output_directory)
+
+    def correlate_and_stack_windows(self,corr_worker):
+        pass
+
+    def process_and_correlate_windows(self, window_starttimes, mode='test',
                                             output_directory=None, max_tau_shift=None):
+        """
+            Performs processing and correlation in one go with the intended result being crosscorrelations on disk
+        Parameters
+        ----------
+        window_starttimes
+        mode
+        output_directory
+        max_tau_shift
+
+        Returns
+        -------
+
+        """
+        if self._verify_mode(mode) and self._verify_starttimes(window_starttimes) and self._valid_dir(output_directory):
+            compute_object = get_compute(mode)
+            compute_object.set_args(starttimes=window_starttimes, window_length=self.window_length,
+                                    output_directory=output_directory, database=self.database_worker_pairs)
+
+    def process_correlate_and_stack_windows(self, window_starttimes, mode='cpu_limited',
+                                            output_directory=None, max_tau_shift=None):
+        """
+            Performs processing, correlation, and stacking in one go with the intended result being either xcorr on disk or
+            a returned dictionary of source-receiver-component corrs.
+        ----------
+        window_starttimes
+        mode
+        output_directory
+        max_tau_shift
+
+        Returns
+        -------
+
+        """
         if self._verify_mode(mode) and self._verify_starttimes(window_starttimes) and self._valid_dir(output_directory):
             compute_object = get_compute(mode)
             compute_object.set_args(starttimes=window_starttimes, window_length=self.window_length,
@@ -63,10 +130,10 @@ class WindowManager:
         worker    = isinstance(worker, Worker)
 
         if not worker:
-            print('invalid worker! please supply a valid worker object')
+            raise TypeError('invalid worker! please supply a valid worker object')
 
         if not db_verify:
-            print('invalid database object! please supply a valid database object')
+            raise TypeError('invalid database object! please supply a valid database object')
 
         return worker and db_verify
 
@@ -88,9 +155,18 @@ class WindowManager:
 
     def _valid_dir(self,output_directory):
         result = os.path.isdir(output_directory)
+        print(os.getcwd())
         if not result:
             print('{}   is not a directory!!'.format(output_directory))
         return result
+
+    def _valid_dirs(self, source_directory_list):
+        bad_results = []
+        for dir in source_directory_list:
+            if not self._valid_dir(dir):
+                bad_results.append(1)
+
+        return not bad_results
 
 
 class ComputeInterface:
@@ -118,6 +194,20 @@ class ComputeInterface:
                 traces = window_worker(starttime,self.window_length,worker,database)
                 write_worker(filepath, traces, format='sac')
 
+    def correlate(self, source_directory_list, corr_worker, output_directory,format='sac'):
+        total_corrs = []
+        for source_dir in source_directory_list:
+
+            stream       = read(source_dir)
+            correlations = window_correlator(stream, corr_worker)
+
+            if output_directory is not None:
+                write_worker(output_directory,correlations,format=format)
+            else:
+                total_corrs = total_corrs + correlations
+
+        return total_corrs
+
 
 
 class SingleThreadCompute(ComputeInterface):
@@ -144,66 +234,8 @@ def get_compute(mode)-> ComputeInterface:
     else:
         return LimitedRamCompute()
 
-class F:
 
-    def __init__(self, window_length=300, overlap_percent=0):
-        self.window_length   = window_length
-        self.overlap_percent = overlap_percent
-        self.databases=[]
-
-    def add_database(self, database, worker: Worker):
-        self.databases.append((database,worker))
-
-    def correlate_windows(self, max_stacks=None,starttime=None,endtime=None):
-        """
-        Correlate waveforms stored in the given databases using the assigned workers.
-        Either max_stacks & starttime must be specified, or starttime and endtime must be specified
-
-        Parameters
-        ----------
-        max_stacks : int
-            the maximum number of processed crosscorrelation waveforms to stack
-
-        starttime: UTCDateTime
-            the beginning time of the correlation windows
-
-        endtime: UTCDateTime
-            the ending time of the correlation windows
-
-        Returns: dict
-        -------
-            a dictionary of crosscorrelated pair waveforms. returned dict has the structure:
-            { 'source-receiver' : [Correlated Traces] ...}
-
-        """
-        self._check_params(max_stacks,starttime,endtime)
-
-
-    def process_windows(self,directory, max_windows=None,
-                        starttime=None, endtime=None, format='sac',
-                        single_thread=False, physical_cores_only=True):
-        """
-        Performs a preprocessing operation only on the indicated windows, saving the result to file.
-        Files are stored in the given directory, with subdirectory names corresponding to the indicated window.
-
-        Parameters
-        ----------
-        directory: str
-            directory to save the windows to
-        max_windows: int
-            maximum number of windows to worker_processes.py
-        starttime:
-            starting time of windowing
-        endtime:
-            ending time of windowing
-
-        """
-        self._check_params(max_windows, starttime, endtime)
-        window_array = self._gen_window_array(max_windows, starttime, endtime)
-        self._process_and_save_window_array(directory, format, window_array,
-                                            single_thread=single_thread,physical_cores_only=physical_cores_only)
-
-    def _process_and_save_window_array(self, directory, format, window_array, single_thread=False,physical_cores_only=True):
+def _process_and_save_window_array(self, directory, format, window_array, single_thread=False,physical_cores_only=True):
         usable_cpus = psutil.cpu_count(logical=physical_cores_only)
         worker_arguments = self.create_worker_args(directory, format, window_array)
         if not single_thread:
@@ -214,44 +246,3 @@ class F:
             for arg in worker_arguments:
                 process_and_save_to_file(arg)
 
-
-
-
-    def _gen_window_array(self, windows, starttime: UTCDateTime, endtime: UTCDateTime):
-        delta_percent = (1.0 - self.overlap_percent / 100.0)
-        if windows is not None:
-            delta   = windows * delta_percent * self.window_length
-            endtime_timestamp = starttime.timestamp + delta
-            endtime = UTCDateTime(endtime_timestamp)
-            var=endtime.timestamp - starttime.timestamp
-
-        utc_start_times = np.arange(starttime.timestamp,
-                                    endtime.timestamp,
-                                    self.window_length * delta_percent).tolist()
-
-        var = endtime.timestamp - starttime.timestamp
-
-        utc_start_times = [ (x, x+self.window_length) for x in utc_start_times]
-
-        return utc_start_times
-
-
-
-    def _check_params(self,max_stacks,starttime,endtime):
-        if max_stacks is None and starttime is None and endtime is None:
-            raise SyntaxError('Too many Nones! Please specify a max_stacks integer'+\
-                              'value and a valid starttime or a valid starttime and endtime')
-
-
-    def create_worker_args(self,directory, format, start_stop_array):
-        worker_arguments = []
-        window_number=0
-        for starttime, endtime in start_stop_array:
-            database_worker_list = []
-            for database, worker in self.databases:
-                database_worker_list.append([copy.deepcopy(worker), copy.deepcopy(database)])
-
-            worker_arguments.append( (window_number, directory, format, starttime, endtime,database_worker_list))
-            window_number+=1
-
-        return worker_arguments

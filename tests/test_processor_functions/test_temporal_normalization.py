@@ -3,7 +3,6 @@ from ancor.worker_processes import RunningAbsoluteMeanNorm, Downsample
 from .synthetic_trace_factory import create_random_trace, create_sinsoidal_trace
 from obspy import read
 import numpy as np
-import matplotlib.pyplot as plt
 
 source_file = 'test_data/test_temp_norm/test_teleseism.BHE.SAC'
 
@@ -27,12 +26,6 @@ def shift_trace(samples,trace):
 class TestBasicTemporalNormalization(unittest.TestCase):
 
     def test_reduce_earthquake_xcorr_func(self):
-        """
-         tests to ensure added earthquake teleseism energy does not affect max amplitude of xcorr w noise
-
-         currently not implemented
-
-        """
         # first, make a noise trace and shift it by tau * sampling rate\
         file = source_file
         duration = self.get_duration_of_eq(file)
@@ -43,10 +36,6 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         noise_loc_1 = create_random_trace(sampling_rate=40,duration=duration)
         noise_loc_2 = shift_trace(sample_shift,noise_loc_1)
 
-        plt.figure()
-        plt.plot(noise_loc_1)
-        plt.plot(noise_loc_2)
-        plt.show()
         # next, add an eq teleseism from file to both noise streams
 
         noise_loc_1_eq = noise_loc_1.copy()
@@ -96,6 +85,3 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         corr_func = np.correlate(earthquake_source.data,earthquake_trace.data,mode='full')
         corr_func/=np.mean(np.abs(corr_func))
         return corr_func
-
-if __name__ == '__main__':
-    unittest.main()

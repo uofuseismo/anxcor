@@ -17,11 +17,12 @@ def linear_ramp_trend(sampling_rate=40.0, duration = 5.0,height=1.0,mean=0.5):
     return Trace(data=data,header=header)
 
 
-def create_random_trace(sampling_rate=40.0, duration = 5.0):
+def create_random_trace(sampling_rate=40.0, duration = 5.0, **header_kwargs):
     header={
         'sampling_rate' : sampling_rate,
         'starttime'     : UTCDateTime()
-            }
+    }
+    header = {**header, **header_kwargs}
     data  = np.random.uniform(-1,1,(int(duration*sampling_rate)))
     return Trace(data=data,header=header)
 
@@ -35,13 +36,25 @@ def create_triangle_trace(sampling_rate=40.0, duration = 5.0):
     return Trace(data=data,header=header)
 
 
-def create_sinsoidal_trace(sampling_rate=40.0, period=0.5, duration = 5.0):
+def create_sinsoidal_trace(sampling_rate=40.0, period=0.5, duration = 5.0,**header_kwargs):
     header={
         'sampling_rate' : sampling_rate,
         'starttime'     : UTCDateTime()
             }
+    header = {**header, **header_kwargs}
     x     = np.linspace(0, duration,num=int(duration*sampling_rate))
     data  = np.sin( x * 2 * np.pi / period )
+
+    return Trace(data=data,header=header)
+
+def create_sinsoidal_trace_w_decay(sampling_rate=40.0,decay=0.01, period=0.5, duration = 5.0,**header_kwargs):
+    header={
+        'sampling_rate' : sampling_rate,
+        'starttime'     : UTCDateTime()
+            }
+    header = {**header, **header_kwargs}
+    x     = np.linspace(0, duration,num=int(duration*sampling_rate))
+    data  = np.sin( x * 2 * np.pi / period ) * np.exp( -decay*(x-duration/2)**2)
 
     return Trace(data=data,header=header)
 

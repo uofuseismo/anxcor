@@ -1,8 +1,9 @@
 from typing import List
 from obspy.core import Trace
 import numpy as np
-import pandas as pd
 import scipy.fftpack as fft
+
+
 
 class AncorProcessorBase:
 
@@ -24,7 +25,6 @@ class AncorProcessorBase:
 
     def _operate_per_trace(self, trace: Trace) -> Trace:
         return trace
-
 
 
 
@@ -290,3 +290,20 @@ class RunningAbsoluteMeanNorm(AncorProcessorBase):
         running_mean   = np.convolve(np.abs(trace.data), convolve_ones, mode='same')
 
         return running_mean
+
+class Worker:
+
+    def __init__(self):
+        """
+            A base class for holding processing steps
+        """
+        self.steps=[]
+
+
+    def __call__(self,trace_list: List[Trace]):
+        for step in self.steps:
+            trace_list = step(trace_list)
+        return trace_list
+
+    def append_step(self,step: AncorProcessorBase):
+        self.steps.append(step)
