@@ -8,6 +8,15 @@ def join(one,two):
     return os.path.join(one,two)
 
 
+def make_path_from_list(path_list):
+    path = os.path.join(*path_list)
+    make_dir(path)
+    return path
+
+def make_dir(path):
+    if not folder_exists(path):
+        os.makedirs(path)
+
 def get_filelist(directory):
     listOfFiles = []
     for (dirpath, dirnames, filenames) in os.walk(directory):
@@ -46,3 +55,34 @@ def file_exists(file):
 
 def folder_exists(folder):
     return os.path.isdir(folder)
+
+def _clean_dirs_of_index(dirlist):
+    for dir in dirlist:
+        try:
+            os.remove(dir + './index.h5')
+        except Exception:
+            pass
+
+def _clean_files_in_dir(dir):
+    filelist = get_filelist(dir)
+    for dir in filelist:
+        try:
+            os.remove(dir)
+        except Exception:
+            pass
+
+def _clean_dirs_and_files(dirlist):
+    for dir in dirlist:
+        try:
+            os.remove(dir)
+        except Exception:
+            pass
+        try:
+            shutil.rmtree(dir)
+        except Exception:
+            pass
+
+def _how_many_fmt(directory,format='.sac'):
+    filelist = get_filelist(directory)
+    saclist  = get_files_with_extensions(filelist, format)
+    return len(saclist)
