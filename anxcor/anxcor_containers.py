@@ -1,6 +1,6 @@
 from typing import List
-import abstract_behaviors as ab
-import os_utils as os_utils
+import  anxcor.abstract_behaviors as ab
+import  anxcor.os_utils as os_utils
 from  obspy.core import read, UTCDateTime
 import xarray as xr
 import pickle
@@ -116,6 +116,9 @@ class DataLoader(ab.XArrayProcessor):
 
     def _get_name(self,*args):
         return None
+
+    def _get_process(self):
+        return 'load'
 
 class XArrayCombine(ab.XDatasetProcessor):
 

@@ -3,8 +3,7 @@ import xarray as xr
 import anxcor.filter_ops as filt_ops
 import pandas as pd
 from obspy.core import UTCDateTime
-import abstract_behaviors as ab
-import os_utils as os_utils
+import  anxcor.abstract_behaviors as ab
 
 OPERATIONS_SEPARATION_CHARACTER = '\n'
 SECONDS_2_NANOSECONDS = 1e9
@@ -114,14 +113,19 @@ class XArrayBandpass(ab.XArrayProcessor):
 
     def _single_thread_execute(self, xarray: xr.DataArray, **kwargs):
         sampling_rate = 1.0 / xarray.attrs['delta']
+        ufunc_kwargs = {**self._kwargs}
+
+        if self._kwargs['upper_frequency'] > sampling_rate / 2:
+            ufunc_kwargs['upper_frequency'] = sampling_rate / 2
+
         tapered_array  = xr.apply_ufunc(filt_ops.taper,xarray,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
-                                        kwargs=self._kwargs)
+                                        kwargs=ufunc_kwargs)
         filtered_array = xr.apply_ufunc(filt_ops.butter_bandpass_filter, tapered_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
-                                        kwargs={**self._kwargs,**{
+                                        kwargs={**ufunc_kwargs,**{
                                                 'sample_rate': sampling_rate}})
 
         return filtered_array
@@ -197,12 +201,12 @@ class XArrayXCorrelate(ab.XArrayProcessor):
 
     def __init__(self,max_tau_shift=100.0,**kwargs):
         super().__init__(**kwargs)
-        self._max_tau_shift = max_tau_shift
+        self._kwargs['max_tau_shift']=max_tau_shift
 
     def _single_thread_execute(self, source_xarray: xr.DataArray, receiver_xarray: xr.DataArray, **kwargs):
         correlation = filt_ops.xarray_crosscorrelate(source_xarray,
                                              receiver_xarray,
-                                             max_tau_shift=self._max_tau_shift,**self._kwargs)
+                                             max_tau_shift=self._kwargs['max_tau_shift'])
         return correlation
 
     def _get_process(self):
@@ -215,7 +219,7 @@ class XArrayXCorrelate(ab.XArrayProcessor):
                  'stacks'   : 1,
                  'endtime'  : xarray_1.attrs['starttime'] + xarray_1.attrs['delta'] * xarray_1.data.shape[-1],
                  'operations': xarray_1.attrs['operations'] + OPERATIONS_SEPARATION_CHARACTER + \
-                               'correlated@{}<t<{}'.format(self._max_tau_shift,self._max_tau_shift)}
+                               'correlated@{}<t<{}'.format(self._kwargs['max_tau_shift'],self._kwargs['max_tau_shift'])}
         if 'location' in xarray_1.attrs.keys() and 'location' in xarray_2.attrs.keys():
             attrs['location'] = {'src':xarray_1.attrs['location'],
                                  'rec':xarray_2.attrs['location']}

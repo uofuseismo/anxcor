@@ -1,15 +1,9 @@
-from anxcor_containers import DataLoader, XArrayCombine, XArrayStack
-from xarray_routines import XArrayConverter, XResample, XArrayXCorrelate
+from  anxcor.anxcor_containers import DataLoader, XArrayCombine, XArrayStack
+from  anxcor.xarray_routines import XArrayConverter, XResample, XArrayXCorrelate
 import numpy as np
 import itertools
-import os_utils as os_utils
-from datetime import datetime
+import anxcor.os_utils as os_utils
 from obspy.core import UTCDateTime, Stream, Trace
-
-
-def gather(bool_list):
-    return True
-
 
 class Anxcor:
     time_format = '%d-%m-%Y %H:%M:%S'
@@ -140,9 +134,12 @@ class Anxcor:
     def _station_window_operations(self, channels, dask_client=None, starttime=None, station=None):
         xarray      = self._tasks['xconvert'](channels, starttime=starttime, station=station, dask_client=dask_client )
         downsampled = self._tasks['resample'](xarray, starttime=starttime, station=station, dask_client=dask_client )
+        tasks = [downsampled]
         for process in self._tasks['process']:
-            downsampled = process(downsampled,starttime=starttime, station=station, dask_client=dask_client )
-        return downsampled
+            task        = tasks.pop()
+            result = process(task,starttime=starttime, station=station, dask_client=dask_client )
+            tasks.append(result)
+        return tasks[0]
 
 
     def process(self,starttime, endtime, dask_client=None,**kwargs):
@@ -158,7 +155,6 @@ class Anxcor:
             futures.append(correlation_stack)
 
         combined_crosscorrelations = self._combine_stack_pairs(futures, dask_client=dask_client)
-        combined_crosscorrelations = combined_crosscorrelations.transpose('pair','src_chan','rec_chan','time')
 
         return combined_crosscorrelations
 
@@ -168,18 +164,25 @@ class Anxcor:
         receiver = pair[1]
         correlation_stack = []
         for starttime in starttimes:
-            source_channels   = self._tasks['data'](starttime, source, dask_client=dask_client)
-            receiver_channels = self._tasks['data'](starttime, receiver, dask_client=dask_client)
-
+            source_channels = self._tasks['data'](starttime, source,
+                                                  starttime=starttime,
+                                                  station=source,
+                                                  dask_client=dask_client)
             source_ch_ops = self._station_window_operations(source_channels,
                                                             starttime=starttime,
                                                             station=source,
                                                             dask_client=dask_client)
-
-            receiver_ch_ops = self._station_window_operations(receiver_channels,
-                                                            starttime=starttime,
-                                                            station=receiver,
-                                                            dask_client=dask_client)
+            if source==receiver:
+                receiver_ch_ops = source_ch_ops
+            else:
+                receiver_channels = self._tasks['data'](starttime, receiver,
+                                                      starttime=starttime,
+                                                      station=source,
+                                                      dask_client=dask_client)
+                receiver_ch_ops   = self._station_window_operations(receiver_channels,
+                                                                starttime=starttime,
+                                                                station=source,
+                                                                dask_client=dask_client)
 
             correlation = self._tasks['correlate'](source_ch_ops,
                                                    receiver_ch_ops,

@@ -1,3 +1,7 @@
+import
+import unittest
+
+
 import unittest
 from obsplus.bank import WaveBank
 from obspy.core import Stream, Trace
@@ -6,7 +10,6 @@ from anxcor.anxcor_main import Anxcor
 from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
 import numpy as np
 import xarray as xr
-
 source_dir = '../test_data/test_ancor_bank/test_waveforms_multi_station'
 target_dir = '../test_data/test_ancor_bank/test_save_output'
 
@@ -43,10 +46,7 @@ class WavebankWrapper:
                       'station': trace.stats.station,
                       'starttime':trace.stats.starttime,
                       'channel': trace.stats.channel,
-                      'network': trace.stats.network,
-                      'latitude': trace.stats.sac['stla'],
-                      'longitude': -trace.stats.sac['stlo'] }
-
+                      'network': trace.stats.network}
             traces.append(Trace(data,header=header))
         return Stream(traces=traces)
 
@@ -63,36 +63,18 @@ class WavebankWrapper:
         return unique_stations
 
 
-class TestObspyUtilFunction(unittest.TestCase):
+class TestDaskGraph(unittest.TestCase):
 
 
     def test_single_execution(self):
         # stations 21, & 22
         # 3 windows say
         #
+        from dask.distributed import Client
         anxcor = Anxcor(3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.set_parameters('correlate', dict(dummy_task=True))
         result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
-        streams = anxcor.xarray_to_obspy(result)
-        self.assertEqual(len(streams),27,'not enough traces retained!')
 
-    def test_rotation(self):
-        # stations 21, & 22
-        # 3 windows say
-        #
-        anxcor = Anxcor(3600, 0.5)
-        bank = WavebankWrapper(source_dir)
-        anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_parameters('correlate', dict(dummy_task=True))
-        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
-        rotated_result = anxcor.align_station_pairs(result)
-        streams = anxcor.xarray_to_obspy(result)
-        self.assertEqual(len(streams),27,'not enough traces retained!')
-
-
-
-
-if __name__ == '__main__':
-    unittest.main()
+        self.assertTrue(isinstance(result, xr.Dataset))

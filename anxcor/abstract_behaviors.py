@@ -1,4 +1,4 @@
-import os_utils as os_utils
+import  anxcor.os_utils as os_utils
 from obspy.core import UTCDateTime
 import xarray as xr
 import json
@@ -138,18 +138,24 @@ class _XDaskTask:
                 print('given key is not a selectable parameter')
 
     def __call__(self, *args, starttime=0, station=0, dask_client=None, **kwargs):
+        key = '{} {} {}'.format(self._get_process(),starttime,station)
         result = None
         if self._enabled:
             if dask_client is None:
                 if not self.read.is_enabled():
-                    persist_name       = self._get_name(*args)
-                    persisted_metadata = self._metadata_to_persist(*args,**kwargs)
-                    result             = self._single_thread_execute(*args,**kwargs)
-                    self._assign_metadata(persist_name, persisted_metadata, result)
+                    result = self._execute(args, kwargs)
             else:
-                result = self._dask_task_execute(*args, dask_client=dask_client,**kwargs)
+                result = dask_client.submit(self._execute,args, kwargs,key=key)
+
 
         result = self._io_operations(args, dask_client, result, starttime, station)
+        return result
+
+    def _execute(self, args, kwargs):
+        persist_name = self._get_name(*args)
+        persisted_metadata = self._metadata_to_persist(*args, **kwargs)
+        result = self._single_thread_execute(*args, **kwargs)
+        self._assign_metadata(persist_name, persisted_metadata, result)
         return result
 
     def _assign_metadata(self, persist_name, persisted_metadata, result):
@@ -159,12 +165,22 @@ class _XDaskTask:
             result.name = persist_name
 
     def _io_operations(self, args, dask_client, result, starttime, station):
+        key = '{} {} {}'.format(self._get_process(), starttime, station)
         if self.read.is_enabled():
-            result = self.read(args[0], self._get_process(), self._time_signature(starttime), station,
-                               dask_client=dask_client)
-            result = self._addition_read_processing(result)
+            if dask_client is not None:
+                result = self._read_execute(args, starttime, station)
+            else:
+                result = dask_client.submit(self._read_execute,args,starttime,station,key=key)
         elif self.write.is_enabled():
-            self.write(result, self._get_process(), self._time_signature(starttime), station, dask_client=dask_client)
+            if dask_client is not None:
+                dask_client.submit(self.write, result, self._get_process(), self._time_signature(starttime),key=key)
+            else:
+                self.write(result, self._get_process(), self._time_signature(starttime), station)
+        return result
+
+    def _read_execute(self, args, starttime, station):
+        result = self.read(args[0], self._get_process(), self._time_signature(starttime), station)
+        result = self._addition_read_processing(result)
         return result
 
     def _time_signature(self,time):
@@ -213,6 +229,11 @@ class _XDaskTask:
     def _addition_read_processing(self, result):
         return result
 
+    def _window_key_convert(self,window):
+        return window
+
+    def _get_operation_key(self,starttime,station):
+        return '{} {} {}'.format(self._get_process(), self._window_key_convert(starttime), station)
 
 class XArrayProcessor(_XDaskTask):
 
@@ -234,3 +255,6 @@ class XDatasetProcessor(_XDaskTask):
 
     def _addition_read_processing(self, result):
         return result
+
+    def _window_key_convert(self,window):
+        return UTCDateTime(int(window*100)/100).isoformat()
