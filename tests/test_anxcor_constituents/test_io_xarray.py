@@ -7,10 +7,6 @@ from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
 import numpy as np
 import xarray as xr
 
-import warnings
-
-warnings.filterwarnings("ignore")
-
 source_dir = '../test_data/test_ancor_bank/test_waveforms_multi_station'
 target_dir = '../test_data/test_ancor_bank/test_save_output'
 
@@ -35,6 +31,8 @@ class WavebankWrapper:
 
     def __init__(self, directory):
         self.bank = WaveBank(directory)
+        import warnings
+        warnings.filterwarnings("ignore")
 
     def get_waveforms(self, **kwargs):
         stream =  self.bank.get_waveforms(**kwargs)
@@ -72,77 +70,156 @@ class TestDaskGraph(unittest.TestCase):
         anxcor = Anxcor(3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
         result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
 
         self.assertTrue(isinstance(result, xr.Dataset))
 
-    def test_io_database(self):
-        # stations 21, & 22
-        # 3 windows say
-        #
-        anxcor = Anxcor(3600, 0.5)
-        bank = WavebankWrapper(source_dir)
-        anxcor.add_dataset(bank, 'nodals')
-        anxcor.write_result_to_file(target_dir, type='data')
-        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
-        how_many_mseed = _how_many_fmt(target_dir, format='.mseed')
-        _clean_files_in_dir(target_dir)
-        self.assertEqual(24, how_many_mseed)
 
-    def test_io_xconvert(self):
+    def test_read_xconvert(self):
         anxcor = Anxcor(3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.write_result_to_file(target_dir, type='xconvert')
+        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        anxcor = Anxcor(3600, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.read_from_file_at_step(target_dir, type='xconvert')
+        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        _clean_files_in_dir(target_dir)
+        self.assertTrue(isinstance(result,xr.Dataset))
+
+    def test_write_xconvert(self):
+        anxcor = Anxcor(3600, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
         anxcor.write_result_to_file(target_dir, type='xconvert')
         result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
         self.assertEqual(8, how_many_nc)
 
-    def test_io_resample(self):
+    def test_write_resample(self):
         anxcor = Anxcor(3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
         anxcor.write_result_to_file(target_dir, type='resample')
         result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
         self.assertEqual(8, how_many_nc)
 
-    def test_io_correlate(self):
+    def test_read_resample(self):
         anxcor = Anxcor(3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.write_result_to_file(target_dir, type='resample')
+        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        anxcor = Anxcor(3600, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.read_from_file_at_step(target_dir, type='resample')
+        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        how_many_nc = _how_many_fmt(target_dir, format='.nc')
+        _clean_files_in_dir(target_dir)
+        self.assertEqual(8, how_many_nc)
+
+    def test_write_correlate(self):
+        anxcor = Anxcor(3600, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
         anxcor.write_result_to_file(target_dir, type='correlate')
         result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
         self.assertEqual(12, how_many_nc)
 
-    def test_io_stack(self):
+    def test_read_correlate(self):
         anxcor = Anxcor(3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.write_result_to_file(target_dir, type='write_stack')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.write_result_to_file(target_dir, type='correlate')
+        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        anxcor = Anxcor(3600, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.read_from_file_at_step(target_dir, type='correlate')
         result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
-        self.assertEqual(3, how_many_nc)
+        self.assertEqual(12, how_many_nc)
 
-    def test_io_combine(self):
+    def test_write_stack(self):
         anxcor = Anxcor(3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.write_result_to_file(target_dir, type='write_combine')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.write_result_to_file(target_dir, type='stack')
         result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
-        self.assertEqual(1, how_many_nc)
+        self.assertEqual(9, how_many_nc)
 
-    def test_io_temp_norm(self):
+    def test_read_stack(self):
         anxcor = Anxcor(3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.write_result_to_file(target_dir, type='stack')
+        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        anxcor = Anxcor(3600, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.read_from_file_at_step(target_dir, type='stack')
+        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        how_many_nc = _how_many_fmt(target_dir, format='.nc')
+        _clean_files_in_dir(target_dir)
+        self.assertEqual(9, how_many_nc)
+
+    def test_write_combine(self):
+        anxcor = Anxcor(3600, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate',dict(dummy_task=True))
+        anxcor.write_result_to_file(target_dir, type='combine')
+        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        how_many_nc = _how_many_fmt(target_dir, format='.nc')
+        _clean_files_in_dir(target_dir)
+        self.assertEqual(2, how_many_nc)
+
+    def test_read_combine(self):
+        anxcor = Anxcor(3600, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.write_result_to_file(target_dir, type='combine')
+        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        anxcor = Anxcor(3600, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate',dict(dummy_task=True))
+        anxcor.read_from_file_at_step(target_dir, type='combine')
+        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        how_many_nc = _how_many_fmt(target_dir, format='.nc')
+        _clean_files_in_dir(target_dir)
+        self.assertEqual(2, how_many_nc)
+
+    def test_write_tempnorm(self):
+        anxcor = Anxcor(3600, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
         anxcor.add_process(XArrayTemporalNorm(time_mean=5.0,lower_frequency=0.02))
         anxcor.write_result_to_file(target_dir,type='process',order=0)
         result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
@@ -150,12 +227,52 @@ class TestDaskGraph(unittest.TestCase):
         _clean_files_in_dir(target_dir)
         self.assertEqual(8, how_many_nc)
 
-    def test_io_whitening(self):
+    def test_read_tempnorm(self):
         anxcor = Anxcor(3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.add_process(XArrayTemporalNorm(time_mean=5.0, lower_frequency=0.02))
+        anxcor.write_result_to_file(target_dir, type='process', order=0)
+        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        anxcor = Anxcor(3600, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.add_process(XArrayTemporalNorm(time_mean=5.0,lower_frequency=0.02))
+        anxcor.read_from_file_at_step(target_dir,type='process',order=0)
+        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        how_many_nc = _how_many_fmt(target_dir, format='.nc')
+        _clean_files_in_dir(target_dir)
+        self.assertEqual(8, how_many_nc)
+
+    def test_write_whitening(self):
+        anxcor = Anxcor(3600, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
         anxcor.add_process(XArrayWhiten())
         anxcor.write_result_to_file(target_dir,type='process',order=0)
+        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        how_many_nc = _how_many_fmt(target_dir, format='.nc')
+        _clean_files_in_dir(target_dir)
+        self.assertEqual(8, how_many_nc)
+
+
+    def test_read_whitening(self):
+        anxcor = Anxcor(3600, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.add_process(XArrayWhiten())
+        anxcor.write_result_to_file(target_dir,type='process',order=0)
+        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        anxcor = Anxcor(3600, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.add_process(XArrayWhiten())
+        anxcor.read_from_file_at_step(target_dir, type='process', order=0)
         result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)

@@ -27,7 +27,7 @@ def get_filelist(directory):
 def get_files_with_extensions(list_of_files,extensions):
     list_of_valid_files = []
     for potential_file in list_of_files:
-        if potential_file.lower().endswith(tuple(extensions)):
+        if potential_file.lower().endswith(extensions.lower()):
             list_of_valid_files.append(potential_file)
     return list_of_valid_files
 

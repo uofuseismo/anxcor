@@ -2,18 +2,14 @@ import unittest
 from xarray_routines import XArrayWhiten, XArrayConverter, XArrayTemporalNorm, XResample, XArrayXCorrelate
 from .synthetic_trace_factory import create_random_trace
 from obspy.core import read
-import matplotlib.pyplot as plt
 import numpy as np
-import  os
 import xarray as xr
-print(os.getcwd())
-whiten = XArrayWhiten(smoothing_interval=0.025,upper_frequency=25.0,lower_frequency=0.001,order=2)
-convert = XArrayConverter()
+whiten    = XArrayWhiten(smoothing_window_ratio=0.025, upper_frequency=25.0, lower_frequency=0.001, order=2)
+convert   = XArrayConverter()
 correlate = XArrayXCorrelate(max_tau_shift=40)
-source_file = 'tests/test_data/test_temp_norm/test_teleseism.BHE.SAC'
+source_file = 'test_data/test_teleseism/test_teleseism.BHE.SAC'
 
 def source_earthquake():
-    print(os.getcwd())
     earthquake_trace       = read(source_file, format='sac')[0]
     earthquake_trace.stats.data_type='eq'
     earthquake_trace.data /= max(earthquake_trace.data)
@@ -86,25 +82,7 @@ class TestBasicTemporalNormalization(unittest.TestCase):
 
         self.assertGreater(x_corr_eq[zero_index],x_corr_eq_tnorm[zero_index])
 
-    def get_duration_of_eq(self,file):
-        earthquake_trace = read(file, format='sac')[0]
-        duration = earthquake_trace.stats.endtime - earthquake_trace.stats.starttime + 1 / 40
-        return duration
-
-    def get_max_tau(self,sampling_rate,data):
-        zero_time_ind = (len(data)-1)/2
-        idx = np.argmax(data)
-        return idx/sampling_rate
-
-    def max_corr_norm(self, one, two):
-        corr_func= correlate(one,two)
-        corr_func.plot()
-        plt.show()
-        corr_func=corr_func.data.ravel()
-        corr_func/=np.max(abs(corr_func))
-        return corr_func
-
-    def test_reduce_earthquake_xcorr_func(self):
+    def test_variable_type(self):
         # first, make a noise trace and shift it by tau * sampling rate\
         file = source_file
         duration = 400
@@ -119,35 +97,29 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         # next, add an eq teleseism from file to both noise streams
 
         noise_loc_1_eq = noise_loc_1.copy()
-        noise_loc_2_eq = noise_loc_2.copy()
-        noise_loc_1.plot()
-        noise_loc_2.plot()
-        plt.show()
-        plt.figure()
-        attrs = noise_loc_1.attrs
-
-        source_eq   = source_earthquake()
-        noise_loc_1_eq[:, :, :source_eq.data.shape[2]] += source_eq.data[:, :, :]
-        noise_loc_2_eq[:, :, :source_eq.data.shape[2]] += source_eq.data[:, :, :]
-
-        noise_loc_1.attrs = attrs
-        noise_loc_2.attrs = attrs
-        noise_loc_2_eq.attrs = attrs
-        noise_loc_1_eq.attrs = attrs
-
-        # downsample both to 10hz sampling rate
 
         down   = XResample(10)
         t_norm =XArrayTemporalNorm(time_mean=2.0)
 
-        noise_loc_1_eq = down(noise_loc_1_eq)
-        noise_loc_2_eq = down(noise_loc_2_eq)
+        noise_loc_2_eq       = down(noise_loc_1_eq)
 
         noise_loc_2_eq_tnorm = t_norm(noise_loc_2_eq)
-        noise_loc_1_eq_tnorm = t_norm(noise_loc_1_eq)
-
-        x_corr_eq_tnorm = self.max_corr_norm(noise_loc_1_eq_tnorm, noise_loc_2_eq_tnorm)
-        zero_index = len(x_corr_eq_tnorm)//2 + 1
 
 
-        self.assertEqual(zero_index+shift*10,zero_index+np.argmax(x_corr_eq_tnorm))
+        self.assertEquals(noise_loc_2_eq_tnorm.dtype,np.float64)
+
+    def get_duration_of_eq(self,file):
+        earthquake_trace = read(file, format='sac')[0]
+        duration = earthquake_trace.stats.endtime - earthquake_trace.stats.starttime + 1 / 40
+        return duration
+
+    def get_max_tau(self,sampling_rate,data):
+        zero_time_ind = (len(data)-1)/2
+        idx = np.argmax(data)
+        return idx/sampling_rate
+
+    def max_corr_norm(self, one, two):
+        corr_func= correlate(one,two)
+        corr_func=corr_func.data.ravel()
+        corr_func/=np.max(abs(corr_func))
+        return corr_func

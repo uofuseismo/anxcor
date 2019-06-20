@@ -1,10 +1,12 @@
 from typing import List
 import abstract_behaviors as ab
 import os_utils as os_utils
-from  obspy.core import read
+from  obspy.core import read, UTCDateTime
+import xarray as xr
+import pickle
 
 
-class _CombinedDataLoaderTest(ab._XDaskTask):
+class DataLoader(ab.XArrayProcessor):
 
     def __init__(self, window_length):
         super().__init__()
@@ -109,6 +111,121 @@ class _CombinedDataLoaderTest(ab._XDaskTask):
         path = self._file + os_utils.sep + extension + os_utils.sep
         return path
 
+    def _metadata_to_persist(self, *param, **kwargs):
+        return None
+
+    def _get_name(self,*args):
+        return None
+
+class XArrayCombine(ab.XDatasetProcessor):
+
+    def __init__(self,**kwargs):
+        super().__init__(**kwargs)
+
+    def _single_thread_execute(self,first_data, second_data,**kwargs):
+        if isinstance(first_data,xr.DataArray) and isinstance(second_data,xr.DataArray):
+            if first_data.name==second_data.name:
+                result = xr.concat([first_data,second_data],dim='pair')
+            else:
+                result = xr.merge([first_data,second_data])
+
+        elif isinstance(first_data,xr.Dataset) and isinstance(second_data,xr.DataArray):
+            result = self._merge_DataArray_Dataset(first_data, second_data)
+        elif isinstance(first_data,xr.DataArray) and isinstance(second_data,xr.Dataset):
+            result = self._merge_DataArray_Dataset(second_data,first_data)
+        else:
+            result = xr.merge([first_data,second_data])
+        if not isinstance(result,xr.Dataset):
+            name   = result.name
+            coords = result.coords
+            result = xr.Dataset(data_vars={name: result},coords=coords)
+        return result
+
+    def _merge_DataArray_Dataset(self, data_set, data_array):
+        if data_array.name in data_set.data_vars.keys():
+            result = xr.concat([data_set[data_array.name], data_array], dim='pair')
+            result = xr.Dataset(data_vars={data_array.name: result},coords=result.coords)
+            result = data_set.combine_first(result)
+        else:
+            result = xr.merge([data_set, data_array])
+        return result
+
+    def _metadata_to_persist(self, first_data, second_data, **kwargs):
+        persist1 = self._extract_metadata_dict(first_data)
+        persist2 = self._extract_metadata_dict(second_data)
+        result   = {**persist1,**persist2}
+        return result
+
+    def _extract_metadata_dict(self, data_array):
+        if isinstance(data_array, xr.DataArray) and len(list(data_array.coords['pair'].values))==1:
+            key = list(data_array.coords['pair'].values)[0]
+            dict1 = {key: {'stacks': data_array.attrs['stacks'],
+                           'starttime': data_array.attrs['starttime'],
+                           'endtime': data_array.attrs['endtime']},
+                           'delta': data_array.attrs['delta'],
+                           'operations': data_array.attrs['operations']}
+
+            if 'location' in data_array.attrs.keys():
+                dict1[key]['location']=data_array.attrs['location']
+        else:
+            dict1 = data_array.attrs
+
+        return dict1
+
+    def _io_result(self, result, *args, **kwargs):
+        return result
+
+    def _get_name(self, *args):
+        return None
+
+    def _get_process(self):
+        return 'combine'
+
+    def _time_signature(self,time):
+        return time
+
+
+
+class XArrayStack(ab.XArrayProcessor):
+
+    def __init__(self,**kwargs):
+        super().__init__(**kwargs)
+
+
+    def _single_thread_execute(self,first: xr.DataArray, second: xr.DataArray):
+        result       = first + second
+        return result
+
+
+    def _metadata_to_persist(self, xarray_1,xarray_2, **kwargs):
+        attrs = {}
+        attrs['delta']     = xarray_1.attrs['delta']
+        attrs['starttime'] = self._get_lower(xarray_1.attrs, xarray_2.attrs, 'starttime')
+        attrs['endtime']   = self._get_upper(xarray_1.attrs, xarray_2.attrs, 'endtime')
+        attrs['stacks']    = xarray_1.attrs['stacks'] + xarray_2.attrs['stacks']
+        attrs['operations']= xarray_1.attrs['operations']
+        if 'location' in xarray_1.attrs.keys():
+            attrs['location'] = xarray_1.attrs['location']
+        return attrs
+
+    def _get_name(self,one,two):
+        return one.name
+
+    def _get_lower(self,one,two,key):
+        if one[key] < two[key]:
+            return one[key]
+        return two[key]
+
+    def _get_upper(self,one,two,key):
+        if one[key] > two[key]:
+            return one[key]
+        return two[key]
+
+    def _get_process(self):
+        return 'stack'
+
+    def _time_signature(self,time):
+        return time
 
 
 

@@ -3,7 +3,7 @@ from xarray_routines import XArrayWhiten, XArrayConverter
 from .synthetic_trace_factory import  create_sinsoidal_trace
 import scipy.fftpack as fft
 import numpy as np
-whiten = XArrayWhiten(smoothing_interval=0.025,upper_frequency=25.0,lower_frequency=0.001,order=2)
+whiten = XArrayWhiten(smoothing_window_ratio=0.025, upper_frequency=25.0, lower_frequency=0.001, order=2)
 convert = XArrayConverter()
 
 class TestSpectralWhitening(unittest.TestCase):
@@ -18,6 +18,15 @@ class TestSpectralWhitening(unittest.TestCase):
         trace   = whiten(trace)
         pow_period_final   = self.get_power_at_freq(10.0, trace)
         self.assertGreater(pow_period_original,pow_period_final,"whitening failed")
+
+    def test_array_is_real(self):
+        trace = convert([create_sinsoidal_trace(sampling_rate=100, period=0.5, duration=3)])
+        freq_2 = convert([create_sinsoidal_trace(sampling_rate=100, period=0.1, duration=3)])
+        trace = trace + freq_2
+        trace.attrs = freq_2.attrs
+        trace = whiten(trace)
+
+        self.assertEqual(trace.data.dtype,np.float64,'improper data type')
 
 
     def get_power_at_freq(self, frequency, xarray):

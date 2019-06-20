@@ -34,13 +34,14 @@ def create_random_trace(sampling_rate=40.0, duration = 5.0, **header_kwargs):
     trace.stats.data_type = 'test'
     return trace
 
-def create_triangle_trace(sampling_rate=40.0, duration = 5.0):
+def create_triangle_trace(sampling_rate=40.0, duration = 5.0,**header_kwargs):
     header={
         'sampling_rate' : sampling_rate,
         'starttime'     : UTCDateTime(0),
         'channel': 'Z',
         'station': 'test'
             }
+    header = {**header,**header_kwargs}
     x = np.linspace(0, duration, num=int(duration * sampling_rate))
     data  = signal.triang(int(duration*sampling_rate))
     trace = Trace(data=data, header=header)

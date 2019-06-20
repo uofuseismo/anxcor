@@ -6,22 +6,11 @@ from obspy.core import UTCDateTime
 import abstract_behaviors as ab
 import os_utils as os_utils
 
-class XArrayCombine(ab._XDaskTask):
-
-    def __init__(self):
-        super().__init__()
-
-    def _single_thread_execute(self,first_data, second_data,**kwargs):
-        ds = xr.merge([first_data, second_data])
-        ds.attrs = first_data.attrs
-        return ds
+OPERATIONS_SEPARATION_CHARACTER = '\n'
+SECONDS_2_NANOSECONDS = 1e9
 
 
-    def _io_result(self, result, *args, **kwargs):
-        return result
-
-
-class XArrayConverter(ab._XDaskTask):
+class XArrayConverter(ab.XArrayProcessor):
     """
     dynamic args:
     - trace data structure
@@ -32,8 +21,10 @@ class XArrayConverter(ab._XDaskTask):
     xarray structure with channel, station, and time dimensions, plus persistent metadata
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self,**kwargs):
+        super().__init__(**kwargs)
+        self.writer = ab._XArrayWrite(None)
+        self.reader = ab._XArrayRead(None)
 
     def _create_xarray_dataset(self, trace_list):
         return None
@@ -53,6 +44,9 @@ class XArrayConverter(ab._XDaskTask):
         time_array= None
         data_type = None
         starttime = None
+        latitude  = None
+        longitude = None
+        elevation = None
         for trace in stream:
             station_code = self._get_station_id(trace)
             if station_code not in stations:
@@ -70,6 +64,13 @@ class XArrayConverter(ab._XDaskTask):
                 time_array= np.arange(starttime, endtime+timedelta, timedelta)
                 starttime = trace.stats.starttime.timestamp
                 data_type = trace.stats.data_type
+                stats_keys = trace.stats.keys()
+                if 'latitude' in stats_keys:
+                    latitude = trace.stats.latitude
+                if 'longitude' in stats_keys:
+                    longitude = trace.stats.longitude
+                if 'elevation' in stats_keys:
+                    elevation = trace.stats.elevation
 
 
         empty_array = np.zeros((len(channels),len(stations),len(time_array)))
@@ -84,20 +85,28 @@ class XArrayConverter(ab._XDaskTask):
         xarray.name              = data_type
         xarray.attrs['delta']    = delta
         xarray.attrs['starttime']= starttime
-
+        xarray.attrs['operations']='xconvert'
+        if latitude is not None and longitude is not None:
+            if elevation is not None:
+                xarray.attrs['location'] = (latitude, longitude, elevation)
+            else:
+                xarray.attrs['location'] = (latitude, longitude)
         return xarray
 
-    def _get_process_signature(self):
+    def _metadata_to_persist(self, *param, **kwargs):
+        return None
+
+    def _get_process(self):
         return 'xconvert'
 
-    def _get_station_key(self, result):
-        return list(result['station_id'].values)[0]
+    def _get_name(self,*args):
+        return None
 
 
-class XArrayBandpass(ab._XDaskTask):
+class XArrayBandpass(ab.XArrayProcessor):
 
-    def __init__(self,upper_frequency=10.0,lower_frequency=0.01,order=2,taper=0.1):
-        super().__init__()
+    def __init__(self,upper_frequency=10.0,lower_frequency=0.01,order=2,taper=0.1,**kwargs):
+        super().__init__(**kwargs)
         self._kwargs = {'upper_frequency':upper_frequency,
                         'lower_frequency':lower_frequency,
                         'order':order,
@@ -105,7 +114,6 @@ class XArrayBandpass(ab._XDaskTask):
 
     def _single_thread_execute(self, xarray: xr.DataArray, **kwargs):
         sampling_rate = 1.0 / xarray.attrs['delta']
-        attrs = xarray.attrs
         tapered_array  = xr.apply_ufunc(filt_ops.taper,xarray,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
@@ -115,37 +123,48 @@ class XArrayBandpass(ab._XDaskTask):
                                         output_core_dims=[['time']],
                                         kwargs={**self._kwargs,**{
                                                 'sample_rate': sampling_rate}})
-        filtered_array.attrs = attrs
 
         return filtered_array
 
-class XArrayTaper(ab._XDaskTask):
+    def _add_operation_string(self):
+        return 'bandpass@{}<{}'.format(self._kwargs['lower_frequency'],
+                                       self._kwargs['upper_frequency'])
 
-    def __init__(self,taper=0.1):
-        super().__init__()
+    def _get_process(self):
+        return 'bandpass'
+
+
+class XArrayTaper(ab.XArrayProcessor):
+
+    def __init__(self,taper=0.1,**kwargs):
+        super().__init__(**kwargs)
         self._kwargs = {'taper':taper}
 
     def _single_thread_execute(self, xarray: xr.DataArray, **kwargs):
-        attrs = xarray.attrs
         filtered_array = xr.apply_ufunc(filt_ops.taper, xarray,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**self._kwargs})
-        filtered_array.attrs = attrs
 
         return filtered_array
 
+    def _add_operation_string(self):
+        return 'taper@{}%'.format(self._kwargs['taper']*100)
 
-class XResample(ab._XDaskTask):
+    def _get_process(self):
+        return 'taper'
 
-    def __init__(self, target_rate=10.0):
-        super().__init__()
+
+class XResample(ab.XArrayProcessor):
+
+    def __init__(self, target_rate=10.0,**kwargs):
+        super().__init__(**kwargs)
         self.target = target_rate
-        self.target_rule = str(int((1.0 / target_rate) * 1e9)) + 'N'
+        self.target_rule = str(int((1.0 / target_rate) * SECONDS_2_NANOSECONDS)) + 'N'
 
     def _single_thread_execute(self, xarray: xr.DataArray, **kwargs):
         sampling_rate = 1.0 / xarray.attrs['delta']
-        nyquist = self.target / 2.0
+        nyquist       = self.target / 2.0
 
         mean_array     = xarray.mean(dim=['time'])
         demeaned_array = xarray - mean_array
@@ -159,42 +178,59 @@ class XResample(ab._XDaskTask):
                                         kwargs={'upper_frequency':    nyquist,
                                                 'sampling_rate': sampling_rate})
         resampled_array= filtered_array.resample(time=self.target_rule).interpolate('linear').bfill('time')
-        resampled_array.attrs = xarray.attrs
-        resampled_array.attrs['delta']= 1/self.target
 
         return resampled_array
 
-    def _get_process_signature(self):
+    def _add_metadata_key(self):
+        return ('delta',1.0/self.target)
+
+    def _get_process(self):
         return 'resample'
 
-    def _get_station_key(self, result):
-        return list(result['station_id'].values)[0]
+    def _add_operation_string(self):
+        return 'resampled@{}Hz'.format(self.target)
 
 
 
-class XArrayXCorrelate(ab._XDaskTask):
+class XArrayXCorrelate(ab.XArrayProcessor):
 
 
-    def __init__(self,max_tau_shift=100.0):
-        super().__init__()
+    def __init__(self,max_tau_shift=100.0,**kwargs):
+        super().__init__(**kwargs)
         self._max_tau_shift = max_tau_shift
 
     def _single_thread_execute(self, source_xarray: xr.DataArray, receiver_xarray: xr.DataArray, **kwargs):
         correlation = filt_ops.xarray_crosscorrelate(source_xarray,
                                              receiver_xarray,
-                                             max_tau_shift=self._max_tau_shift)
+                                             max_tau_shift=self._max_tau_shift,**self._kwargs)
         return correlation
 
-    def _get_process_signature(self):
+    def _get_process(self):
         return 'crosscorrelate'
 
-    def _get_station_key(self, result):
-        return list(result['correlation_pair'].values)[0]
 
-class XArrayRemoveMeanTrend(ab._XDaskTask):
+    def _metadata_to_persist(self, xarray_1,xarray_2, **kwargs):
+        attrs = {'delta'    : xarray_1.attrs['delta'],
+                 'starttime': xarray_1.attrs['starttime'],
+                 'stacks'   : 1,
+                 'endtime'  : xarray_1.attrs['starttime'] + xarray_1.attrs['delta'] * xarray_1.data.shape[-1],
+                 'operations': xarray_1.attrs['operations'] + OPERATIONS_SEPARATION_CHARACTER + \
+                               'correlated@{}<t<{}'.format(self._max_tau_shift,self._max_tau_shift)}
+        if 'location' in xarray_1.attrs.keys() and 'location' in xarray_2.attrs.keys():
+            attrs['location'] = {'src':xarray_1.attrs['location'],
+                                 'rec':xarray_2.attrs['location']}
+        return attrs
 
-    def __init__(self):
-        super().__init__()
+    def _add_operation_string(self):
+        return None
+
+    def _get_name(self,one,two):
+        return 'src:{} rec:{}'.format(one.name, two.name)
+
+class XArrayRemoveMeanTrend(ab.XArrayProcessor):
+
+    def __init__(self,**kwargs):
+        super().__init__(**kwargs)
 
 
     def _single_thread_execute(self,xarray,*args,**kwargs):
@@ -208,27 +244,23 @@ class XArrayRemoveMeanTrend(ab._XDaskTask):
 
         return detrend_array
 
+    def _add_operation_string(self):
+        return 'remove_Mean&Trend'
 
-class XArrayTemporalNorm(ab._XDaskTask):
+    def _get_process(self):
+        return 'remove_mean_trend'
+
+
+class XArrayTemporalNorm(ab.XArrayProcessor):
 
 
     def __init__(self,time_mean=10.0, lower_frequency=0.001,
-                 upper_frequency=5.0, type='hv_preserve'):
-        super().__init__()
+                 upper_frequency=5.0, type='hv_preserve',**kwargs):
+        super().__init__(**kwargs)
         self._type  = type
         self._time_mean = time_mean
         self._lower = lower_frequency
         self._upper = upper_frequency
-
-    def _single_thread_execute(self, xarray: xr.DataArray, **kwargs):
-        sampling_rate   = 1.0/xarray.attrs['delta']
-        rolling_samples = int(sampling_rate*self._time_mean)
-        bandpassed_array = xr.apply_ufunc(filt_ops.butter_bandpass_filter,xarray,
-                                        input_core_dims=[['time']],
-                                        output_core_dims = [['time']],
-                                        kwargs={'lower_frequency':self._lower,
-                                                'upper_frequency':self._upper,
-                                                'sample_rate':sampling_rate})
 
     def _single_thread_execute(self, xarray: xr.DataArray, **kwargs):
         sampling_rate   = 1.0/xarray.attrs['delta']
@@ -246,106 +278,47 @@ class XArrayTemporalNorm(ab._XDaskTask):
             bandpassed_array = abs(bandpassed_array).rolling(time=rolling_samples, center=True).mean() \
                 .ffill('time').bfill('time')
 
-        attrs  = xarray.attrs
-        name   = xarray.name
         xarray = xarray / bandpassed_array
-        xarray.attrs = attrs
-        xarray.name = name
         return xarray
 
-    def _get_process_signature(self):
-        return 'temp norm'
-
-    def _get_station_key(self, result):
-        return list(result['station_id'].values)[0]
+    def _get_process(self):
+        return 'temp_norm'
 
 
+    def _add_operation_string(self):
+        return 'temporal_norm@type({}),time_mean({}),f_norm_basis({})<f<({})'.format( \
+            self._type,self._time_mean,self._lower,self._upper)
 
-class XArrayWhiten(ab._XDaskTask):
 
-    def __init__(self, smoothing_interval=10.0, lower_frequency=0.001,
-                 upper_frequency=5.0,taper=0.1,order=2):
-        super().__init__()
-        self._type = type
-        self._kwargs = {'smoothing_interval': smoothing_interval,
+
+class XArrayWhiten(ab.XArrayProcessor):
+
+    def __init__(self, smoothing_window_ratio=10.0, lower_frequency=0.001,
+                 upper_frequency=5.0, order=2, **kwargs):
+        super().__init__(**kwargs)
+        self._kwargs = {'smoothing_window_ratio': smoothing_window_ratio,
                        'lower_frequency': lower_frequency,
                        'upper_frequency': upper_frequency,
-                       'taper':taper,
                         'order':order}
 
     def _single_thread_execute(self, xarray: xr.DataArray, **kwargs):
-        sampling_rate = 1.0 / xarray.attrs['delta']
         new_array = xr.apply_ufunc(filt_ops.xarray_whiten, xarray,
                                           input_core_dims=[['time']],
                                           output_core_dims=[['time']],
                                           kwargs={**self._kwargs ,
                                                   **{'delta':xarray.attrs['delta'],
-                                                     'sample_rate': sampling_rate
-                                                  }})
+                                                     'axis' :xarray.get_axis_num('time')}})
 
-        mean_array     = new_array.mean(dim=['time'])
-        demeaned_array = new_array - mean_array
-        detrend_array  = xr.apply_ufunc(filt_ops.detrend, demeaned_array,
-                                       input_core_dims=[['time']],
-                                       output_core_dims=[['time']],
-                                       kwargs={'type': 'linear'})
+        return  new_array
 
-        attrs = xarray.attrs
-        name = xarray.name
-        detrend_array.attrs = attrs
-        detrend_array.name=name
-        return  detrend_array
-
-    def _get_process_signature(self):
+    def _get_process(self):
         return 'whiten'
 
-    def _get_station_key(self, result):
-        return list(result['station_id'].values)[0]
+    def _add_operation_string(self):
+        return 'f_whiten@window_ratio({}),frequency_window({})<f<({})hz'.format( \
+            self._kwargs['smoothing_window_ratio'],self._kwargs['lower_frequency'],
+            self._kwargs['upper_frequency'])
 
 
 
-class XArrayStack(ab._XDaskTask):
 
-    def __init__(self):
-        super().__init__()
-
-
-    def _single_thread_execute(self,first: xr.DataArray, second: xr.DataArray):
-        result       = first + second
-        result.attrs['delta']     = first.attrs['delta']
-        result.attrs['starttime'] = first.attrs['starttime']
-        return result
-
-    def _get_process_signature(self):
-        return 'crosscorrelate'
-
-    def _get_station_key(self, result):
-        return result.name
-
-    def _get_window_key(self, result):
-        return UTCDateTime(result.attrs['starttime']).isoformat() + \
-               '|'+ str(len(result.attrs['windows']))
-
-    def _io_result(self, result, *args, **kwargs):
-        return result
-
-class XArrayIO:
-
-
-    def __init__(self):
-        self._file = None
-
-
-    def write_to_file(self,file):
-        if not os_utils.folder_exists(file):
-            os_utils.make_dir(file)
-        self._file = file
-
-
-    def __call__(self, result, extension,file, dask_client=None,**kwargs):
-        if self._file is not None:
-            path = self._file + os_utils.sep + extension
-            if not os_utils.folder_exists(path):
-                os_utils.make_dir(path)
-            path = path + os_utils.sep + file + '.nc'
-            result.to_netcdf(path)
