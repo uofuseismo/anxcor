@@ -1,13 +1,13 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-## ANCOR: Ambient Noise Cross cORellation
-ANCOR is a python library for conducting seismic ambient noise crosscorrelations.
+## ANXCOR: Ambient Noise X (cross) Correlation
+ANXCOR is a python library for performing seismic ambient noise crosscorrelations.
 
 
 
 ## Acknowledgements
 
-ANCOR would not be possible without the hard and extensive work by Obsy and Obsplus teams. Many of the University of Utah graduate students were also integral to ANCOR's development, including Kevin Mendoza, Daniel Wells, Elizabeth Berg, Sin-mei Wu, Santiago Rebale, and Kostas Gkogkas. Some of the routines provided here were first developed and refined by Dr. Fan-chi lin and his collaborators. ANCOR was developed under the supervision of Dr. Kristine Pankow, and her work group proved integral to the success of this project
+ANXCOR would not be possible without the hard and extensive work by Obsy and Obsplus teams. Many of the University of Utah graduate students were also integral to ANXCOR's development, including Kevin Mendoza, Daniel Wells, Elizabeth Berg, Sin-mei Wu, Santiago Rebale, and Kostas Gkogkas. Some of the routines provided here were first developed and refined by Dr. Fan-chi lin and his collaborators. ANXCOR was developed under the supervision of Dr. Kristine Pankow, and her work group proved integral to the success of this project
 
 Ancor also leverages numpy, scipy, and psutil
 
@@ -18,9 +18,6 @@ Ancor also leverages numpy, scipy, and psutil
 
 ## Usage
 
-There are four core objects that ancor utilizes: worker processes, Workers, Databases and WindowManagers.
-
-In Ambient Noise Crosscorrelation, (workflow)
 
  
 
