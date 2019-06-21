@@ -187,6 +187,9 @@ class XArrayCombine(ab.XDatasetProcessor):
     def _time_signature(self,time):
         return time
 
+    def _window_key_convert(self,window):
+        return window
+
 
 
 class XArrayStack(ab.XArrayProcessor):
@@ -229,6 +232,9 @@ class XArrayStack(ab.XArrayProcessor):
 
     def _time_signature(self,time):
         return time
+
+    def _window_key_convert(self,window):
+        return window
 
 
 

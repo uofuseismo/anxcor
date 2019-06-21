@@ -145,7 +145,7 @@ def xarray_crosscorrelate(source_xarray, receiver_xarray,
             'rec:' + list(receiver_xarray.coords['station_id'].values)[0]]
 
     if not dummy_task:
-        xcorr_np_mat = _cross_correlate_xarray_data(source_xarray,receiver_xarray)
+        xcorr_np_mat = _cross_correlate_xarray_data(source_xarray,receiver_xarray,**kwargs)
     else:
         xcorr_np_mat = _dummy_correlate(source_xarray, receiver_xarray)
 
@@ -189,7 +189,7 @@ def _get_new_time_array(xarray, max_tau_shift, max_samples):
 
 
 
-def _cross_correlate_xarray_data(source_xarray, receiver_xarray):
+def _cross_correlate_xarray_data(source_xarray, receiver_xarray,gpu_enable=False,torch=None,**kwargs):
     src_chan_size = source_xarray.data.shape[0]
     rec_chan_size = receiver_xarray.data.shape[0]
     time_size     = source_xarray.data.shape[-1]
@@ -198,14 +198,29 @@ def _cross_correlate_xarray_data(source_xarray, receiver_xarray):
 
 
     corr_length     = time_size * 2 - 1
-    target_length   = fftpack.next_fast_len(corr_length)
+    target_length = fftpack.next_fast_len(corr_length)
+    if not gpu_enable:
 
-    fft_src = np.conj(np.fft.rfft(src_data, target_length, axis=-1))
-    fft_rec = np.fft.rfft(receiver_data, target_length, axis=-1)
+        fft_src = np.conj(np.fft.rfft(src_data, target_length, axis=-1))
+        fft_rec = np.fft.rfft(receiver_data, target_length, axis=-1)
 
-    result = _multiply_in_mat(fft_src,fft_rec)
+        result = _multiply_in_mat(fft_src,fft_rec)
 
-    xcorr_mat = np.real(np.fft.fftshift(np.fft.irfft(result, corr_length, axis=-1),axes=-1)).astype(np.float64)
+        xcorr_mat = np.real(np.fft.fftshift(np.fft.irfft(result, corr_length, axis=-1),axes=-1)).astype(np.float64)
+
+    else:
+
+        zero_tensor_src = torch.zeros([target_length, src_chan_size], dtype=torch.float32, device=torch.device('cuda'))
+        zero_tensor_rec = torch.zeros([target_length, rec_chan_size], dtype=torch.float32, device=torch.device('cuda'))
+        zero_tensor_result= torch.zeros([target_length,src_chan_size,rec_chan_size],
+                                        dtype=torch.float32, device=torch.device('cuda'))
+        zero_tensor_src[:target_length,:] = np.swapaxes(src_data,1,0)
+        zero_tensor_rec[:target_length,:] = np.swapaxes(receiver_data,1,0)
+
+        fft_src  = torch.rfft(zero_tensor_src, 1)
+        fft_rec  = torch.rfft(zero_tensor_src, 1)
+        return None
+
 
     return xcorr_mat
 

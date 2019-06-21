@@ -199,14 +199,18 @@ class XResample(ab.XArrayProcessor):
 class XArrayXCorrelate(ab.XArrayProcessor):
 
 
-    def __init__(self,max_tau_shift=100.0,**kwargs):
+    def __init__(self,max_tau_shift=100.0,gpu_enable=False,**kwargs):
         super().__init__(**kwargs)
         self._kwargs['max_tau_shift']=max_tau_shift
+        self._kwargs['gpu_enable']=gpu_enable
+        if gpu_enable:
+            import torch
+            self._kwargs['torch']=torch
 
     def _single_thread_execute(self, source_xarray: xr.DataArray, receiver_xarray: xr.DataArray, **kwargs):
         correlation = filt_ops.xarray_crosscorrelate(source_xarray,
                                              receiver_xarray,
-                                             max_tau_shift=self._kwargs['max_tau_shift'])
+                                                     **self._kwargs)
         return correlation
 
     def _get_process(self):
@@ -322,6 +326,8 @@ class XArrayWhiten(ab.XArrayProcessor):
         return 'f_whiten@window_ratio({}),frequency_window({})<f<({})hz'.format( \
             self._kwargs['smoothing_window_ratio'],self._kwargs['lower_frequency'],
             self._kwargs['upper_frequency'])
+
+
 
 
 

@@ -138,14 +138,15 @@ class _XDaskTask:
                 print('given key is not a selectable parameter')
 
     def __call__(self, *args, starttime=0, station=0, dask_client=None, **kwargs):
-        key = '{} {} {}'.format(self._get_process(),starttime,station)
+        key = self._get_operation_key(starttime,station)
         result = None
         if self._enabled:
             if dask_client is None:
                 if not self.read.is_enabled():
                     result = self._execute(args, kwargs)
             else:
-                result = dask_client.submit(self._execute,args, kwargs,key=key)
+                if not self.read.is_enabled():
+                    result = dask_client.submit(self._execute,args, kwargs,key=key)
 
 
         result = self._io_operations(args, dask_client, result, starttime, station)
@@ -165,17 +166,17 @@ class _XDaskTask:
             result.name = persist_name
 
     def _io_operations(self, args, dask_client, result, starttime, station):
-        key = '{} {} {}'.format(self._get_process(), starttime, station)
+        key = self._get_operation_key(starttime,station)
         if self.read.is_enabled():
-            if dask_client is not None:
+            if dask_client is None:
                 result = self._read_execute(args, starttime, station)
             else:
                 result = dask_client.submit(self._read_execute,args,starttime,station,key=key)
         elif self.write.is_enabled():
-            if dask_client is not None:
-                dask_client.submit(self.write, result, self._get_process(), self._time_signature(starttime),key=key)
-            else:
+            if dask_client is None:
                 self.write(result, self._get_process(), self._time_signature(starttime), station)
+            else:
+                dask_client.submit(self.write, result, self._get_process(), self._time_signature(starttime), key=key)
         return result
 
     def _read_execute(self, args, starttime, station):
@@ -233,7 +234,7 @@ class _XDaskTask:
         return window
 
     def _get_operation_key(self,starttime,station):
-        return '{} {} {}'.format(self._get_process(), self._window_key_convert(starttime), station)
+        return '{} {} {}'.format(self._get_process(), station, self._window_key_convert(starttime))
 
 class XArrayProcessor(_XDaskTask):
 
@@ -247,6 +248,9 @@ class XArrayProcessor(_XDaskTask):
         del result
         return xarray
 
+    def _window_key_convert(self,window):
+        return UTCDateTime(int(window*100)/100).isoformat()
+
 
 class XDatasetProcessor(_XDaskTask):
 
@@ -255,6 +259,3 @@ class XDatasetProcessor(_XDaskTask):
 
     def _addition_read_processing(self, result):
         return result
-
-    def _window_key_convert(self,window):
-        return UTCDateTime(int(window*100)/100).isoformat()
