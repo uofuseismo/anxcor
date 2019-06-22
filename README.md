@@ -2,7 +2,7 @@
 
 ## ANXCOR: Ambient Noise X (cross) Correlation
 
-*ANXCOR* is a python library for performing seismic ambient noise crosscorrelations.
+**ANXCOR** is a python library for performing seismic ambient noise crosscorrelations.
 
 
 ANXCOR's object oriented design allows it to leverage common datascience packages like pandas, numpy, and scipy, as well as the popular seismology package Obspy to streamline its computation. Furthermore, it leverages both xarray and dask to achieve embarassingly parallel execution. Use of these popular packages makes working with ANXCOR intuitive, concise, and extensible without deep domain experience in compiled languages.
