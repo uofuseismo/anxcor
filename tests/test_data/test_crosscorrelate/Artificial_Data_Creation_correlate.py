@@ -27,7 +27,7 @@ trace2 = obspy.core.Trace(data=arry2)
 trace2.stats.delta = 0.01
 
 # Directories and Names
-directory = "/home/dwells/ancor/ancor/tests/test_data/"
+directory = "/home/dwells/anxcor/anxcor/tests/test_data/"
 
 subdir = "test_crosscorrelate/"
 

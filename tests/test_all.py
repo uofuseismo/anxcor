@@ -1,7 +1,7 @@
 import unittest
-import tests.test_processor_functions as processor_functions
-import tests.test_integration as integration
-import tests.test_irisbank as irisbank
+import test_processor_functions as processor_functions
+import test_integration as integration
+import test_irisbank as irisbank
 
 
 def get_all_suites():
@@ -13,7 +13,7 @@ def get_all_suites():
     return suites
 
 if __name__ == '__main__':
-    runner = unittest.TextTestRunner()
+    runner = unittest.TextTestRunner(verbosity=2)
     loader = unittest.TestLoader()
     tests = loader.discover('.')
     runner.run(tests)
