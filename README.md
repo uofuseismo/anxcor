@@ -19,8 +19,7 @@ ANXCOR would not be possible without the hard and extensive work by Obsy and Obs
 ## Installation
 
 
-## Usage
-
+## Basic Usage
 
  
 
