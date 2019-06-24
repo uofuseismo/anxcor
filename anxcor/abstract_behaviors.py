@@ -146,7 +146,7 @@ class _XDaskTask:
                     result = self._execute(args, kwargs)
             else:
                 if not self.read.is_enabled():
-                    result = dask_client.submit(self._execute,args, kwargs,key=key)
+                    result = dask_client.submit(self._execute, args, kwargs,key=key)
 
 
         result = self._io_operations(args, dask_client, result, starttime, station)

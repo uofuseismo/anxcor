@@ -60,7 +60,7 @@ class WavebankWrapper:
         return unique_stations
 
 
-class TestDaskGraph(unittest.TestCase):
+class TestIntegratedIOOps(unittest.TestCase):
 
 
     def test_single_execution(self):

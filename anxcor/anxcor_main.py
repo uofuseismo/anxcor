@@ -142,17 +142,17 @@ class Anxcor:
         return tasks[0]
 
 
-    def process(self,starttime, endtime, dask_client=None,**kwargs):
+    def process(self,starttime, endtime, dask_client=None,autocorrelate=True,**kwargs):
 
         starttimes    = self._get_starttimes(starttime, endtime)
         station_pairs = self._get_station_pairs()
         futures = []
         for pair in station_pairs:
 
-            correlation_list  = self._iterate_starttimes(pair,  starttimes,dask_client=dask_client)
-            correlation_stack = self._stack_correlations(correlation_list, pair,  dask_client=dask_client)
-
-            futures.append(correlation_stack)
+            if not pair[0]==pair[1] or autocorrelate:
+                correlation_list  = self._iterate_starttimes(pair,  starttimes,dask_client=dask_client)
+                correlation_stack = self._stack_correlations(correlation_list, pair,  dask_client=dask_client)
+                futures.append(correlation_stack)
 
         combined_crosscorrelations = self._combine_stack_pairs(futures, dask_client=dask_client)
 
@@ -177,11 +177,11 @@ class Anxcor:
             else:
                 receiver_channels = self._tasks['data'](starttime, receiver,
                                                       starttime=starttime,
-                                                      station=source,
+                                                      station=receiver,
                                                       dask_client=dask_client)
                 receiver_ch_ops   = self._station_window_operations(receiver_channels,
                                                                 starttime=starttime,
-                                                                station=source,
+                                                                station=receiver,
                                                                 dask_client=dask_client)
 
             correlation = self._tasks['correlate'](source_ch_ops,
