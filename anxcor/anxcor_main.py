@@ -172,14 +172,12 @@ class Anxcor:
                                                             starttime=starttime,
                                                             station=source,
                                                             dask_client=dask_client)
-            if source==receiver:
-                receiver_ch_ops = source_ch_ops
-            else:
-                receiver_channels = self._tasks['data'](starttime, receiver,
+
+            receiver_channels = self._tasks['data'](starttime, receiver,
                                                       starttime=starttime,
                                                       station=receiver,
                                                       dask_client=dask_client)
-                receiver_ch_ops   = self._station_window_operations(receiver_channels,
+            receiver_ch_ops   = self._station_window_operations(receiver_channels,
                                                                 starttime=starttime,
                                                                 station=receiver,
                                                                 dask_client=dask_client)
