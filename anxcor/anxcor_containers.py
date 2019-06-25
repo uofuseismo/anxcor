@@ -1,9 +1,20 @@
 from typing import List
 import  anxcor.abstract_behaviors as ab
 import  anxcor.os_utils as os_utils
-from  obspy.core import read, UTCDateTime
+from  obspy.core import read
 import xarray as xr
-import pickle
+
+
+class AnxorDatabase:
+
+    def __init__(self):
+        pass
+
+    def get_stations(self):
+        raise NotImplementedError('Method: \'get_stations()\' method is not implemented')
+
+    def get_waveforms(**kwarg_execute):
+        raise NotImplementedError('Method: \'get_waveforms()\' is not implemented!')
 
 
 class DataLoader(ab.XArrayProcessor):
@@ -13,7 +24,7 @@ class DataLoader(ab.XArrayProcessor):
         self._window_length = window_length
         self._datasets = {}
 
-    def add_dataset(self, dataset, name, trace_prep=None, **kwargs):
+    def add_dataset(self, dataset: AnxorDatabase, name: str, trace_prep=None, **kwargs):
         if trace_prep is None:
             def _remove_response(stream):
                 for trace in stream:

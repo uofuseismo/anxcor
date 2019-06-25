@@ -1,5 +1,8 @@
-from  anxcor.anxcor_containers import DataLoader, XArrayCombine, XArrayStack
+from  anxcor.anxcor_containers import DataLoader, XArrayCombine, XArrayStack, AnxorDatabase
 from  anxcor.xarray_routines import XArrayConverter, XResample, XArrayXCorrelate
+from anxcor.abstract_behaviors import XArrayProcessor
+from typing import List, Callable
+from xarray import Dataset
 import numpy as np
 import itertools
 from obspy.core import UTCDateTime, Stream, Trace
@@ -7,34 +10,116 @@ from obspy.core import UTCDateTime, Stream, Trace
 class Anxcor:
 
 
-    def __init__(self, window_length,include_pairs=None,exclude_pairs=None,**kwargs):
+
+    def __init__(self, window_length: float,**kwargs):
+        """
+
+        Parameters
+        ----------
+        window_length: float
+            the window length in seconds
+        """
         self._data      = _AnxcorData(window_length=window_length, **kwargs)
         self._processor = _AnxcorProcessor(self._data)
         self._converter = _AnxcorConverter(self._data)
 
 
-    def add_dataset(self, dataset, name, trace_prep=None, **kwargs):
-        self._data.add_dataset(dataset, name, trace_prep=trace_prep, **kwargs)
-
-
-    def add_process(self, process):
-        self._data.add_process(process)
-
-    def set_parameters(self, process, key_dict, *args):
-        self._data.set_parameters(process,key_dict,*args)
-
-    def get_task(self,key):
-        self._data.get_task(key)
-
-    def get_starttimes(self,starttime, endtime, overlap):
-        return self._converter.get_starttimes(starttime, endtime, overlap)
-
-    def save_at_step(self,folder,type,order=None,**kwargs):
+    def add_dataset(self, database: AnxorDatabase, name: str,
+                    trace_prep: Callable[[Trace],Trace] =None, **kwargs) -> None:
         """
+        Adds a new dataset implementing the AnxorDatabase Interface to the crosscorrelation.
+        If desired, you may provide an additional callable function used to remove the instrument
+        response at every step.
+
         Parameters
         ----------
-        folder
-        type:
+        database : AnxorDatabase
+            a database to add which implements the AnxorDatabase interface
+        name : str
+            a name describing the type of the resultant data
+        trace_prep : Callable[[Trace],Trace], Optional
+            an optional callable function to remove the instrument response.
+
+
+        """
+        self._data.add_dataset(database, name, trace_prep=trace_prep, **kwargs)
+
+
+    def add_process(self, process: XArrayProcessor) -> None:
+        """
+        Add an XArrayProcessor to the processing steps. Functions are performed in the order they are added
+
+        Parameters
+        ----------
+        process : XArrayProcessor
+            an XArrayProcessor object
+
+        """
+        self._data.add_process(process)
+
+    def set_parameters(self, process_key: str, key_dict: dict, *args) -> None:
+        """
+        Set parameters on a processing step not defined prior to adding them
+
+        Parameters
+        ----------
+        process_key : str
+            the key of the process to add the keyword-arguments to. If it is a process added through the
+        'add_process()' method, the key should be 'process'
+
+        key_dict : dict
+            a dictionary of keyword arguments to pass on to the XArray Processor object
+
+        """
+        self._data.set_parameters(process_key,key_dict,*args)
+
+    def get_task(self,key: str) -> XArrayProcessor:
+        """
+        Returns an XArrayProcessor task based on its key
+
+        Parameters
+        ----------
+        key : str
+            the key to the processor object
+
+        Returns
+        -------
+        XArrayProcessor, List[XArrayProcessor]
+            either the processor or the list of processes defined by the task key
+
+        """
+        return self._data.get_task(key)
+
+    def get_starttimes(self,starttime: float, endtime: float, overlap: float) -> List[float]:
+        """
+        Get a list of starttimes based on a given starttime, endtime, and percent overlap of windows
+
+        Parameters
+        ----------
+        starttime : float
+            the starttime (as a UTCDateTime timestamp)
+        endtime : float
+            the endtime (as a UTCDateTime timestamp)
+        overlap : float
+            percent overlap of windows as a decimal (100% = 1.0). Must be between 0 - 1.
+
+        Returns
+        -------
+        List[float]
+            a list of UTCDateTime timestamps representing window starttimes
+
+        """
+        return self._converter.get_starttimes(starttime, endtime, overlap)
+
+    def save_at_step(self,folder: str,type: str,order: int = None,**kwargs) -> None:
+        """
+        Save result of method to file at a given step type
+
+        Parameters
+        ----------
+        folder : str
+            the folder to save the step result to.
+        type : str
             one of:
             'data'
             'resample'
@@ -44,19 +129,22 @@ class Anxcor:
             'write_stack'
             'combine'
             'write_combine'
-            an integer representing the order of extra station ops
-        order: int
-            the order of the processing stack to assign a write function
+        representing the process key at which to save
+        order: int, Optional
+            the order of the processing stack to write at. Only necessary if type=='process'
 
         """
         self._data.save_at_step(folder,type=type,order=order,**kwargs)
 
-    def load_at_step(self,folder,type,order=None,**kwargs):
+    def load_at_step(self,folder: str,type: str,order: int=None,**kwargs)-> None:
         """
+        Start processing at the given step, skipping all prior steps
+
         Parameters
         ----------
-        folder
-        type:
+        folder : str
+            the folder to save the step result to.
+        type : str
             one of:
             'data'
             'resample'
@@ -66,14 +154,33 @@ class Anxcor:
             'write_stack'
             'combine'
             'write_combine'
-            an integer representing the order of extra station ops
-        order: int
-            the order of the processing stack to assign a write function
+        representing the process key at which to save
+        order: int, Optional
+            the order of the processing stack to write at. Only necessary if type=='process'
 
         """
         self._data.load_at_step(folder,type=type,order=order,**kwargs)
 
-    def process(self,starttimes, dask_client=None):
+    def process(self, starttimes: List[float], dask_client=None) -> Dataset:
+        """
+        Perform the crosscorrelation routines. By default this processes, stacks, and combines
+        all crosscorrelations during the given starttimes. See documentation for finer control
+
+        Parameters
+        ----------
+        starttimes : List[float]
+            a list of UTCDateTime timestamps representing window starttimes
+        dask_client : Optional
+            an optional dask_client instance for parallel processing using dask
+
+        Returns
+        -------
+        Dataset, Future,
+
+            if single threaded, will return a single XArray Dataset object containing the
+        stacked crosscorrelations. If a dask client is provided it will return a future instance.
+        See Dask Documentation for further details
+        """
         return self._processor.process(starttimes, dask_client=dask_client)
 
 
@@ -90,7 +197,7 @@ class _AnxcorProcessor:
         tasks = [downsampled]
         process_list = self.data.get_task('process')
         for process in process_list:
-            task        = tasks.pop()
+            task   = tasks.pop()
             result = process(task,starttime=starttime, station=station, dask_client=dask_client )
             tasks.append(result)
         return tasks[0]
@@ -136,11 +243,11 @@ class _AnxcorProcessor:
             else:
                 receiver_channels = self.data.get_task('data')(starttime, receiver,
                                                       starttime=starttime,
-                                                      station=source,
+                                                      station=receiver,
                                                       dask_client=dask_client)
                 receiver_ch_ops   = self._station_window_operations(receiver_channels,
                                                                 starttime=starttime,
-                                                                station=source,
+                                                                station=receiver,
                                                                 dask_client=dask_client)
 
             correlation = self.data.get_task('correlate')(source_ch_ops,
@@ -190,7 +297,7 @@ class _AnxcorProcessor:
 
 class _AnxcorData:
     TASKS = ['data', 'xconvert', 'resample', 'process', 'correlate', 'stack', 'combine']
-    def __init__(self,window_length=3600,include_pairs=None,exclude_pairs=None, **kwargs):
+    def __init__(self,window_length: float =3600.0, include_pairs=None,exclude_pairs=None, **kwargs):
         self._window_length = window_length
         self._include_pairs=include_pairs
         self._exclude_pairs=exclude_pairs
