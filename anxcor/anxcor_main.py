@@ -2,159 +2,118 @@ from  anxcor.anxcor_containers import DataLoader, XArrayCombine, XArrayStack
 from  anxcor.xarray_routines import XArrayConverter, XResample, XArrayXCorrelate
 import numpy as np
 import itertools
-import anxcor.os_utils as os_utils
 from obspy.core import UTCDateTime, Stream, Trace
 
 class Anxcor:
-    time_format = '%d-%m-%Y %H:%M:%S'
-    TASKS = ['data','xconvert','resample','process','correlate','stack','combine']
-    def __init__(self, window_length, overlap, target_downsample_rate=10.0):
-        """
-
-        Parameters
-        ----------
-        window_length: float
-            length of window to correlate
-        overlap: float
-            overlap % of windows. must be between 0 - 1, with 1 == 100%.
-        """
-        self._overlap       = overlap
-        self._window_length = window_length
-        self._tasks  = {
-            'data': DataLoader(window_length),
-            'xconvert' : XArrayConverter(),
-            'resample' : XResample(target_downsample_rate),
-            'process'  : [],
-            'correlate': XArrayXCorrelate(),
-            'combine'  : XArrayCombine(),
-            'stack'    : XArrayStack()
-        }
-
-    def write_result_to_file(self,folder, type='resample', order=None,**kwargs):
-        """
-
-        Parameters
-        ----------
-        folder
-        type:
-            one of:
-            'data'
-            'resample'
-            'xconvert'
-            'process'
-            'correlate'
-            'write_stack'
-            'combine'
-            'write_combine'
-            an integer representing the order of extra station ops
-
-        order: int
-            the order of the processing stack to assign a write function
-
-        Returns
-        -------
-
-        """
-        if isinstance(type,str):
-            if type in self._tasks.keys():
-                if order is None:
-                    self._tasks[type].set_folder(folder,'write', **kwargs)
-                elif isinstance(order,int) and order < len(self._tasks[type]):
-                    self._tasks[type][order].set_folder(folder,'write', **kwargs)
-                else:
-                    raise Exception('Write assign call error. please refer to documentation')
-            else:
-                raise Exception('Not a valid key')
 
 
-    def read_from_file_at_step(self,folder, type='resample', order=None,**kwargs):
-        """
+    def __init__(self, window_length,include_pairs=None,exclude_pairs=None,**kwargs):
+        self._data      = _AnxcorData(window_length=window_length, **kwargs)
+        self._processor = _AnxcorProcessor(self._data)
+        self._converter = _AnxcorConverter(self._data)
 
-        Parameters
-        ----------
-        folder
-        type:
-            one of:
-            'data'
-            'resample'
-            'xconvert'
-            'process'
-            'correlate'
-            'write_stack'
-            'combine'
-            'write_combine'
-            an integer representing the order of extra station ops
-
-        order: int
-            the order of the processing stack to assign a write function
-
-        Returns
-        -------
-
-        """
-        if isinstance(type,str):
-            if type in self._tasks.keys():
-                if order is None:
-                    self._tasks[type].set_folder(folder,'read', **kwargs)
-                    self._disable_tasks(type)
-                elif isinstance(order,int) and order < len(self._tasks[type]):
-                    self._tasks[type][order].set_folder(folder,'read', **kwargs)
-                    self._disable_process(order)
-                    self._disable_tasks('process')
-                else:
-                    raise Exception('Write assign call error. please refer to documentation')
-            else:
-                raise Exception('Not a valid key')
-
-    def _disable_process(self,position):
-        for index in range(0,position+1):
-            self._tasks['process'][index].disable()
-
-    def _disable_tasks(self,key):
-        index = self.TASKS.index(key)
-        for disable in range(0,index+1):
-            task = self.TASKS[disable]
-            if task is not 'process':
-                self._tasks[task].disable()
-            else:
-                self._disable_process(len(self._tasks['process'])-1)
 
     def add_dataset(self, dataset, name, trace_prep=None, **kwargs):
-        self._tasks['data'].add_dataset(dataset, name, trace_prep=trace_prep, **kwargs)
+        self._data.add_dataset(dataset, name, trace_prep=trace_prep, **kwargs)
+
 
     def add_process(self, process):
-        self._tasks['process'].append(process)
+        self._data.add_process(process)
 
     def set_parameters(self, process, key_dict, *args):
-        if process=='process':
-            self._tasks[process][args[0]].set_param(key_dict)
-        else:
-            self._tasks[process].set_param(key_dict)
+        self._data.set_parameters(process,key_dict,*args)
+
+    def get_task(self,key):
+        self._data.get_task(key)
+
+    def get_starttimes(self,starttime, endtime, overlap):
+        return self._converter.get_starttimes(starttime, endtime, overlap)
+
+    def save_at_step(self,folder,type,order=None,**kwargs):
+        """
+        Parameters
+        ----------
+        folder
+        type:
+            one of:
+            'data'
+            'resample'
+            'xconvert'
+            'process'
+            'correlate'
+            'write_stack'
+            'combine'
+            'write_combine'
+            an integer representing the order of extra station ops
+        order: int
+            the order of the processing stack to assign a write function
+
+        """
+        self._data.save_at_step(folder,type=type,order=order,**kwargs)
+
+    def load_at_step(self,folder,type,order=None,**kwargs):
+        """
+        Parameters
+        ----------
+        folder
+        type:
+            one of:
+            'data'
+            'resample'
+            'xconvert'
+            'process'
+            'correlate'
+            'write_stack'
+            'combine'
+            'write_combine'
+            an integer representing the order of extra station ops
+        order: int
+            the order of the processing stack to assign a write function
+
+        """
+        self._data.load_at_step(folder,type=type,order=order,**kwargs)
+
+    def process(self,starttimes, dask_client=None):
+        return self._processor.process(starttimes, dask_client=dask_client)
+
+
+
+class _AnxcorProcessor:
+
+    time_format = '%d-%m-%Y %H:%M:%S'
+    def __init__(self,data):
+        self.data =data
 
     def _station_window_operations(self, channels, dask_client=None, starttime=None, station=None):
-        xarray      = self._tasks['xconvert'](channels, starttime=starttime, station=station, dask_client=dask_client )
-        downsampled = self._tasks['resample'](xarray, starttime=starttime, station=station, dask_client=dask_client )
+        xarray      = self.data.get_task('xconvert')(channels, starttime=starttime, station=station, dask_client=dask_client )
+        downsampled = self.data.get_task('resample')(xarray, starttime=starttime, station=station, dask_client=dask_client )
         tasks = [downsampled]
-        for process in self._tasks['process']:
+        process_list = self.data.get_task('process')
+        for process in process_list:
             task        = tasks.pop()
             result = process(task,starttime=starttime, station=station, dask_client=dask_client )
             tasks.append(result)
         return tasks[0]
 
 
-    def process(self,starttime, endtime, dask_client=None,**kwargs):
+    def process(self,starttimes, dask_client=None,**kwargs):
 
-        starttimes    = self._get_starttimes(starttime, endtime)
-        station_pairs = self._get_station_pairs()
+        station_pairs = self.data.get_station_combinations()
         futures = []
         for pair in station_pairs:
 
             correlation_list  = self._iterate_starttimes(pair,  starttimes,dask_client=dask_client)
-            correlation_stack = self._stack_correlations(correlation_list, pair,  dask_client=dask_client)
+            correlation_stack = self._reduce(correlation_list,
+                                             station=str(pair),
+                                             reducing_func=self.data.get_task('stack'),
+                                             dask_client=dask_client)
 
             futures.append(correlation_stack)
 
-        combined_crosscorrelations = self._combine_stack_pairs(futures, dask_client=dask_client)
+        combined_crosscorrelations = self._reduce(futures,
+                                                  station='combined',
+                                                  reducing_func=self.data.get_task('combine'),
+                                                  dask_client=dask_client)
 
         return combined_crosscorrelations
 
@@ -164,7 +123,7 @@ class Anxcor:
         receiver = pair[1]
         correlation_stack = []
         for starttime in starttimes:
-            source_channels = self._tasks['data'](starttime, source,
+            source_channels = self.data.get_task('data')(starttime, source,
                                                   starttime=starttime,
                                                   station=source,
                                                   dask_client=dask_client)
@@ -175,7 +134,7 @@ class Anxcor:
             if source==receiver:
                 receiver_ch_ops = source_ch_ops
             else:
-                receiver_channels = self._tasks['data'](starttime, receiver,
+                receiver_channels = self.data.get_task('data')(starttime, receiver,
                                                       starttime=starttime,
                                                       station=source,
                                                       dask_client=dask_client)
@@ -184,7 +143,7 @@ class Anxcor:
                                                                 station=source,
                                                                 dask_client=dask_client)
 
-            correlation = self._tasks['correlate'](source_ch_ops,
+            correlation = self.data.get_task('correlate')(source_ch_ops,
                                                    receiver_ch_ops,
                                                    station='src:{}rec:{}'.format(source,receiver),
                                                    starttime=starttime,
@@ -194,119 +153,184 @@ class Anxcor:
 
         return correlation_stack
 
-    def _combine_stack_pairs(self, futures, dask_client=None):
+    def _reduce(self,
+                future_stack,
+                station = None,
+                reducing_func = None,
+                dask_client=None):
+
         tree_depth = 1
-        while len(futures) > 1:
-            new_list = []
+        while len(future_stack) > 1:
+            new_future_list = []
 
-            while len(futures) > 1:
-                branch_index = len(futures)
-                first  = futures.pop()
-                second = futures.pop()
-                starttime = 'depth:{}branch:{}'.format(tree_depth,branch_index)
-                result=self._tasks['combine'](first,second,station='combined',
-                                                           starttime=starttime,
-                                                           dask_client=dask_client)
-                new_list.append(result)
+            while len(future_stack) > 1:
+                branch_index = len(future_stack)
+                first  = future_stack.pop()
+                second = future_stack.pop()
+                result = reducing_func(first, second,
+                                       station=station,
+                                       starttime=reducing_func.starttime(tree_depth, branch_index),
+                                       dask_client=dask_client)
+                new_future_list.append(result)
 
-            if len(futures) == 1:
-                branch_index = len(futures)
-                first = futures.pop()
-                second = new_list.pop()
-                starttime = 'depth:{}branch:{}'.format(tree_depth, branch_index)
-                result = self._tasks['combine'](first, second,
-                                                station='combined',
-                                                starttime=starttime,
-                                                dask_client=dask_client)
-                new_list.append(result)
-            tree_depth+=1
-            futures = new_list
-        return futures[0]
+            if len(future_stack) == 1:
+                branch_index = len(future_stack)
+                first  = future_stack.pop()
+                second = new_future_list.pop()
+                result = reducing_func(first, second,
+                                       station=station,
+                                       starttime=reducing_func.starttime(tree_depth, branch_index),
+                                       dask_client=dask_client)
+                new_future_list.append(result)
+            tree_depth +=1
+            future_stack=new_future_list
+        return future_stack[0]
 
-    def _stack_correlations(self, correlation_stack,station_pairs, dask_client=None):
-        tree_depth = 1
-        while len(correlation_stack) > 1:
-            new_list = []
 
-            while len(correlation_stack) > 1:
-                branch_index = len(correlation_stack)
-                first  = correlation_stack.pop()
-                second = correlation_stack.pop()
-                starttime = 'depth:{}branch:{}'.format(tree_depth,branch_index)
-                result = self._tasks['stack'](first, second, station=str(station_pairs),
-                                                             starttime=starttime,
-                                                             dask_client=dask_client)
-                new_list.append(result)
 
-            if len(correlation_stack) == 1:
-                branch_index = len(correlation_stack)
-                first  = correlation_stack.pop()
-                second = new_list.pop()
-                starttime =  'depth:{}branch:{}'.format(tree_depth,branch_index)
-                result = self._tasks['stack'](first, second, station=str(station_pairs),
-                                                             starttime=starttime,
-                                                             dask_client=dask_client)
-                new_list.append(result)
-            tree_depth+=1
-            correlation_stack=new_list
-        return correlation_stack[0]
+class _AnxcorData:
+    TASKS = ['data', 'xconvert', 'resample', 'process', 'correlate', 'stack', 'combine']
+    def __init__(self,window_length=3600,include_pairs=None,exclude_pairs=None, **kwargs):
+        self._window_length = window_length
+        self._include_pairs=include_pairs
+        self._exclude_pairs=exclude_pairs
+        self._tasks = {
+            'data': DataLoader(window_length),
+            'xconvert': XArrayConverter(),
+            'resample': XResample(),
+            'process': [],
+            'correlate': XArrayXCorrelate(),
+            'combine': XArrayCombine(),
+            'stack': XArrayStack()
+            }
 
-    def _process_key(self,pair,starttime):
-        time_key = self._time_key(starttime)
-        pair_key = self._pair_key(pair)
-        key = '{} : {}'.format(pair_key, time_key)
-        return key
+    def get_window_length(self):
+        return self._window_length
 
-    def _pair_key(self,pair):
-        key = 's {}>r {}'.format(pair[0],pair[1])
-        return key
+    def get_station_combinations(self):
+        stations = self._tasks['data'].get_stations()
+        station_pairs = list(itertools.combinations_with_replacement(stations, 2))
+        return station_pairs
 
-    def _time_key(self,starttime):
-        fmttime = UTCDateTime(starttime).strftime(self.time_format)
-        return fmttime
-
-    def create_processing_arguments(self, endtime, starttime):
+    def save_at_step(self, folder, type='resample', order=None, **kwargs):
         """
-        create a list of arguments
         Parameters
         ----------
-        endtime: float
-        starttime: float
-
+        folder
+        type:
+            one of:
+            'data'
+            'resample'
+            'xconvert'
+            'process'
+            'correlate'
+            'write_stack'
+            'combine'
+            'write_combine'
+            an integer representing the order of extra station ops
+        order: int
+            the order of the processing stack to assign a write function
         Returns
         -------
-            iterable list of [ (starttimes, (source,receiver)) ]
         """
-        starttimes = self._get_starttimes(starttime, endtime)
-        station_pairs = self._get_station_pairs()
-        process_args = self._create_process_args(starttimes, station_pairs)
-        return process_args
+        if isinstance(type, str):
+            if type in self._tasks.keys():
+                if order is None:
+                    self._tasks[type].set_folder(folder, 'write', **kwargs)
+                elif isinstance(order, int) and order < len(self._tasks[type]):
+                    self._tasks[type][order].set_folder(folder, 'write', **kwargs)
+                else:
+                    raise Exception('Write assign call error. please refer to documentation')
+            else:
+                raise Exception('Not a valid key')
 
-    def _get_starttimes(self,starttime,endtime):
+    def load_at_step(self, folder, type='resample', order=None, **kwargs):
+        """
+        Parameters
+        ----------
+        folder
+        type:
+            one of:
+            'data'
+            'resample'
+            'xconvert'
+            'process'
+            'correlate'
+            'write_stack'
+            'combine'
+            'write_combine'
+            an integer representing the order of extra station ops
+        order: int
+            the order of the processing stack to assign a write function
+        Returns
+        -------
+        """
+        if isinstance(type, str):
+            if type in self._tasks.keys():
+                if order is None:
+                    self._tasks[type].set_folder(folder, 'read', **kwargs)
+                    self._disable_tasks(type)
+                elif isinstance(order, int) and order < len(self._tasks[type]):
+                    self._tasks[type][order].set_folder(folder, 'read', **kwargs)
+                    self._disable_process(order)
+                    self._disable_tasks('process')
+                else:
+                    raise Exception('Write assign call error. please refer to documentation')
+            else:
+                raise Exception('Not a valid key')
+
+
+    def _disable_process(self, position):
+        for index in range(0, position + 1):
+            self._tasks['process'][index].disable()
+
+
+    def _disable_tasks(self, key):
+        index = self.TASKS.index(key)
+        for disable in range(0, index + 1):
+            task = self.TASKS[disable]
+            if task is not 'process':
+                self._tasks[task].disable()
+            else:
+                self._disable_process(len(self._tasks['process']) - 1)
+
+
+    def add_dataset(self, dataset, name, trace_prep=None, **kwargs):
+        self._tasks['data'].add_dataset(dataset, name, trace_prep=trace_prep, **kwargs)
+
+
+    def add_process(self, process):
+        self._tasks['process'].append(process)
+
+
+    def set_parameters(self, process, key_dict, *args):
+        if process == 'process':
+            self._tasks[process][args[0]].set_param(key_dict)
+        else:
+            self._tasks[process].set_param(key_dict)
+
+
+    def get_task(self,key):
+        if key in self._tasks.keys():
+            return self._tasks[key]
+        else:
+            raise KeyError('key does not exist in tasks')
+
+
+class _AnxcorConverter:
+
+
+    def __init__(self,data):
+        self.data = data
+
+    def get_starttimes(self, starttime, endtime, overlap):
         starttimes = []
-        delta      = self._window_length * (1 - self._overlap)
+        delta      = self.data.get_window_length() * (1 - overlap)
         time = starttime
         while time < endtime:
             starttimes.append(time)
             time+=delta
         return starttimes
-
-    def _get_station_pairs(self):
-        stations = self._tasks['data'].get_stations()
-        station_pairs = list(itertools.combinations_with_replacement(stations, 2))
-        return station_pairs
-
-    def _create_process_args(self, starttimes, station_pairs):
-        args = []
-        for time in starttimes:
-            for pair in station_pairs:
-                args.append( ( time, pair ))
-
-        return args
-
-    def _make_write_stack_path(self, folder, pair):
-        path = os_utils.os.path.join(*[folder, 'src:' + pair[0] , 'rec:' + pair[1]])
-        return path
 
     def xarray_to_obspy(self,xdataset):
         attrs = xdataset.attrs
@@ -358,7 +382,3 @@ class Anxcor:
         print(attrs.keys())
         for name in xdataset.data_vars:
             xarray = xdataset[name]
-
-
-
-

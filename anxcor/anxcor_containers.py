@@ -190,6 +190,9 @@ class XArrayCombine(ab.XDatasetProcessor):
     def _window_key_convert(self,window):
         return window
 
+    def starttime_parser(self,first,second):
+        return 'depth:{}branch:{}'.format(first, second)
+
 
 
 class XArrayStack(ab.XArrayProcessor):
@@ -235,6 +238,9 @@ class XArrayStack(ab.XArrayProcessor):
 
     def _window_key_convert(self,window):
         return window
+
+    def starttime_parser(self,first,second):
+        return 'depth:{}branch:{}'.format(first, second)
 
 
 
