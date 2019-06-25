@@ -1,6 +1,6 @@
 from typing import List
-import  anxcor.abstract_behaviors as ab
-import  anxcor.os_utils as os_utils
+import  anxcor.abstractions as ab
+import  anxcor.utils as os_utils
 from  obspy.core import read
 import xarray as xr
 

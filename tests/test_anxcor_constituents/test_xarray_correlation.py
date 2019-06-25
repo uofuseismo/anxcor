@@ -1,7 +1,7 @@
 import unittest
 from .synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
 from xarray_routines import XArrayXCorrelate, XArrayConverter, XArrayStack
-from anxcor.filter_ops import _multiply_in_mat, xarray_crosscorrelate
+from anxcor.filters import _multiply_in_mat, xarray_crosscorrelate
 import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt

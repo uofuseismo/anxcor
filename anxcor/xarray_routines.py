@@ -1,9 +1,13 @@
+"""
+xarray.DataArray operations for use with Anxcor processing routines
+
+"""
+
 import numpy as np
 import xarray as xr
-import anxcor.filter_ops as filt_ops
+import anxcor.filters as filt_ops
 import pandas as pd
-from obspy.core import UTCDateTime
-import  anxcor.abstract_behaviors as ab
+import  anxcor.abstractions as ab
 
 OPERATIONS_SEPARATION_CHARACTER = '\n'
 SECONDS_2_NANOSECONDS = 1e9
@@ -11,13 +15,8 @@ SECONDS_2_NANOSECONDS = 1e9
 
 class XArrayConverter(ab.XArrayProcessor):
     """
-    dynamic args:
-    - trace data structure
-    static args:
-    - metadata to persist. specifically how to access certain things
+    converts an obspy stream into an xarray
 
-    returns:
-    xarray structure with channel, station, and time dimensions, plus persistent metadata
     """
 
     def __init__(self,**kwargs):
@@ -103,6 +102,9 @@ class XArrayConverter(ab.XArrayProcessor):
 
 
 class XArrayBandpass(ab.XArrayProcessor):
+    """
+    applies a bandpass filter to a provided xarray
+    """
 
     def __init__(self,upper_frequency=10.0,lower_frequency=0.01,order=2,taper=0.1,**kwargs):
         super().__init__(**kwargs)
@@ -139,6 +141,15 @@ class XArrayBandpass(ab.XArrayProcessor):
 
 
 class XArrayTaper(ab.XArrayProcessor):
+    """
+    tapers signals on an xarray timeseries
+
+    Note
+    --------
+    most XArrayProcessors which operate in the frequency domain
+    have tapering as part of the process.
+
+    """
 
     def __init__(self,taper=0.1,**kwargs):
         super().__init__(**kwargs)
@@ -158,8 +169,18 @@ class XArrayTaper(ab.XArrayProcessor):
     def _get_process(self):
         return 'taper'
 
+class XAlign(ab.XArrayProcessor):
+
+    def __init__(self):
+        super().__init__()
+
+#TODO: add stuff for interpolating between a start and stop timestamp
+
 
 class XResample(ab.XArrayProcessor):
+    """
+    resamples the provided xarray to a lower frequency
+    """
 
     def __init__(self, target_rate=10.0,**kwargs):
         super().__init__(**kwargs)
@@ -197,7 +218,10 @@ class XResample(ab.XArrayProcessor):
 
 
 class XArrayXCorrelate(ab.XArrayProcessor):
+    """
+    correlates two xarrays channel-wise in the frequency domain.
 
+    """
 
     def __init__(self,max_tau_shift=100.0,gpu_enable=False,**kwargs):
         super().__init__(**kwargs)
@@ -236,7 +260,9 @@ class XArrayXCorrelate(ab.XArrayProcessor):
         return 'src:{} rec:{}'.format(one.name, two.name)
 
 class XArrayRemoveMeanTrend(ab.XArrayProcessor):
-
+    """
+    removes the mean and trend of an xarray timeseries
+    """
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
 
@@ -260,7 +286,9 @@ class XArrayRemoveMeanTrend(ab.XArrayProcessor):
 
 
 class XArrayTemporalNorm(ab.XArrayProcessor):
-
+    """
+    applies a temporal norm operation to an xarray timeseries
+    """
 
     def __init__(self,time_mean=10.0, lower_frequency=0.001,
                  upper_frequency=5.0, type='hv_preserve',**kwargs):
@@ -294,13 +322,15 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
 
 
     def _add_operation_string(self):
-        return 'temporal_norm@type({}),time_mean({}),f_norm_basis({})<f<({})'.format( \
+        return 'temporal_norm@type({}),time_mean({}),f_norm_basis({})<f<({})'.format(
             self._type,self._time_mean,self._lower,self._upper)
 
 
 
 class XArrayWhiten(ab.XArrayProcessor):
-
+    """
+    whitens the frequency spectrum of a given xarray
+    """
     def __init__(self, smoothing_window_ratio=10.0, lower_frequency=0.001,
                  upper_frequency=5.0, order=2, **kwargs):
         super().__init__(**kwargs)

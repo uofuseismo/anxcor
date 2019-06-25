@@ -1,11 +1,11 @@
-import  anxcor.os_utils as os_utils
+import  anxcor.utils as utils
 from obspy.core import UTCDateTime
 import xarray as xr
 import json
 
 def write(xarray, path, extension):
-    array_path      = '{}{}{}{}'.format(path,os_utils.sep,extension,'.nc')
-    attributes_path = '{}{}{}{}'.format(path,os_utils.sep,extension,'.metadata.json')
+    array_path      = '{}{}{}{}'.format(path, utils.sep, extension, '.nc')
+    attributes_path = '{}{}{}{}'.format(path, utils.sep, extension, '.metadata.json')
     data = xarray.copy()
     data.attrs = {}
     data.to_netcdf(array_path)
@@ -14,8 +14,8 @@ def write(xarray, path, extension):
 
 
 def read(path, extension):
-    xarray_path     ='{}{}{}{}'.format(path,os_utils.sep,extension,'.nc')
-    attributes_path ='{}{}{}{}'.format(path,os_utils.sep,extension,'.metadata.json')
+    xarray_path     ='{}{}{}{}'.format(path, utils.sep, extension, '.nc')
+    attributes_path ='{}{}{}{}'.format(path, utils.sep, extension, '.metadata.json')
     xarray = xr.open_dataset(xarray_path)
     with open(attributes_path, 'r') as p_file:
         attrs = json.load(p_file)
@@ -40,17 +40,17 @@ class _IO:
             # then xarray represents stack data
             pair = list(xarray.coords['pair'].values)[0]
             stack_num = str(xarray.attrs['stacks'])
-            return self._file + os_utils.sep + pair + os_utils.sep + stack_num
+            return self._file + utils.sep + pair + utils.sep + stack_num
         elif 'operations' in xarray.attrs.keys():
             # then xarray represents single station data
             operation = xarray.attrs['operations'].split('\n')[-1]
             starttime = UTCDateTime(xarray.attrs['starttime']).isoformat()
-            return self._file + os_utils.sep + operation + os_utils.sep + starttime
+            return self._file + utils.sep + operation + utils.sep + starttime
         else:
             # then xarray is a dataset
             pair_list = list(xarray.coords['pair'].values)
             strsum = pair_list[0] + '|' + str(len(pair_list))
-            return self._file + os_utils.sep + strsum
+            return self._file + utils.sep + strsum
 
     def get_filename(self, xarray):
         if 'stacks' in xarray.attrs.keys():
@@ -72,17 +72,17 @@ class _XArrayWrite(_IO):
 
     def set_folder(self, file):
         self.enable()
-        if not os_utils.folder_exists(file):
-            os_utils.make_dir(file)
+        if not utils.folder_exists(file):
+            utils.make_dir(file)
         self._file = file
 
     def _chkmkdir(self,dir):
-        if not os_utils.folder_exists(dir):
-            os_utils.make_dir(dir)
+        if not utils.folder_exists(dir):
+            utils.make_dir(dir)
 
     def __call__(self, xarray,one,two,three, dask_client=None, **kwargs):
         if self._file is not None:
-            folder    = '{}{}{}{}{}'.format(self._file,os_utils.sep,one,os_utils.sep,two)
+            folder    = '{}{}{}{}{}'.format(self._file, utils.sep, one, utils.sep, two)
             self._chkmkdir(folder)
             write(xarray, folder, three)
 
@@ -95,14 +95,14 @@ class _XArrayRead(_IO):
 
     def set_folder(self, directory):
         self.enable()
-        if not os_utils.folder_exists(directory):
-            os_utils.make_dir(directory)
+        if not utils.folder_exists(directory):
+            utils.make_dir(directory)
         self._file = directory
 
     def __call__(self,xarray, extension1, extension2, file, dask_client=None, **kwargs):
         result = None
         if self._file is not None:
-            folder = self._file + os_utils.sep + extension1 + os_utils.sep + extension2
+            folder = self._file + utils.sep + extension1 + utils.sep + extension2
             result = read(folder, file)
 
         if result is not None:
