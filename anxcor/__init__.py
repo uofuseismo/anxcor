@@ -1,7 +1,5 @@
-from anxcor import os_utils
-from anxcor import abstract_behaviors
-from anxcor import filter_ops
-from  anxcor import  anxcor_containers
-from anxcor import xarray_routines
-from anxcor import anxcor_main
+from anxcor.abstractions import XArrayProcessor
+from anxcor.xarray_routines import XAlign, XArrayBandpass, XArrayConverter, XArrayRemoveMeanTrend, \
+    XArrayWhiten, XArrayTaper, XArrayTemporalNorm
+from anxcor.core import Anxcor, AnxorDatabase
 import numpy as np
