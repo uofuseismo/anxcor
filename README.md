@@ -1,4 +1,4 @@
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: BSD 2-Clause](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://opensource.org/licenses/BSD-2-Clause)
 
 ## ANXCOR: Ambient Noise X (cross) Correlation
 
@@ -7,29 +7,29 @@
 
 ANXCOR's object oriented design allows it to leverage common datascience packages like pandas, numpy, and scipy, as well as the popular seismology package Obspy to streamline its computation. Furthermore, it leverages both xarray and dask to achieve embarassingly parallel execution. Use of these popular packages makes working with ANXCOR intuitive, concise, and extensible without deep domain experience in compiled languages.
 
-We do not intend to for ANXCOR to replace the more popular ambient noise processing codes. Instead, our main goal is to provide a framework for rapid prototyping and investigation into new processing routines. ANXCOR is also designed with readability in mind; it should be immediately obvious from the code alone what functions do without the comments (although we do aim to provide extensive documentation of the code base). 
+ANXCOR is not intended to replace existing seismic ambient noise processing codes. Instead, our goal is to provide a framework for rapid prototyping of new processing routines, and small-batch production of seismic ambient noise correlation functions. ANXCOR is also designed with readability in mind; it should be immediately obvious from code alone what functions functions do and how they work without comments (we do, however, aim to provide extensive documentation of the code base). 
 
 
 ## Acknowledgements
-
-ANXCOR would not be possible without the hard and extensive work by Obsy and Obsplus teams. Many of the University of Utah graduate students were integral to ANXCOR's development, including Kevin Mendoza, Daniel Wells, Elizabeth Berg, Sin-mei Wu, Santiago Rebale, and Kostas Gkogkas. Some of the routines provided here were first developed and refined by Dr. Fan-chi lin and his collaborators. ANXCOR was developed under the supervision of Dr. Kristine Pankow, and her work group proved integral to the success of this project
+ANXCOR's development was inspired by Dr. Fan-Chi Lin's work in Ambient Noise Seismic Tomography. Many of the routines implemented here were written after careful consultation with him and his Graduate Student work group. PhD Candidate Elizableth Berg especially was integral to the success of this project.
 
 ## Attribution
 
 ## Installation
 
-
 ## Basic Usage
-
  
 
 ## Known Issues
-
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
 Please make sure to update tests as appropriate.
+
+## Contributors
+- PhD Student Kevin A. Mendoza was the primary developer, and is responsible for the original architecture of the project.
+- PhD Student Daniel Wells contributed a number of test suites.
 
 ## License
 [GNU GPLv3](https://choosealicense.com/licenses/gpl-3.0/)
