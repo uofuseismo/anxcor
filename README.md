@@ -1,4 +1,4 @@
-[![License: BSD 2-Clause](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://opensource.org/licenses/BSD-2-Clause)
+[![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
 
 ## ANXCOR: Ambient Noise X (cross) Correlation
 
