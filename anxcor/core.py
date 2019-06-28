@@ -1,9 +1,8 @@
 
-
 from  anxcor.containers import DataLoader, XArrayCombine, XArrayStack, AnxcorDatabase
 from  anxcor.xarray_routines import XArrayConverter, XResample, XArrayXCorrelate
 from anxcor.abstractions import XArrayProcessor
-from typing import List, Callable
+from typing import List
 from xarray import Dataset
 import numpy as np
 import itertools

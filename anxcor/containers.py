@@ -1,9 +1,29 @@
 from typing import List
 import  anxcor.abstractions as ab
 import  anxcor.utils as os_utils
-from  obspy.core import read, Stream
+from  obspy.core import read, Stream, UTCDateTime
 import xarray as xr
 
+
+def execute_if_ok_else_pass_through(method, one, two):
+    if one is None and two is not None:
+        return two
+    elif one is not None and two is None:
+        return one
+    elif one is None and two is None:
+        return None
+    else:
+        return method(one, two)
+
+def method_per_op(method,opmethod, one, two):
+    if one is None and two is not None:
+        return opmethod(two)
+    elif one is not None and two is None:
+        return opmethod(one)
+    elif one is None and two is None:
+        return None
+    else:
+        return method(opmethod(one), opmethod(two))
 
 class AnxcorDatabase:
     """ An interface for providing obspy.core.Stream objects to Anxcor objects
@@ -62,7 +82,7 @@ class AnxcorDatabase:
         raise NotImplementedError('Method: \'get_waveforms()\' is not implemented!')
 
 
-class DataLoader(ab.XArrayProcessor):
+class DataLoader(ab.XDatasetProcessor):
 
     def __init__(self, window_length):
         super().__init__()
@@ -122,6 +142,7 @@ class DataLoader(ab.XArrayProcessor):
         traces = []
         for name, dataset in self._datasets.items():
             stream = dataset.get_waveforms(**kwarg_execute)
+            stream = self._curate(stream,starttime)
             traces = self._combine(traces, stream, name)
         return Stream(traces=traces)
 
@@ -164,28 +185,61 @@ class DataLoader(ab.XArrayProcessor):
     def _get_process(self):
         return 'load'
 
+    def _curate(self, stream, starttime):
+        endtime = starttime + self._window_length
+        valid_traces = []
+        for trace in stream:
+            st = trace.stats.starttime.timestamp
+            end= trace.stats.endtime.timestamp
+            delta=trace.stats.delta
+
+            cond1 = abs(st - starttime) < delta
+            cond2 = abs(end - endtime) < delta
+            if cond1 and cond2:
+                valid_traces.append(trace)
+
+        return Stream(traces=valid_traces)
+
+    def _should_process(self, *args):
+        return True
+
+    def _window_key_convert(self,window):
+        return UTCDateTime(int(window*100)/100).isoformat()
+
+    def _addition_read_processing(self, result):
+        name   = list(result.data_vars)[0]
+        xarray       = result[name].copy()
+        xarray.attrs = result.attrs.copy()
+        del result
+        return xarray
+
+
+
 class XArrayCombine(ab.XDatasetProcessor):
 
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
 
     def _single_thread_execute(self,first_data, second_data,**kwargs):
-        if isinstance(first_data,xr.DataArray) and isinstance(second_data,xr.DataArray):
-            if first_data.name==second_data.name:
-                result = xr.concat([first_data,second_data],dim='pair')
-            else:
-                result = xr.merge([first_data,second_data])
+        return execute_if_ok_else_pass_through(self._normal_combine,first_data,second_data)
 
-        elif isinstance(first_data,xr.Dataset) and isinstance(second_data,xr.DataArray):
+    def _normal_combine(self, first_data, second_data):
+        if isinstance(first_data, xr.DataArray) and isinstance(second_data, xr.DataArray):
+            if first_data.name == second_data.name:
+                result = xr.concat([first_data, second_data], dim='pair')
+            else:
+                result = xr.merge([first_data, second_data])
+
+        elif isinstance(first_data, xr.Dataset) and isinstance(second_data, xr.DataArray):
             result = self._merge_DataArray_Dataset(first_data, second_data)
-        elif isinstance(first_data,xr.DataArray) and isinstance(second_data,xr.Dataset):
-            result = self._merge_DataArray_Dataset(second_data,first_data)
+        elif isinstance(first_data, xr.DataArray) and isinstance(second_data, xr.Dataset):
+            result = self._merge_DataArray_Dataset(second_data, first_data)
         else:
-            result = xr.merge([first_data,second_data])
-        if not isinstance(result,xr.Dataset):
-            name   = result.name
+            result = xr.merge([first_data, second_data])
+        if not isinstance(result, xr.Dataset):
+            name = result.name
             coords = result.coords
-            result = xr.Dataset(data_vars={name: result},coords=coords)
+            result = xr.Dataset(data_vars={name: result}, coords=coords)
         return result
 
     def _merge_DataArray_Dataset(self, data_set, data_array):
@@ -198,8 +252,10 @@ class XArrayCombine(ab.XDatasetProcessor):
         return result
 
     def _metadata_to_persist(self, first_data, second_data, **kwargs):
-        persist1 = self._extract_metadata_dict(first_data)
-        persist2 = self._extract_metadata_dict(second_data)
+        if first_data is not None:
+            persist1 = self._extract_metadata_dict(first_data)
+        if second_data is not None:
+            persist2 = self._extract_metadata_dict(second_data)
         result   = {**persist1,**persist2}
         return result
 
@@ -246,20 +302,33 @@ class XArrayStack(ab.XArrayProcessor):
 
 
     def _single_thread_execute(self,first: xr.DataArray, second: xr.DataArray,*args,**kwargs):
-        result       = first + second
+        if first is None and second is not None:
+            return second
+        elif first is not None and second is None:
+            return first
+        elif first is None and second is None:
+            return None
+        else:
+            result       = first + second
         return result
 
 
     def _metadata_to_persist(self, xarray_1,xarray_2,*args, **kwargs):
+        return  method_per_op(self._combine_metadata,self._getattr,xarray_1,xarray_2)
+
+    def _combine_metadata(self,attrs1, attrs2):
         attrs = {}
-        attrs['delta']     = xarray_1.attrs['delta']
-        attrs['starttime'] = self._get_lower(xarray_1.attrs, xarray_2.attrs, 'starttime')
-        attrs['endtime']   = self._get_upper(xarray_1.attrs, xarray_2.attrs, 'endtime')
-        attrs['stacks']    = xarray_1.attrs['stacks'] + xarray_2.attrs['stacks']
-        attrs['operations']= xarray_1.attrs['operations']
-        if 'location' in xarray_1.attrs.keys():
-            attrs['location'] = xarray_1.attrs['location']
+        attrs['delta'] = attrs1['delta']
+        attrs['starttime'] = self._get_lower(attrs1, attrs2, 'starttime')
+        attrs['endtime'] = self._get_upper(attrs1, attrs2, 'endtime')
+        attrs['stacks'] = attrs1['stacks'] + attrs2['stacks']
+        attrs['operations'] = attrs1['operations']
+        if 'location' in attrs1.keys():
+            attrs['location'] = attrs1['location']
         return attrs
+
+    def _getattr(self,array):
+        return array.attrs
 
     def _get_name(self,one,two):
         return one.name

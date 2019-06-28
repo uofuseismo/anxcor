@@ -21,7 +21,7 @@ def read(path, extension):
         with open(attributes_path, 'r') as p_file:
             attrs = json.load(p_file)
     except FileNotFoundError:
-        print('File:\n {}\n not found. Aborting operations'.format(attributes_path))
+        print('File:\n {}\n not found. Ignoring window'.format(attributes_path))
         return None
     xarray.attrs = attrs
     return xarray
@@ -85,7 +85,7 @@ class _XArrayWrite(_IO):
             utils.make_dir(dir)
 
     def __call__(self, xarray, process, folder, file, dask_client=None, **kwargs):
-        if self._file is not None:
+        if self._file is not None and xarray is not None:
             folder    = '{}{}{}{}{}'.format(self._file, utils.sep, process, utils.sep, folder)
             self._chkmkdir(folder)
             write(xarray, folder, file)
@@ -143,8 +143,9 @@ class _XDaskTask:
 
     def __call__(self, *args, dask_client=None, **kwargs):
         key = self._get_operation_key(kwargs['starttime'],kwargs['station'])
+
         result = None
-        if self._enabled and not self.read.is_enabled():
+        if self._enabled and not self.read.is_enabled() and self._should_process(*args):
             if dask_client is None:
                 result = self._execute(*args,**kwargs)
             else:
@@ -246,17 +247,25 @@ class _XDaskTask:
     def _get_operation_key(self,starttime,station):
         return '{} {} {}'.format(self._get_process(), station, self._window_key_convert(starttime))
 
+    def _should_process(self, *args):
+        return True
+
 class XArrayProcessor(_XDaskTask):
 
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
 
     def _addition_read_processing(self, result):
-        name   = list(result.data_vars)[0]
-        xarray       = result[name].copy()
-        xarray.attrs = result.attrs.copy()
-        del result
-        return xarray
+        if result is not None:
+            name   = list(result.data_vars)[0]
+            xarray       = result[name].copy()
+            xarray.attrs = result.attrs.copy()
+            del result
+            return xarray
+        return result
+
+    def  _should_process(self,xarray, *args):
+        return xarray is not None
 
     def _window_key_convert(self,window):
         return UTCDateTime(int(window*100)/100).isoformat()
@@ -269,3 +278,4 @@ class XDatasetProcessor(_XDaskTask):
 
     def _addition_read_processing(self, result):
         return result
+

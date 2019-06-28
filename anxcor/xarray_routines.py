@@ -35,14 +35,19 @@ class XArrayConverter(ab.XArrayProcessor):
         station = trace.stats.station
         return network + '.' + station
 
-    def _single_thread_execute(self, stream,*args, **kwargs):
-        channels  = []
-        stations  = []
-        delta     = None
-        time_array= None
+    def _single_thread_execute(self, stream,*args,starttime=0, **kwargs):
+        if stream is not None and len(stream)>0:
+            return self._convert_trace_2_xarray(stream)
+        return None
+
+    def _convert_trace_2_xarray(self, stream):
+        channels = []
+        stations = []
+        delta = None
+        time_array = None
         data_type = None
         starttime = None
-        latitude  = None
+        latitude = None
         longitude = None
         elevation = None
         for trace in stream:
@@ -50,17 +55,17 @@ class XArrayConverter(ab.XArrayProcessor):
             if station_code not in stations:
                 stations.append(station_code)
 
-            channel =trace.stats.channel
+            channel = trace.stats.channel
             if channel not in channels:
                 channels.append(channel)
             if time_array is None:
                 starttime = np.datetime64(trace.stats.starttime.datetime)
-                endtime   = np.datetime64(trace.stats.endtime.datetime)
+                endtime = np.datetime64(trace.stats.endtime.datetime)
 
-                delta     = trace.stats.delta
-                timedelta = pd.Timedelta(delta,'s').to_timedelta64()
+                delta = trace.stats.delta
+                timedelta = pd.Timedelta(delta, 's').to_timedelta64()
 
-                time_array= np.arange(starttime, endtime+timedelta, timedelta)
+                time_array = np.arange(starttime, endtime + timedelta, timedelta)
                 starttime = trace.stats.starttime.timestamp
                 data_type = trace.stats.data_type
                 stats_keys = trace.stats.keys()
@@ -70,21 +75,23 @@ class XArrayConverter(ab.XArrayProcessor):
                     longitude = trace.stats.longitude
                 if 'elevation' in stats_keys:
                     elevation = trace.stats.elevation
-
-
-        empty_array = np.zeros((len(channels),len(stations),len(time_array)))
+        empty_array = np.zeros((len(channels), len(stations), len(time_array)))
         for trace in stream:
-            chan       = channels.index(trace.stats.channel)
+            chan = channels.index(trace.stats.channel)
             station_id = stations.index(self._get_station_id(trace))
 
-            empty_array[chan,station_id,:]=trace.data
+            empty_array[chan, station_id, :] = trace.data
+        return self._create_xarray(channels, data_type, delta, elevation, empty_array, latitude, longitude, starttime,
+                                   stations, time_array)
 
-        xarray      = xr.DataArray(empty_array,coords=[channels, stations, time_array],
-                                   dims=['channel','station_id','time'])
-        xarray.name              = data_type
-        xarray.attrs['delta']    = delta
-        xarray.attrs['starttime']= starttime
-        xarray.attrs['operations']='xconvert'
+    def _create_xarray(self, channels, data_type, delta, elevation, empty_array, latitude, longitude, starttime,
+                       stations, time_array):
+        xarray = xr.DataArray(empty_array, coords=[channels, stations, time_array],
+                              dims=['channel', 'station_id', 'time'])
+        xarray.name = data_type
+        xarray.attrs['delta'] = delta
+        xarray.attrs['starttime'] = starttime
+        xarray.attrs['operations'] = 'xconvert'
         if latitude is not None and longitude is not None:
             if elevation is not None:
                 xarray.attrs['location'] = (latitude, longitude, elevation)
@@ -244,10 +251,12 @@ class XArrayXCorrelate(ab.XArrayProcessor):
             self._kwargs['torch']=torch
 
     def _single_thread_execute(self, source_xarray: xr.DataArray, receiver_xarray: xr.DataArray,*args, **kwargs):
-        correlation = filt_ops.xarray_crosscorrelate(source_xarray,
+        if source_xarray is not None and receiver_xarray is not None:
+            correlation = filt_ops.xarray_crosscorrelate(source_xarray,
                                              receiver_xarray,
                                                      **self._kwargs)
-        return correlation
+            return correlation
+        return None
 
     def _get_process(self):
         return 'crosscorrelate'
@@ -267,6 +276,9 @@ class XArrayXCorrelate(ab.XArrayProcessor):
 
     def _add_operation_string(self):
         return None
+
+    def  _should_process(self,xarray1, xarray2, *args):
+        return xarray1 is not None and xarray2 is not None
 
     def _get_name(self,one,two):
         return 'src:{} rec:{}'.format(one.name, two.name)

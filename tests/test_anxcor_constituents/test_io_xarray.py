@@ -105,7 +105,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         result = anxcor.process(times)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
-        self.assertEqual(8, how_many_nc)
+        self.assertEqual(7, how_many_nc)
 
     def test_write_resample(self):
         anxcor = Anxcor(window_length=3600)
@@ -117,7 +117,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         result = anxcor.process(times)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
-        self.assertEqual(8, how_many_nc)
+        self.assertEqual(7, how_many_nc)
 
     def test_read_resample(self):
         anxcor = Anxcor(window_length=3600)
@@ -135,7 +135,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         result = anxcor.process(times)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
-        self.assertEqual(8, how_many_nc)
+        self.assertEqual(7, how_many_nc)
 
     def test_write_correlate(self):
         anxcor = Anxcor(window_length=3600)
@@ -147,7 +147,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         result = anxcor.process(times)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
-        self.assertEqual(12, how_many_nc)
+        self.assertEqual(10, how_many_nc)
 
     def test_read_correlate(self):
         anxcor = Anxcor(window_length=3600)
@@ -165,7 +165,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         result = anxcor.process(times)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
-        self.assertEqual(12, how_many_nc)
+        self.assertEqual(10, how_many_nc)
 
     def test_write_stack(self):
         anxcor = Anxcor(window_length=3600)
@@ -239,7 +239,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         result = anxcor.process(times)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
-        self.assertEqual(8, how_many_nc)
+        self.assertEqual(7, how_many_nc)
 
     def test_read_tempnorm(self):
         anxcor = Anxcor(window_length=3600)
@@ -259,7 +259,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         result = anxcor.process(times)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
-        self.assertEqual(8, how_many_nc)
+        self.assertEqual(7, how_many_nc)
 
     def test_write_whitening(self):
         anxcor = Anxcor(window_length=3600)
@@ -272,7 +272,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         result = anxcor.process(times)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
-        self.assertEqual(8, how_many_nc)
+        self.assertEqual(7, how_many_nc)
 
 
     def test_read_whitening(self):
@@ -293,7 +293,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         result = anxcor.process(times)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
-        self.assertEqual(8, how_many_nc)
+        self.assertEqual(7, how_many_nc)
 
 
 if __name__ == '__main__':
