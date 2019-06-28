@@ -2,7 +2,7 @@ import unittest
 from obsplus.bank import WaveBank
 from obspy.core import Stream, Trace
 from utils import _clean_files_in_dir, _how_many_fmt
-from anxcor.core import Anxcor
+from anxcor.core import Anxcor, AnxcorDatabase
 from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
 import numpy as np
 import xarray as xr
@@ -27,9 +27,10 @@ def get_ancor_set():
     return bank
 
 
-class WavebankWrapper:
+class WavebankWrapper(AnxcorDatabase):
 
     def __init__(self, directory):
+        super().__init__()
         self.bank = WaveBank(directory)
         import warnings
         warnings.filterwarnings("ignore")
@@ -85,7 +86,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         anxcor.set_parameters('correlate', dict(dummy_task=True))
         anxcor.save_at_step(target_dir, type='xconvert')
         result = anxcor.process(times)
-        anxcor = Anxcor(3600, 0.5)
+        anxcor = Anxcor(3600)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.set_parameters('correlate', dict(dummy_task=True))
@@ -154,7 +155,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.set_parameters('correlate', dict(dummy_task=True))
-        anxcor.load_at_step(target_dir, type='correlate')
+        anxcor.save_at_step(target_dir, type='correlate')
         result = anxcor.process(times)
         anxcor = Anxcor(3600)
         bank = WavebankWrapper(source_dir)
@@ -229,6 +230,7 @@ class TestIntegratedIOOps(unittest.TestCase):
 
     def test_write_tempnorm(self):
         anxcor = Anxcor(window_length=3600)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.set_parameters('correlate', dict(dummy_task=True))
@@ -241,6 +243,7 @@ class TestIntegratedIOOps(unittest.TestCase):
 
     def test_read_tempnorm(self):
         anxcor = Anxcor(window_length=3600)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.set_parameters('correlate', dict(dummy_task=True))
@@ -260,6 +263,7 @@ class TestIntegratedIOOps(unittest.TestCase):
 
     def test_write_whitening(self):
         anxcor = Anxcor(window_length=3600)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.set_parameters('correlate', dict(dummy_task=True))
@@ -273,6 +277,7 @@ class TestIntegratedIOOps(unittest.TestCase):
 
     def test_read_whitening(self):
         anxcor = Anxcor(window_length=3600)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.set_parameters('correlate', dict(dummy_task=True))

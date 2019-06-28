@@ -10,9 +10,13 @@ class TestDownsample(unittest.TestCase):
     def test_phase_shift_not_introduced(self):
         target_rate     = 20
         process         = XResample(target_rate=target_rate)
-        trace_initial   = converter([create_sinsoidal_trace(sampling_rate=100,period=0.5,    duration=0.5)])
-        trace_processed = converter([create_sinsoidal_trace(sampling_rate=100, period=0.5, duration=0.5)])
-        trace_processed = process(trace_processed)
+        trace           = create_sinsoidal_trace(sampling_rate=100, period=0.5,    duration=0.5)
+        starttime       = trace.stats.starttime.timestamp
+        trace_initial   = converter([create_sinsoidal_trace(sampling_rate=100, period=0.5,    duration=0.5)],
+                                    starttime=0.0,station=0)
+        trace_processed = converter([create_sinsoidal_trace(sampling_rate=100, period=0.5, duration=0.5)],
+                                    starttime=0.0,station=0)
+        trace_processed = process(trace_processed,starttime=starttime,station=0)
         target        = np.argmax(trace_initial.data.ravel())   * trace_initial.attrs['delta']
         source        = np.argmax(trace_processed.data.ravel()) * trace_processed.attrs['delta']
 

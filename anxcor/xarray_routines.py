@@ -8,7 +8,7 @@ import xarray as xr
 import anxcor.filters as filt_ops
 import pandas as pd
 import  anxcor.abstractions as ab
-
+from obspy.core import UTCDateTime
 OPERATIONS_SEPARATION_CHARACTER = '\n'
 SECONDS_2_NANOSECONDS = 1e9
 
@@ -35,7 +35,7 @@ class XArrayConverter(ab.XArrayProcessor):
         station = trace.stats.station
         return network + '.' + station
 
-    def _single_thread_execute(self, stream, **kwargs):
+    def _single_thread_execute(self, stream,*args, **kwargs):
         channels  = []
         stations  = []
         delta     = None
@@ -59,6 +59,7 @@ class XArrayConverter(ab.XArrayProcessor):
 
                 delta     = trace.stats.delta
                 timedelta = pd.Timedelta(delta,'s').to_timedelta64()
+
                 time_array= np.arange(starttime, endtime+timedelta, timedelta)
                 starttime = trace.stats.starttime.timestamp
                 data_type = trace.stats.data_type
@@ -113,7 +114,7 @@ class XArrayBandpass(ab.XArrayProcessor):
                         'order':order,
                         'taper':taper}
 
-    def _single_thread_execute(self, xarray: xr.DataArray, **kwargs):
+    def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
         sampling_rate = 1.0 / xarray.attrs['delta']
         ufunc_kwargs = {**self._kwargs}
 
@@ -155,7 +156,7 @@ class XArrayTaper(ab.XArrayProcessor):
         super().__init__(**kwargs)
         self._kwargs = {'taper':taper}
 
-    def _single_thread_execute(self, xarray: xr.DataArray, **kwargs):
+    def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
         filtered_array = xr.apply_ufunc(filt_ops.taper, xarray,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
@@ -187,8 +188,9 @@ class XResample(ab.XArrayProcessor):
         self.target = target_rate
         self.target_rule = str(int((1.0 / target_rate) * SECONDS_2_NANOSECONDS)) + 'N'
 
-    def _single_thread_execute(self, xarray: xr.DataArray, **kwargs):
-        sampling_rate = 1.0 / xarray.attrs['delta']
+    def _single_thread_execute(self, xarray: xr.DataArray,*args,starttime=0,**kwargs):
+        delta =  xarray.attrs['delta']
+        sampling_rate = 1.0 / delta
         nyquist       = self.target / 2.0
 
         mean_array     = xarray.mean(dim=['time'])
@@ -202,7 +204,17 @@ class XResample(ab.XArrayProcessor):
                                         output_core_dims=[['time']],
                                         kwargs={'upper_frequency':    nyquist,
                                                 'sampling_rate': sampling_rate})
-        resampled_array= filtered_array.resample(time=self.target_rule).interpolate('linear').bfill('time')
+
+        resampled_array= filtered_array.resample(time=self.target_rule)\
+            .interpolate('linear')
+
+        starttime_datetime = np.datetime64(UTCDateTime(starttime).datetime)
+        endtime_datetime   = np.datetime64(UTCDateTime(starttime +
+                                                       delta*resampled_array.data.shape[-1]).datetime)
+        timedelta = pd.Timedelta(delta, 's').to_timedelta64()
+        time_array = np.arange(starttime_datetime, endtime_datetime + timedelta, timedelta)
+        resampled_array = resampled_array.interp(time=time_array).bfill('time').ffill('time')
+
 
         return resampled_array
 
@@ -231,7 +243,7 @@ class XArrayXCorrelate(ab.XArrayProcessor):
             import torch
             self._kwargs['torch']=torch
 
-    def _single_thread_execute(self, source_xarray: xr.DataArray, receiver_xarray: xr.DataArray, **kwargs):
+    def _single_thread_execute(self, source_xarray: xr.DataArray, receiver_xarray: xr.DataArray,*args, **kwargs):
         correlation = filt_ops.xarray_crosscorrelate(source_xarray,
                                              receiver_xarray,
                                                      **self._kwargs)
@@ -298,7 +310,7 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
         self._lower = lower_frequency
         self._upper = upper_frequency
 
-    def _single_thread_execute(self, xarray: xr.DataArray, **kwargs):
+    def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
         sampling_rate   = 1.0/xarray.attrs['delta']
         rolling_samples = int(sampling_rate*self._time_mean)
         bandpassed_array = xr.apply_ufunc(filt_ops.butter_bandpass_filter,xarray,
@@ -339,7 +351,7 @@ class XArrayWhiten(ab.XArrayProcessor):
                        'upper_frequency': upper_frequency,
                         'order':order}
 
-    def _single_thread_execute(self, xarray: xr.DataArray, **kwargs):
+    def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
         new_array = xr.apply_ufunc(filt_ops.xarray_whiten, xarray,
                                           input_core_dims=[['time']],
                                           output_core_dims=[['time']],

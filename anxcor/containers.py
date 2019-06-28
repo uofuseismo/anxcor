@@ -1,19 +1,64 @@
 from typing import List
 import  anxcor.abstractions as ab
 import  anxcor.utils as os_utils
-from  obspy.core import read
+from  obspy.core import read, Stream
 import xarray as xr
 
 
-class AnxorDatabase:
+class AnxcorDatabase:
+    """ An interface for providing obspy.core.Stream objects to Anxcor objects
+
+    get_stations() : List[str]
+        returns a list of all stations in the dataset, formatted as a string with a network code
+        e.g. 'Network.Station' ex: 'UU.1'
+
+    get_waveforms(network : str =None, station : str =None,
+                 starttime : float =None,endtime : =None,**kwargs) -> Stream:
+        returns an obspy Stream of waveforms. Must take the kwargs:
+        network and station as strings, and starttime, endtime as UTCDateTime timestamps
+    """
 
     def __init__(self):
         pass
 
-    def get_stations(self):
+    def get_stations(self)-> List[str]:
+        """
+        returns a list of all stations in the dataset, formatted as a string with a network code
+        e.g. 'Network.Station' ex: 'UU.1'
+
+        Returns
+        -------
+        List[str]
+            a list of strings representing stations. Must be formatted 'network_code.station_code'
+        """
         raise NotImplementedError('Method: \'get_stations()\' method is not implemented')
 
-    def get_waveforms(**kwarg_execute):
+    def get_waveforms(self,**kwarg_execute)->Stream:
+        """
+        returns an obspy Stream of waveforms
+
+        Parameters
+        ----------
+        network : str,
+            network to get waveform from. is called as a non-optional keyword-argument
+        station : str,
+            station to get waveform from. is called as a non-optional keyword-argument
+        starttime : float,
+            starttime of waveform in UTCDateTime timestamp. Non-optional keyword-argument
+        endtime : float,
+            endtime of waveform in UTCDateTime timestamp. Non-optional keyword-argument
+
+        Returns
+        -------
+        Stream
+            an obspy stream of traces
+
+        Note
+        ----
+        Anxcor leaves both removing instrument response and ensuring continuity of data up to the user.
+        If a given get_waveforms() query cannot deliver continuous data, it is perfectly fine to return a None object
+        instead of an obspy Stream. Anxcor will handle the missing data accordingly.
+        """
         raise NotImplementedError('Method: \'get_waveforms()\' is not implemented!')
 
 
@@ -24,18 +69,8 @@ class DataLoader(ab.XArrayProcessor):
         self._window_length = window_length
         self._datasets = {}
 
-    def add_dataset(self, dataset: AnxorDatabase, name: str, trace_prep=None, **kwargs):
-        if trace_prep is None:
-            def _remove_response(stream):
-                for trace in stream:
-                    try:
-                        trace.remove_response(output='DISP')
-                    except Exception:
-                        pass
-                return stream
-
-            trace_prep=_remove_response
-        self._datasets[name]=(dataset, trace_prep, kwargs)
+    def add_dataset(self, dataset: AnxcorDatabase, name: str, **kwargs):
+        self._datasets[name]=dataset
 
     def get_stations(self) -> List[str]:
         """
@@ -48,7 +83,7 @@ class DataLoader(ab.XArrayProcessor):
         """
         station_list = []
         for key, value in self._datasets.items():
-            one          = value[0]
+            one          = value
             seed_id_list = one.get_stations()
             for station in seed_id_list:
                 if station not in station_list:
@@ -59,7 +94,7 @@ class DataLoader(ab.XArrayProcessor):
     def _combine(self, total_list, produced_list, key):
         for trace in produced_list:
             trace.stats.data_type = key
-        total_list.extend(produced_list)
+        total_list.extend(produced_list.traces)
         return total_list
 
     def _load_key(self,data_key,extension):
@@ -74,23 +109,21 @@ class DataLoader(ab.XArrayProcessor):
         gather = '{}:{}@{}'.format('gather',data_key,extension)
         return gather
 
-    def _single_thread_execute(self, starttime, station, *args):
+    def _single_thread_execute(self,*args, station=0, starttime=0, **kwargs):
         network, station = station.split('.')
 
         kwarg_execute    = {
             'network' : network,
             'station' : station,
             'starttime':starttime,
-            'endtime':starttime + self._window_length
+            'endtime':  starttime + self._window_length
             }
 
         traces = []
-        for k, value in self._datasets.items():
-
-            stream = value[0].get_waveforms(**kwarg_execute)
-            treated= value[1](stream)
-            traces = self._combine(traces, treated, k )
-        return traces
+        for name, dataset in self._datasets.items():
+            stream = dataset.get_waveforms(**kwarg_execute)
+            traces = self._combine(traces, stream, name)
+        return Stream(traces=traces)
 
     def _io_result(self, result, starttime, source, format='mseed', **kwargs):
         type_dict = {}
@@ -212,12 +245,12 @@ class XArrayStack(ab.XArrayProcessor):
         super().__init__(**kwargs)
 
 
-    def _single_thread_execute(self,first: xr.DataArray, second: xr.DataArray):
+    def _single_thread_execute(self,first: xr.DataArray, second: xr.DataArray,*args,**kwargs):
         result       = first + second
         return result
 
 
-    def _metadata_to_persist(self, xarray_1,xarray_2, **kwargs):
+    def _metadata_to_persist(self, xarray_1,xarray_2,*args, **kwargs):
         attrs = {}
         attrs['delta']     = xarray_1.attrs['delta']
         attrs['starttime'] = self._get_lower(xarray_1.attrs, xarray_2.attrs, 'starttime')

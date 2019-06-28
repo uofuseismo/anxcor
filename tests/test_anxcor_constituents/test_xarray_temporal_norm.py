@@ -19,7 +19,7 @@ def source_earthquake():
     earthquake_trace.stats.network = ''
 
 
-    return  convert([earthquake_trace])
+    return  convert([earthquake_trace],starttime=0,station=0)
 
 
 def shift_trace(data,time=1.0,delta=0.1):
@@ -41,7 +41,7 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         shift = 30
         noise_loc_1 = create_random_trace(sampling_rate=40, duration=duration)
         noise_loc_1.data+= create_random_trace(sampling_rate=40, duration=duration).data
-        noise_loc_1 = convert([noise_loc_1])
+        noise_loc_1 = convert([noise_loc_1],starttime=0,station=0)
         noise_loc_2 = xr.apply_ufunc(shift_trace, noise_loc_1, input_core_dims=[['time']],
                                      output_core_dims=[['time']],
                                      kwargs={'time': shift, 'delta': noise_loc_1.attrs['delta']}, keep_attrs=True)
@@ -67,11 +67,11 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         down   = XResample(10)
         t_norm =XArrayTemporalNorm(time_mean=2.0)
 
-        noise_loc_1_eq = down(noise_loc_1_eq)
-        noise_loc_2_eq = down(noise_loc_2_eq)
+        noise_loc_1_eq = down(noise_loc_1_eq,starttime=0,station=0)
+        noise_loc_2_eq = down(noise_loc_2_eq,starttime=0,station=0)
 
-        noise_loc_2_eq_tnorm = t_norm(noise_loc_2_eq.copy())
-        noise_loc_1_eq_tnorm = t_norm(noise_loc_1_eq.copy())
+        noise_loc_2_eq_tnorm = t_norm(noise_loc_2_eq.copy(),starttime=0,station=0)
+        noise_loc_1_eq_tnorm = t_norm(noise_loc_1_eq.copy(),starttime=0,station=0)
 
 
         x_corr_eq      = self.max_corr_norm(noise_loc_1_eq, noise_loc_2_eq)
@@ -89,7 +89,7 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         shift = 30
         noise_loc_1 = create_random_trace(sampling_rate=40, duration=duration)
         noise_loc_1.data+= create_random_trace(sampling_rate=40, duration=duration).data
-        noise_loc_1 = convert([noise_loc_1])
+        noise_loc_1 = convert([noise_loc_1],starttime=0,station=0)
         noise_loc_2 = xr.apply_ufunc(shift_trace, noise_loc_1, input_core_dims=[['time']],
                                      output_core_dims=[['time']],
                                      kwargs={'time': shift, 'delta': noise_loc_1.attrs['delta']}, keep_attrs=True)
@@ -101,9 +101,9 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         down   = XResample(10)
         t_norm =XArrayTemporalNorm(time_mean=2.0)
 
-        noise_loc_2_eq       = down(noise_loc_1_eq)
+        noise_loc_2_eq       = down(noise_loc_1_eq,starttime=0,station=0)
 
-        noise_loc_2_eq_tnorm = t_norm(noise_loc_2_eq)
+        noise_loc_2_eq_tnorm = t_norm(noise_loc_2_eq,starttime=0,station=0)
 
 
         self.assertEquals(noise_loc_2_eq_tnorm.dtype,np.float64)
@@ -119,7 +119,7 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         return idx/sampling_rate
 
     def max_corr_norm(self, one, two):
-        corr_func= correlate(one,two)
+        corr_func= correlate(one,two,starttime=0,station=0)
         corr_func=corr_func.data.ravel()
         corr_func/=np.max(abs(corr_func))
         return corr_func

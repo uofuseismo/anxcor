@@ -19,24 +19,25 @@ class TestBandpassFiltering(unittest.TestCase):
 
     def test_filter_frequency_out_of_band(self):
         process = XArrayBandpass(lower_frequency=0.5,upper_frequency=20.0)
-        trace  = converter([create_random_trace(sampling_rate=100)])
-        trace  = process(trace)
+        trace  = converter([create_random_trace(sampling_rate=100)],starttime=0,station=0)
+        trace  = process(trace,starttime=0,station=0)
         source = self._get_frequency_of_trace(trace,sample_point=40.0)
         target = 0
         self.assertAlmostEqual(source,target,1,"frequency not removed")
 
     def test_filter_frequency_in_band(self):
         process = XArrayBandpass(lower_frequency=0.5,upper_frequency=20.0)
-        trace = converter([create_random_trace(sampling_rate=100)])
-        trace = process(trace)
+        trace = converter([create_random_trace(sampling_rate=100)],starttime=0,station=0)
+        trace = process(trace,starttime=0,station=0)
         source = self._get_frequency_of_trace(trace, sample_point=5)
         target = 0.1
         self.assertGreater(source,target,"bandpass filter removing desired frequency")
 
     def test_phase_shift_not_introduced(self):
         process         = XArrayBandpass(lower_frequency=0.5,upper_frequency=20.0)
-        trace_initial   = converter([create_sinsoidal_trace(sampling_rate=100,period=0.25,    duration=10)])
-        trace_processed = process(trace_initial.copy())
+        trace_initial   = converter([create_sinsoidal_trace(sampling_rate=100,period=0.25,    duration=10)],
+                                    starttime=0,station=0)
+        trace_processed = process(trace_initial.copy(),starttime=0,station=0)
         source_1   = np.argmax( signal.correlate(trace_initial.data,trace_processed.data))
         correction =  source_1 - (trace_initial.data.shape[2]*2 -1)//2
         target = 0

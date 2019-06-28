@@ -1,6 +1,7 @@
 import unittest
 from .synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
-from xarray_routines import XArrayXCorrelate, XArrayConverter, XArrayStack
+from xarray_routines import XArrayXCorrelate, XArrayConverter
+from anxcor.containers import XArrayStack
 from anxcor.filters import _multiply_in_mat, xarray_crosscorrelate
 import numpy as np
 import xarray as xr
@@ -20,9 +21,9 @@ class TestCorrelation(unittest.TestCase):
     def test_autocorrelation(self):
 
         correlator  = XArrayXCorrelate(max_tau_shift=5.0)
-        syth_trace1 = converter([create_random_trace(station='1',network='v',duration=20)])
+        syth_trace1 = converter([create_random_trace(station='1',network='v',duration=20)],starttime=0,station=0)
 
-        correlation = correlator(syth_trace1,syth_trace1)
+        correlation = correlator(syth_trace1,syth_trace1,starttime=0,station=0)
         zero_target_index = correlation.data.shape[3]//2
 
         zero_source_index = np.argmax(correlation.data[0,0,0,:])
@@ -30,12 +31,12 @@ class TestCorrelation(unittest.TestCase):
 
     def test_stacking_preserves_metadata(self):
         correlator = XArrayXCorrelate(max_tau_shift=5.0)
-        syth_trace1 = converter([create_random_trace(station='1', network='v', duration=20)])
+        syth_trace1 = converter([create_random_trace(station='1', network='v', duration=20)],starttime=0,station=0)
 
-        result_1 = correlator(syth_trace1, syth_trace1)
-        result_2 = correlator(syth_trace1, syth_trace1)
+        result_1 = correlator(syth_trace1, syth_trace1,starttime=0,station=0)
+        result_2 = correlator(syth_trace1, syth_trace1,starttime=0,station=0)
 
-        stack = stacker(result_1,result_2)
+        stack = stacker(result_1,result_2,starttime=0,station=0)
 
         attrs = stack.attrs
 
@@ -49,91 +50,91 @@ class TestCorrelation(unittest.TestCase):
     def test_has_starttime(self):
 
         correlator  = XArrayXCorrelate(max_tau_shift=5.0)
-        syth_trace1 = converter([create_random_trace(station='1',network='v',duration=20)])
+        syth_trace1 = converter([create_random_trace(station='1',network='v',duration=20)],starttime=0,station=0)
 
-        keys = correlator(syth_trace1,syth_trace1).attrs.keys()
+        keys = correlator(syth_trace1,syth_trace1,starttime=0,station=0).attrs.keys()
 
         self.assertTrue('starttime' in keys, 'starttime not preserved through correlation')
 
     def test_has_endtime(self):
 
         correlator = XArrayXCorrelate(max_tau_shift=5.0)
-        syth_trace1 = converter([create_random_trace(station='1', network='v', duration=20)])
+        syth_trace1 = converter([create_random_trace(station='1', network='v', duration=20)],starttime=0,station=0)
 
-        keys = correlator(syth_trace1, syth_trace1).attrs.keys()
+        keys = correlator(syth_trace1, syth_trace1,starttime=0,station=0).attrs.keys()
 
         self.assertTrue('endtime' in keys, 'endtime not preserved through correlation')
 
     def test_has_delta(self):
 
         correlator = XArrayXCorrelate(max_tau_shift=5.0)
-        syth_trace1 = converter([create_random_trace(station='1', network='v', duration=20)])
+        syth_trace1 = converter([create_random_trace(station='1', network='v', duration=20)],starttime=0,station=0)
 
-        keys = correlator(syth_trace1, syth_trace1).attrs.keys()
+        keys = correlator(syth_trace1, syth_trace1,starttime=0,station=0).attrs.keys()
 
         self.assertTrue('delta' in keys, 'delta not preserved through correlation')
 
     def test_has_stacks(self):
 
         correlator = XArrayXCorrelate(max_tau_shift=5.0)
-        syth_trace1 = converter([create_random_trace(station='1', network='v', duration=20)])
+        syth_trace1 = converter([create_random_trace(station='1', network='v', duration=20)],starttime=0,station=0)
 
-        keys = correlator(syth_trace1, syth_trace1).attrs.keys()
+        keys = correlator(syth_trace1, syth_trace1,starttime=0,station=0).attrs.keys()
 
         self.assertTrue('stacks' in keys, 'stacks not preserved through correlation')
 
     def test_one_stack(self):
 
         correlator = XArrayXCorrelate(max_tau_shift=5.0)
-        syth_trace1 = converter([create_random_trace(station='1', network='v', duration=20)])
+        syth_trace1 = converter([create_random_trace(station='1', network='v', duration=20)],starttime=0,station=0)
 
-        attr = correlator(syth_trace1, syth_trace1).attrs
+        attr = correlator(syth_trace1, syth_trace1,starttime=0,station=0).attrs
 
         self.assertEqual(attr['stacks'],1,'stacks assigned improper value')
 
     def test_autocorrelation_delta_attr(self):
 
         correlator  = XArrayXCorrelate(max_tau_shift=5.0)
-        syth_trace1 = converter([create_random_trace(station='1',network='v',duration=20)])
+        syth_trace1 = converter([create_random_trace(station='1',network='v',duration=20)],starttime=0,station=0)
 
-        correlation = correlator(syth_trace1,syth_trace1)
+        correlation = correlator(syth_trace1,syth_trace1,starttime=0,station=0)
 
         self.assertTrue('delta' in correlation.attrs.keys(),'did not propagate the delta value')
 
     def test_autocorrelation_starttime_attr(self):
 
         correlator  = XArrayXCorrelate(max_tau_shift=5.0)
-        syth_trace1 = converter([create_random_trace(station='1',network='v',duration=20)])
+        syth_trace1 = converter([create_random_trace(station='1',network='v',duration=20)],starttime=0,station=0)
 
-        correlation = correlator(syth_trace1,syth_trace1)
+        correlation = correlator(syth_trace1,syth_trace1,starttime=0,station=0)
 
         self.assertTrue('starttime' in correlation.attrs.keys(),'did not propagate the delta value')
 
     def test_name(self):
 
         correlator  = XArrayXCorrelate(max_tau_shift=5.0)
-        syth_trace1 = converter([create_random_trace(station='1',network='v',duration=20)])
+        syth_trace1 = converter([create_random_trace(station='1',network='v',duration=20)],starttime=0,station=0)
 
-        correlation = correlator(syth_trace1,syth_trace1)
+        correlation = correlator(syth_trace1,syth_trace1,starttime=0,station=0)
 
         self.assertTrue(isinstance(correlation.name,str),'improper name type')
 
     def test_array_is_real(self):
 
         correlator  = XArrayXCorrelate(max_tau_shift=5.0)
-        syth_trace1 = converter([create_random_trace(station='1',network='v',duration=20)])
+        syth_trace1 = converter([create_random_trace(station='1',network='v',duration=20)],starttime=0,station=0)
 
-        correlation = correlator(syth_trace1,syth_trace1)
+        correlation = correlator(syth_trace1,syth_trace1,starttime=0,station=0)
 
         self.assertEqual(correlation.data.dtype,np.float64,'improper data type')
 
     def test_correlation_length(self):
 
         correlator  = XArrayXCorrelate(max_tau_shift=5.0)
-        syth_trace1 = converter([create_random_trace(station='1',network='v')])
-        syth_trace2 = converter([create_random_trace(station='2',network='v')])
+        syth_trace1 = converter([create_random_trace(station='1',network='v')],starttime=0,station=0)
+        syth_trace2 = converter([create_random_trace(station='2',network='v')],starttime=0,station=0)
         try:
-            correlation = correlator(syth_trace1,syth_trace2)
+            correlation = correlator(syth_trace1,syth_trace2,starttime=0,station=0)
             self.assertTrue(False,'failed to catch exception')
         except Exception:
             self.assertTrue(True, 'failed to catch exception')
@@ -143,13 +144,13 @@ class TestCorrelation(unittest.TestCase):
         max_tau_shift = 8
         correlator  = XArrayXCorrelate(max_tau_shift=max_tau_shift)
         time_shift  = 2
-        syth_trace2 = converter([create_sinsoidal_trace_w_decay(decay=0.6,station='h',network='v',channel='z',duration=20)])
-        syth_trace1 = converter([create_sinsoidal_trace_w_decay(decay=0.4,station='h',network='w',channel='z',duration=20)])
+        syth_trace2 = converter([create_sinsoidal_trace_w_decay(decay=0.6,station='h',network='v',channel='z',duration=20)],starttime=0,station=0)
+        syth_trace1 = converter([create_sinsoidal_trace_w_decay(decay=0.4,station='h',network='w',channel='z',duration=20)],starttime=0,station=0)
         syth_trace2 = xr.apply_ufunc(shift_trace,syth_trace2,input_core_dims=[['time']],
                                                              output_core_dims=[['time']],
                                                              kwargs={'time': time_shift,'delta':syth_trace2.attrs['delta']},keep_attrs=True)
 
-        correlation = correlator(syth_trace1,syth_trace2)
+        correlation = correlator(syth_trace1,syth_trace2,starttime=0,station=0)
         zero_index = max_tau_shift*40
         tau_shift  = time_shift*40# added two because of noise effects
         max_index  = np.argmax(correlation.data)
@@ -167,10 +168,10 @@ class TestCorrelation(unittest.TestCase):
         e2 = create_sinsoidal_trace_w_decay(decay=0.8, station='k', network='v', channel='e', duration=20)
         n2 = create_sinsoidal_trace_w_decay(decay=0.7, station='k', network='v', channel='n', duration=20)
         z2 = create_sinsoidal_trace_w_decay(decay=0.6, station='k', network='v', channel='z', duration=20)
-        syth_trace1 = converter([e1.copy(), z1.copy()])
-        syth_trace2 = converter([e2.copy(), z2.copy()])
+        syth_trace1 = converter([e1.copy(), z1.copy()],starttime=0,station=0)
+        syth_trace2 = converter([e2.copy(), z2.copy()],starttime=0,station=0)
 
-        correlation_source = correlator(syth_trace1, syth_trace2)
+        correlation_source = correlator(syth_trace1, syth_trace2,starttime=0,station=0)
         correlation_ee     = correlator(converter([e1.copy()]), converter([e2.copy()]))
         result_1     = correlation_source.loc['e', 'e', :, :] - correlation_ee
         self.assertEqual(0,np.sum(result_1.data))
@@ -188,11 +189,11 @@ class TestCorrelation(unittest.TestCase):
         e2 = create_sinsoidal_trace_w_decay(decay=0.8, station='k', network='v', channel='e', duration=20)
         n2 = create_sinsoidal_trace_w_decay(decay=0.7, station='k', network='v', channel='n', duration=20)
         z2 = create_sinsoidal_trace_w_decay(decay=0.6, station='k', network='v', channel='z', duration=20)
-        syth_trace1 = converter([e1, z1])
-        syth_trace2 = converter([e2, z2])
+        syth_trace1 = converter([e1, z1],starttime=0,station=0)
+        syth_trace2 = converter([e2, z2],starttime=0,station=0)
 
-        correlation_source = correlator(syth_trace1, syth_trace2)
-        correlation_zz = correlator(converter([z1.copy()]), converter([z2.copy()]))
+        correlation_source = correlator(syth_trace1, syth_trace2,starttime=0,station=0)
+        correlation_zz = correlator(converter([z1.copy()],starttime=0,station=0), converter([z2.copy()],starttime=0,station=0))
         result_1 = correlation_source.loc['z', 'z', :, :] - correlation_zz
         self.assertEqual(0, np.sum(result_1.data))
 
@@ -208,11 +209,11 @@ class TestCorrelation(unittest.TestCase):
         e2 = create_sinsoidal_trace_w_decay(decay=0.8, station='k', network='v', channel='e', duration=20)
         n2 = create_sinsoidal_trace_w_decay(decay=0.7, station='k', network='v', channel='n', duration=20)
         z2 = create_sinsoidal_trace_w_decay(decay=0.6, station='k', network='v', channel='z', duration=20)
-        syth_trace1 = converter([e1, z1])
-        syth_trace2 = converter([e2, z2])
+        syth_trace1 = converter([e1, z1],starttime=0,station=0)
+        syth_trace2 = converter([e2, z2],starttime=0,station=0)
 
         correlation_source = correlator(syth_trace1, syth_trace2)
-        correlation_zz = correlator(converter([e1.copy()]), converter([z2.copy()]))
+        correlation_zz = correlator(converter([e1.copy()],starttime=0,station=0), converter([z2.copy()],starttime=0,station=0))
         result_1 = correlation_source.loc['e', 'z', :, :] - correlation_zz
         self.assertEqual(0, np.sum(result_1.data))
 
@@ -228,12 +229,13 @@ class TestCorrelation(unittest.TestCase):
         e2 = create_sinsoidal_trace_w_decay(decay=0.8, station='k', network='v', channel='e', duration=20)
         n2 = create_sinsoidal_trace_w_decay(decay=0.7, station='k', network='v', channel='n', duration=20)
         z2 = create_sinsoidal_trace_w_decay(decay=0.6, station='k', network='v', channel='z', duration=20)
-        syth_trace1 = converter([e1, z1])
-        syth_trace2 = converter([e2, z2])
+        syth_trace1 = converter([e1, z1],starttime=0,station=0)
+        syth_trace2 = converter([e2, z2],starttime=0,station=0)
 
-        correlation_source = correlator(syth_trace1, syth_trace2)
+        correlation_source = correlator(syth_trace1, syth_trace2,starttime=0,station=0)
 
-        correlation_ze = correlator(converter([z1]), converter([e2]))
+        correlation_ze = correlator(converter([z1],starttime=0,station=0),
+                                    converter([e2],starttime=0,station=0))
 
         result_1 = correlation_source.loc['z', 'e', :, :] - correlation_ze[0, 0, :, :]
 
@@ -253,12 +255,13 @@ class TestCorrelation(unittest.TestCase):
         n2 = create_random_trace(                      station='k', network='v', channel='n', duration=20)
         z2 = create_sinsoidal_trace_w_decay(decay=0.3, station='k', network='v', channel='z', duration=20)
         b2 = create_random_trace(station='k', network='v', channel='b', duration=20)
-        syth_trace1 = converter([e1.copy(), z1.copy()])
-        syth_trace2 = converter([e2.copy(), n2.copy(), z2.copy(), b2.copy()])
+        syth_trace1 = converter([e1.copy(), z1.copy()],starttime=0,station=0)
+        syth_trace2 = converter([e2.copy(), n2.copy(), z2.copy(), b2.copy()],starttime=0,station=0)
 
-        correlation_source = correlator(syth_trace1, syth_trace2)
+        correlation_source = correlator(syth_trace1, syth_trace2,starttime=0,station=0)
 
-        correlation_ez24 = correlator(converter([e1.copy()]), converter([z2.copy()]))
+        correlation_ez24 = correlator(converter([e1.copy()],starttime=0,station=0),
+                                      converter([z2.copy()]),starttime=0,station=0)
 
         result_1 = correlation_source.loc['e', 'z', :, :] - correlation_ez24[0, 0, :, :]
 
@@ -300,7 +303,7 @@ class TestCorrelation(unittest.TestCase):
         attrs = {'starttime':0,'delta':1}
         xarray_receiver.attrs = attrs
         xarray_source.attrs   = attrs
-        result = xarray_crosscorrelate(xarray_source,xarray_receiver,dummy_task=True)
+        result = xarray_crosscorrelate(xarray_source,xarray_receiver,dummy_task=True,starttime=0,station=0)
 
         self.assertTrue(result.loc['d','z',:,0]==9)
         self.assertTrue(result.loc['c', 'z', :, 0] == 6)

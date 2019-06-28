@@ -15,7 +15,7 @@ class TestCorrelation(unittest.TestCase):
         n2 = create_random_trace(station='k', network='v', channel='n', duration=20)
         z2 = create_sinsoidal_trace_w_decay(decay=0.3, station='k', network='v', channel='z', duration=20)
         b2 = create_random_trace(station='k', network='v', channel='b', duration=20)
-        syth_trace2 = converter([e2, n2, z2, b2])
+        syth_trace2 = converter([e2, n2, z2, b2],starttime=0,station=0)
 
         result_1 = syth_trace2.loc['e',:,:].data.ravel() -  e2.data
         self.assertEqual(0, np.sum(result_1))

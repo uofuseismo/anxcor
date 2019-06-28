@@ -16,9 +16,13 @@ def write(xarray, path, extension):
 def read(path, extension):
     xarray_path     ='{}{}{}{}'.format(path, utils.sep, extension, '.nc')
     attributes_path ='{}{}{}{}'.format(path, utils.sep, extension, '.metadata.json')
-    xarray = xr.open_dataset(xarray_path)
-    with open(attributes_path, 'r') as p_file:
-        attrs = json.load(p_file)
+    try:
+        xarray = xr.open_dataset(xarray_path)
+        with open(attributes_path, 'r') as p_file:
+            attrs = json.load(p_file)
+    except FileNotFoundError:
+        print('File:\n {}\n not found. Aborting operations'.format(attributes_path))
+        return None
     xarray.attrs = attrs
     return xarray
 
@@ -80,11 +84,11 @@ class _XArrayWrite(_IO):
         if not utils.folder_exists(dir):
             utils.make_dir(dir)
 
-    def __call__(self, xarray,one,two,three, dask_client=None, **kwargs):
+    def __call__(self, xarray, process, folder, file, dask_client=None, **kwargs):
         if self._file is not None:
-            folder    = '{}{}{}{}{}'.format(self._file, utils.sep, one, utils.sep, two)
+            folder    = '{}{}{}{}{}'.format(self._file, utils.sep, process, utils.sep, folder)
             self._chkmkdir(folder)
-            write(xarray, folder, three)
+            write(xarray, folder, file)
 
 
 class _XArrayRead(_IO):
@@ -99,10 +103,10 @@ class _XArrayRead(_IO):
             utils.make_dir(directory)
         self._file = directory
 
-    def __call__(self,xarray, extension1, extension2, file, dask_client=None, **kwargs):
+    def __call__(self, xarray, process, folder, file, dask_client=None, **kwargs):
         result = None
         if self._file is not None:
-            folder = self._file + utils.sep + extension1 + utils.sep + extension2
+            folder = self._file + utils.sep + process + utils.sep + folder
             result = read(folder, file)
 
         if result is not None:
@@ -137,22 +141,20 @@ class _XDaskTask:
             else:
                 print('given key is not a selectable parameter')
 
-    def __call__(self, *args, starttime=0, station=0, dask_client=None, **kwargs):
-        key = self._get_operation_key(starttime,station)
+    def __call__(self, *args, dask_client=None, **kwargs):
+        key = self._get_operation_key(kwargs['starttime'],kwargs['station'])
         result = None
-        if self._enabled:
+        if self._enabled and not self.read.is_enabled():
             if dask_client is None:
-                if not self.read.is_enabled():
-                    result = self._execute(args, kwargs)
+                result = self._execute(*args,**kwargs)
             else:
-                if not self.read.is_enabled():
-                    result = dask_client.submit(self._execute, args, kwargs,key=key)
+                result = dask_client.submit(self._execute, *args, key=key,**kwargs)
 
-
-        result = self._io_operations(args, dask_client, result, starttime, station)
+        result = self._io_operations(*args, dask_client=dask_client, result=result,
+                                     starttime=kwargs['starttime'], station=kwargs['station'])
         return result
 
-    def _execute(self, args, kwargs):
+    def _execute(self, *args, **kwargs):
         persist_name = self._get_name(*args)
         persisted_metadata = self._metadata_to_persist(*args, **kwargs)
         result = self._single_thread_execute(*args, **kwargs)
@@ -165,22 +167,30 @@ class _XDaskTask:
         if persist_name is not None:
             result.name = persist_name
 
-    def _io_operations(self, args, dask_client, result, starttime, station):
+    def _io_operations(self, *args, dask_client=None, result=None, starttime=0, station=0,**kwargs):
         key = self._get_operation_key(starttime,station)
         if self.read.is_enabled():
+            file, folder, process = self._get_io_string_vars(starttime, station)
             if dask_client is None:
-                result = self._read_execute(args, starttime, station)
+                result = self._read_execute(result, process, folder, file)
             else:
-                result = dask_client.submit(self._read_execute,args,starttime,station,key=key)
+                result = dask_client.submit(self._read_execute,*args, process, folder, file,key=key)
         elif self.write.is_enabled():
+            file, folder, process = self._get_io_string_vars(starttime, station)
             if dask_client is None:
-                self.write(result, self._get_process(), self._time_signature(starttime), station)
+                self.write(result, process, folder, file)
             else:
-                dask_client.submit(self.write, result, self._get_process(), self._time_signature(starttime), key=key)
+                dask_client.submit(self.write, result,  process, folder, file, key=key)
         return result
 
-    def _read_execute(self, args, starttime, station):
-        result = self.read(args[0], self._get_process(), self._time_signature(starttime), station)
+    def _get_io_string_vars(self, starttime, station):
+        process = self._get_process()
+        folder = self._time_signature(starttime)
+        file = station
+        return file, folder, process
+
+    def _read_execute(self, result, process, folder, file):
+        result = self.read(result, process,folder,file)
         result = self._addition_read_processing(result)
         return result
 

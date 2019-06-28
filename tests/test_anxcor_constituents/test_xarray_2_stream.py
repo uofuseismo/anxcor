@@ -2,7 +2,7 @@ import unittest
 from obsplus.bank import WaveBank
 from obspy.core import Stream, Trace
 from utils import _clean_files_in_dir, _how_many_fmt
-from anxcor.core import Anxcor
+from anxcor.core import Anxcor, AnxcorDatabase
 from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
 import numpy as np
 import xarray as xr
@@ -27,9 +27,10 @@ def get_ancor_set():
     return bank
 
 
-class WavebankWrapper:
+class WavebankWrapper(AnxcorDatabase):
 
     def __init__(self, directory):
+        super().__init__()
         self.bank = WaveBank(directory)
         import warnings
         warnings.filterwarnings("ignore")
@@ -45,8 +46,7 @@ class WavebankWrapper:
                       'channel': trace.stats.channel,
                       'network': trace.stats.network,
                       'latitude': trace.stats.sac['stla'],
-                      'longitude': -trace.stats.sac['stlo'] }
-
+                      'longitude': -trace.stats.sac['stlo'],}
             traces.append(Trace(data,header=header))
         return Stream(traces=traces)
 
@@ -70,11 +70,11 @@ class TestObspyUtilFunction(unittest.TestCase):
         # stations 21, & 22
         # 3 windows say
         #
-        anxcor = Anxcor(3600, 0.5)
+        anxcor = Anxcor(3600)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.set_parameters('correlate', dict(dummy_task=True))
-        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        result = anxcor.process([starttime_stamp])
         streams = anxcor.xarray_to_obspy(result)
         self.assertEqual(len(streams),27,'not enough traces retained!')
 
@@ -86,7 +86,7 @@ class TestObspyUtilFunction(unittest.TestCase):
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.set_parameters('correlate', dict(dummy_task=True))
-        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        result = anxcor.process([starttime_stamp])
         rotated_result = anxcor.align_station_pairs(result)
         streams = anxcor.xarray_to_obspy(result)
         self.assertEqual(len(streams),27,'not enough traces retained!')

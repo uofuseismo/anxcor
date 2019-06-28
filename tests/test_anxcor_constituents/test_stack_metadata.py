@@ -2,7 +2,7 @@ import unittest
 from obsplus.bank import WaveBank
 from obspy.core import Stream, Trace
 from utils import _clean_files_in_dir, _how_many_fmt
-from anxcor.core import Anxcor
+from anxcor.core import Anxcor, AnxcorDatabase
 from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
 import numpy as np
 import xarray as xr
@@ -27,9 +27,10 @@ def get_ancor_set():
     return bank
 
 
-class WavebankWrapper:
+class WavebankWrapper(AnxcorDatabase):
 
     def __init__(self, directory):
+        super().__init__()
         self.bank = WaveBank(directory)
         import warnings
         warnings.filterwarnings("ignore")
@@ -59,9 +60,10 @@ class WavebankWrapper:
         unique_stations = df['seed'].unique().tolist()
         return unique_stations
 
-class WavebankWrapperWLatLons:
+class WavebankWrapperWLatLons(AnxcorDatabase):
 
     def __init__(self, directory):
+        super().__init__()
         self.bank = WaveBank(directory)
         import warnings
         warnings.filterwarnings("ignore")
@@ -99,40 +101,44 @@ class TestMetadataInCombine(unittest.TestCase):
 
     def test_stacking_preserves_pair_key(self):
 
-        anxcor = Anxcor(3600, 0.5)
+        anxcor = Anxcor(3600)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.set_parameters('correlate', dict(dummy_task=True))
-        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        result = anxcor.process(times)
         #
         self.assertTrue('src:FG.21rec:FG.22' in result.attrs.keys())
 
     def test_metadata_with_latlons(self):
-        anxcor = Anxcor(3600, 0.5)
+        anxcor = Anxcor(3600)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
         bank = WavebankWrapperWLatLons(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.set_parameters('correlate', dict(dummy_task=True))
-        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        result = anxcor.process(times)
         print(result.variables.values)
         #
         self.assertTrue('location' in result.attrs['src:FG.21rec:FG.22'].keys())
 
     def test_output_dataset_format(self):
-        anxcor = Anxcor(3600, 0.5)
+        anxcor = Anxcor(3600)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
         bank = WavebankWrapperWLatLons(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.set_parameters('correlate', dict(dummy_task=True))
-        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        result = anxcor.process(times)
         len_variables = len(list(result.data_vars))
         #
         self.assertEqual(len_variables,1,'too many variables added to dataset')
 
     def test_output_dimension_lengths(self):
-        anxcor = Anxcor(3600, 0.5)
+        anxcor = Anxcor(3600)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
         bank = WavebankWrapperWLatLons(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.set_parameters('correlate', dict(dummy_task=True))
-        result = anxcor.process(starttime=starttime_stamp, endtime=starttime_stamp + 2 * 3600)
+        result = anxcor.process(times)
         len_pair = len(list(result.coords['pair'].values))
         len_src = len(list(result.coords['src_chan'].values))
         len_rec = len(list(result.coords['rec_chan'].values))

@@ -1,16 +1,6 @@
-""" Anxcor:
 
 
-
-
-
-
-
-"""
-
-
-
-from  anxcor.containers import DataLoader, XArrayCombine, XArrayStack, AnxorDatabase
+from  anxcor.containers import DataLoader, XArrayCombine, XArrayStack, AnxcorDatabase
 from  anxcor.xarray_routines import XArrayConverter, XResample, XArrayXCorrelate
 from anxcor.abstractions import XArrayProcessor
 from typing import List, Callable
@@ -36,8 +26,7 @@ class Anxcor:
         self._converter = _AnxcorConverter(self._data)
 
 
-    def add_dataset(self, database: AnxorDatabase, name: str,
-                    trace_prep: Callable[[Trace],Trace] =None, **kwargs) -> None:
+    def add_dataset(self, database: AnxcorDatabase, name: str, **kwargs) -> None:
         """
         Adds a new dataset implementing the AnxorDatabase Interface to the crosscorrelation.
         If desired, you may provide an additional callable function used to remove the instrument
@@ -45,7 +34,7 @@ class Anxcor:
 
         Parameters
         ----------
-        database : AnxorDatabase
+        database : AnxcorDatabase
             a database to add which implements the AnxorDatabase interface
         name : str
             a name describing the type of the resultant data
@@ -54,7 +43,7 @@ class Anxcor:
 
 
         """
-        self._data.add_dataset(database, name, trace_prep=trace_prep, **kwargs)
+        self._data.add_dataset(database, name, **kwargs)
 
 
     def add_process(self, process: XArrayProcessor) -> None:
@@ -195,6 +184,23 @@ class Anxcor:
         """
         return self._processor.process(starttimes, dask_client=dask_client)
 
+    def xarray_to_obspy(self, xdataset: Dataset):
+        """
+        convert the output of a anxcor correlation into an obspy stream
+
+        Parameters
+        ----------
+        xdataset : Dataset
+            an xarray Dataset object produced by AnXcor
+
+        Returns
+        -------
+        Stream
+            obspy trace stream of cross correlations
+
+        """
+        return self._converter.xarray_to_obspy(xdataset)
+
 
 
 class _AnxcorProcessor:
@@ -242,7 +248,7 @@ class _AnxcorProcessor:
         receiver = pair[1]
         correlation_stack = []
         for starttime in starttimes:
-            source_channels = self.data.get_task('data')(starttime, source,
+            source_channels = self.data.get_task('data')(
                                                   starttime=starttime,
                                                   station=source,
                                                   dask_client=dask_client)
@@ -253,7 +259,7 @@ class _AnxcorProcessor:
             if source==receiver:
                 receiver_ch_ops = source_ch_ops
             else:
-                receiver_channels = self.data.get_task('data')(starttime, receiver,
+                receiver_channels = self.data.get_task('data')(
                                                       starttime=starttime,
                                                       station=receiver,
                                                       dask_client=dask_client)
@@ -288,7 +294,7 @@ class _AnxcorProcessor:
                 second = future_stack.pop()
                 result = reducing_func(first, second,
                                        station=station,
-                                       starttime=reducing_func.starttime(tree_depth, branch_index),
+                                       starttime=reducing_func.starttime_parser(tree_depth, branch_index),
                                        dask_client=dask_client)
                 new_future_list.append(result)
 
@@ -298,7 +304,7 @@ class _AnxcorProcessor:
                 second = new_future_list.pop()
                 result = reducing_func(first, second,
                                        station=station,
-                                       starttime=reducing_func.starttime(tree_depth, branch_index),
+                                       starttime=reducing_func.starttime_parser(tree_depth, branch_index),
                                        dask_client=dask_client)
                 new_future_list.append(result)
             tree_depth +=1
