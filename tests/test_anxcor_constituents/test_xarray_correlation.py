@@ -311,6 +311,11 @@ class TestCorrelation(unittest.TestCase):
         self.assertTrue(result.loc['d','z',:,0]==9)
         self.assertTrue(result.loc['c', 'z', :, 0] == 6)
 
+    def test_nonetype_in_out(self):
+        correlator = XArrayXCorrelate()
+        result = correlator(None,None, starttime=0, station=0)
+        self.assertEqual(result, None)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -48,6 +48,10 @@ class TestSpectralWhitening(unittest.TestCase):
         idx = (np.abs(array - value)).argmin()
         return idx
 
+    def test_nonetype_in_out(self):
+        result = whiten(None,starttime=0,station=0)
+        self.assertTrue(True)
+
 
 if __name__ == '__main__':
     unittest.main()

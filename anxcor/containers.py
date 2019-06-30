@@ -340,7 +340,11 @@ class XArrayStack(ab.XArrayProcessor):
         return array.attrs
 
     def _get_name(self,one,two):
-        return one.name
+        if one is not None:
+            return one.name
+        if two is not None:
+            return two.name
+        return None
 
     def _get_lower(self,one,two,key):
         if one[key] < two[key]:

@@ -162,13 +162,18 @@ class _XDaskTask:
         return result
 
     def _execute(self, *args, **kwargs):
-        persist_name = self._get_name(*args)
-        persisted_metadata = self._metadata_to_persist(*args, **kwargs)
-        result = self._single_thread_execute(*args, **kwargs)
+        persist_name       = self.__get_name(*args)
+        persisted_metadata = self.__metadata_to_persist(*args, **kwargs)
+        if args is None or len(args)==1 and args[0] is None:
+            result = None
+        else:
+            result = self._single_thread_execute(*args, **kwargs)
         self._assign_metadata(persist_name, persisted_metadata, result)
         return result
 
     def _assign_metadata(self, persist_name, persisted_metadata, result):
+        if result is None:
+            return None
         if persisted_metadata is not None:
             result.attrs = persisted_metadata
         if persist_name is not None:
@@ -210,6 +215,18 @@ class _XDaskTask:
     def _dask_task_execute(self,*args,**kwargs):
         pass
 
+    def __metadata_to_persist(self,*param,**kwargs):
+        if param is None or (len(param)==1 and param[0] is None):
+            return None
+        else:
+            return self._metadata_to_persist(*param,**kwargs)
+
+    def __get_name(self,*param,**kwargs):
+        if param is None or (len(param)==1 and param[0] is None):
+            return None
+        else:
+            return self._get_name(*param,**kwargs)
+
 
     def _metadata_to_persist(self, *param, **kwargs):
         if len(param)==1:
@@ -228,18 +245,21 @@ class _XDaskTask:
             attrs['operations']=attrs['operations'] + '\n' + add_operation
         return attrs
 
+    def _get_name(self,*args,**kwargs):
+        if len(args) == 1:
+            return args[0].name
+        elif args[0] is None and args[1] is not None:
+            return args[1].name
+        elif args[0] is not None and args[1] is None:
+            return args[0].name
+        else:
+            return args[0].name + ':' + args[1].name
+
     def _add_operation_string(self):
         return None
-            
+
     def _add_metadata_key(self):
         return None
-
-    def _get_name(self,*args):
-        if len(args) == 1:
-            name = args[0].name
-        else:
-            name = args[0].name + ':' + args[1].name
-        return name
 
     def _get_process(self):
         return 'process'

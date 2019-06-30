@@ -123,3 +123,8 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         corr_func=corr_func.data.ravel()
         corr_func/=np.max(abs(corr_func))
         return corr_func
+
+    def test_nonetype_in_out(self):
+        t_norm = XArrayTemporalNorm()
+        result = t_norm(None,starttime=0,station=0)
+        self.assertTrue(True)

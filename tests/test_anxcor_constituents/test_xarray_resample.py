@@ -21,3 +21,7 @@ class TestDownsample(unittest.TestCase):
         source        = np.argmax(trace_processed.data.ravel()) * trace_processed.attrs['delta']
 
         self.assertAlmostEqual(target,source,int(np.log10(1/target_rate)),"filter introduced phase shift")
+
+    def test_nonetype_in_out(self):
+        result = converter(None, starttime=0, station=0)
+        self.assertEqual(result,None)

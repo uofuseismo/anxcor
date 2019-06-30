@@ -252,6 +252,9 @@ class XArrayXCorrelate(ab.XArrayProcessor):
 
 
     def _metadata_to_persist(self, xarray_1,xarray_2, **kwargs):
+        if xarray_2 is None or xarray_1 is None:
+            return None
+
         attrs = {'delta'    : xarray_1.attrs['delta'],
                  'starttime': xarray_1.attrs['starttime'],
                  'stacks'   : 1,
@@ -270,7 +273,10 @@ class XArrayXCorrelate(ab.XArrayProcessor):
         return xarray1 is not None and xarray2 is not None
 
     def _get_name(self,one,two):
-        return 'src:{} rec:{}'.format(one.name, two.name)
+        if one is not None and two is not None:
+            return 'src:{} rec:{}'.format(one.name, two.name)
+        else:
+            return None
 
 class XArrayRemoveMeanTrend(ab.XArrayProcessor):
     """

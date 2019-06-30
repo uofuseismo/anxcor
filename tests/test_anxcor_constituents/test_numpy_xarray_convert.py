@@ -1,5 +1,5 @@
 import unittest
-from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
+from .synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
 from xarray_routines import XArrayXCorrelate, XArrayConverter
 import numpy as np
 import xarray as xr
@@ -25,3 +25,7 @@ class TestCorrelation(unittest.TestCase):
         self.assertEqual(0, np.sum(result_1))
         result_1 = syth_trace2.loc['b', :, :].data.ravel() - b2.data
         self.assertEqual(0, np.sum(result_1))
+
+    def test_nonetype_in_out(self):
+        result = converter(None,starttime=0,station=0)
+        self.assertTrue(True)

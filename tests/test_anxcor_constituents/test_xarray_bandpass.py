@@ -43,6 +43,11 @@ class TestBandpassFiltering(unittest.TestCase):
         target = 0
         self.assertEqual(correction,target,"filter introduced phase shift")
 
+    def test_nonetype_in_out(self):
+        process = XArrayBandpass()
+        result = process(None, None, starttime=0, station=0)
+        self.assertEqual(result, None)
+
 
 if __name__ == '__main__':
     unittest.main()
