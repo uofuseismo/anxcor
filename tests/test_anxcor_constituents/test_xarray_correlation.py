@@ -172,7 +172,8 @@ class TestCorrelation(unittest.TestCase):
         syth_trace2 = converter([e2.copy(), z2.copy()],starttime=0,station=0)
 
         correlation_source = correlator(syth_trace1, syth_trace2,starttime=0,station=0)
-        correlation_ee     = correlator(converter([e1.copy()]), converter([e2.copy()]))
+        correlation_ee     = correlator(converter([e1.copy()],starttime=0,station=0),
+                                        converter([e2.copy()],starttime=0,station=0),starttime=0,station=0)
         result_1     = correlation_source.loc['e', 'e', :, :] - correlation_ee
         self.assertEqual(0,np.sum(result_1.data))
 
@@ -193,7 +194,8 @@ class TestCorrelation(unittest.TestCase):
         syth_trace2 = converter([e2, z2],starttime=0,station=0)
 
         correlation_source = correlator(syth_trace1, syth_trace2,starttime=0,station=0)
-        correlation_zz = correlator(converter([z1.copy()],starttime=0,station=0), converter([z2.copy()],starttime=0,station=0))
+        correlation_zz = correlator(converter([z1.copy()],starttime=0,station=0),
+                                    converter([z2.copy()],starttime=0,station=0),starttime=0,station=0)
         result_1 = correlation_source.loc['z', 'z', :, :] - correlation_zz
         self.assertEqual(0, np.sum(result_1.data))
 
@@ -212,8 +214,9 @@ class TestCorrelation(unittest.TestCase):
         syth_trace1 = converter([e1, z1],starttime=0,station=0)
         syth_trace2 = converter([e2, z2],starttime=0,station=0)
 
-        correlation_source = correlator(syth_trace1, syth_trace2)
-        correlation_zz = correlator(converter([e1.copy()],starttime=0,station=0), converter([z2.copy()],starttime=0,station=0))
+        correlation_source = correlator(syth_trace1, syth_trace2,starttime=0,station=0)
+        correlation_zz = correlator(converter([e1.copy()],starttime=0,station=0),
+                                    converter([z2.copy()],starttime=0,station=0),starttime=0,station=0)
         result_1 = correlation_source.loc['e', 'z', :, :] - correlation_zz
         self.assertEqual(0, np.sum(result_1.data))
 
@@ -235,7 +238,7 @@ class TestCorrelation(unittest.TestCase):
         correlation_source = correlator(syth_trace1, syth_trace2,starttime=0,station=0)
 
         correlation_ze = correlator(converter([z1],starttime=0,station=0),
-                                    converter([e2],starttime=0,station=0))
+                                    converter([e2],starttime=0,station=0),starttime=0,station=0)
 
         result_1 = correlation_source.loc['z', 'e', :, :] - correlation_ze[0, 0, :, :]
 
@@ -261,7 +264,7 @@ class TestCorrelation(unittest.TestCase):
         correlation_source = correlator(syth_trace1, syth_trace2,starttime=0,station=0)
 
         correlation_ez24 = correlator(converter([e1.copy()],starttime=0,station=0),
-                                      converter([z2.copy()]),starttime=0,station=0)
+                                      converter([z2.copy()],starttime=0,station=0),starttime=0,station=0)
 
         result_1 = correlation_source.loc['e', 'z', :, :] - correlation_ez24[0, 0, :, :]
 

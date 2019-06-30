@@ -221,6 +221,10 @@ class XArrayCombine(ab.XDatasetProcessor):
         super().__init__(**kwargs)
 
     def _single_thread_execute(self,first_data, second_data,**kwargs):
+        if isinstance(first_data,xr.DataArray):
+            first_data = first_data.to_dataset()
+        if isinstance(second_data,xr.DataArray):
+            second_data = second_data.to_dataset()
         return execute_if_ok_else_pass_through(self._normal_combine,first_data,second_data)
 
     def _normal_combine(self, first_data, second_data):
@@ -252,9 +256,14 @@ class XArrayCombine(ab.XDatasetProcessor):
         return result
 
     def _metadata_to_persist(self, first_data, second_data, **kwargs):
-        if first_data is not None:
+        if first_data is None and second_data is None:
+            return None
+        elif first_data is None and second_data is not None:
+            return {**self._extract_metadata_dict(second_data)}
+        elif first_data is not None and second_data is None:
+            return {**self._extract_metadata_dict(first_data)}
+        else:
             persist1 = self._extract_metadata_dict(first_data)
-        if second_data is not None:
             persist2 = self._extract_metadata_dict(second_data)
         result   = {**persist1,**persist2}
         return result

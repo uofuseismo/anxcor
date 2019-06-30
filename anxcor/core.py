@@ -7,6 +7,8 @@ from xarray import Dataset
 import numpy as np
 import itertools
 from obspy.core import UTCDateTime, Stream, Trace
+import configparser
+import json
 
 class Anxcor:
 
@@ -57,21 +59,33 @@ class Anxcor:
         """
         self._data.add_process(process)
 
-    def set_parameters(self, process_key: str, key_dict: dict, *args) -> None:
+    def set_task_kwargs(self, task: str, kwargs: dict):
         """
-        Set parameters on a processing step not defined prior to adding them
+        sets keyword-arguments into the given task.
 
         Parameters
         ----------
-        process_key : str
-            the key of the process to add the keyword-arguments to. If it is a process added through the
-        'add_process()' method, the key should be 'process'
-
-        key_dict : dict
-            a dictionary of keyword arguments to pass on to the XArray Processor object
+        task : str
+            the task key
+        kwargs : dict
+            the keyword-arguments to set
 
         """
-        self._data.set_parameters(process_key,key_dict,*args)
+        self._data.set_task_kwargs(task,kwargs)
+
+    def set_process_kwargs(self, process: str, kwargs: dict):
+        """
+        sets keyword-arguments into the given process
+
+        Parameters
+        ----------
+        process : str
+            the process key
+        kwargs : dict
+            the keyword-arguments to set
+
+        """
+        self._data.set_process_kwargs(process,kwargs)
 
     def get_task(self,key: str) -> XArrayProcessor:
         """
@@ -111,55 +125,95 @@ class Anxcor:
         """
         return self._converter.get_starttimes(starttime, endtime, overlap)
 
-    def save_at_step(self,folder: str,type: str,order: int = None,**kwargs) -> None:
+    def save_at_task(self, folder: str,task,**kwargs) -> None:
         """
-        Save result of method to file at a given step type
+        Save result of method to file at a given task step
 
         Parameters
         ----------
         folder : str
             the folder to save the step result to.
-        type : str
+        task : str
             one of:
             'data'
             'resample'
             'xconvert'
-            'process'
             'correlate'
-            'write_stack'
+            'stack'
             'combine'
-            'write_combine'
-        representing the process key at which to save
-        order: int, Optional
-            the order of the processing stack to write at. Only necessary if type=='process'
+        representing the process key at which to save.
+
+        Note
+        ----
+        see save_at_process() for saving after a specific processing step
 
         """
-        self._data.save_at_step(folder,type=type,order=order,**kwargs)
+        self._data.save_at_task(folder,task)
 
-    def load_at_step(self,folder: str,type: str,order: int=None,**kwargs)-> None:
+    def load_at_task(self, folder: str,task,**kwargs)-> None:
         """
-        Start processing at the given step, skipping all prior steps
+        load result of method from file at a given task step.
+        will disable all routines behind it in the compute graph
 
         Parameters
         ----------
         folder : str
             the folder to save the step result to.
-        type : str
+        task : str
             one of:
             'data'
             'resample'
             'xconvert'
-            'process'
             'correlate'
-            'write_stack'
+            'stack'
             'combine'
-            'write_combine'
-        representing the process key at which to save
-        order: int, Optional
-            the order of the processing stack to write at. Only necessary if type=='process'
+        representing the process key at which to save.
+
+        Note
+        ----
+        see load_at_process() for saving after a specific processing step
 
         """
-        self._data.load_at_step(folder,type=type,order=order,**kwargs)
+        self._data.load_at_task(folder, task)
+
+    def save_at_process(self, folder: str,process : str,**kwargs) -> None:
+        """
+        save result of method to file at a given task step
+
+        Parameters
+        ----------
+        folder : str
+            the folder to save the step result to.
+        process : str
+            a string returned by the get_name()/get_process() method of an XArrayProcessor
+            object assigned to an Anxcor object
+
+        Note
+        ----
+        the object must have already been added via the add_process() routine
+
+        """
+        self._data.save_at_process(folder,process)
+
+    def load_at_process(self, folder: str,process: str,**kwargs)-> None:
+        """
+        load result of method from file at a given task step
+        will disable all routines behind it in the compute graph
+
+        Parameters
+        ----------
+        folder : str
+            the folder to save the step result to.
+        process : str
+            a string returned by the get_name()/get_process() method of an XArrayProcessor
+            object assigned to an Anxcor object
+
+        Note
+        ----
+        the object must have already been added via the add_process() routine
+
+        """
+        self._data.load_at_process(folder, process)
 
     def process(self, starttimes: List[float], dask_client=None) -> Dataset:
         """
@@ -200,6 +254,29 @@ class Anxcor:
         """
         return self._converter.xarray_to_obspy(xdataset)
 
+    def save_config(self,file):
+        """
+        saves the parameters for each processing step as a .ini file
+        Parameters
+        ----------
+        file : str
+            the config file to save
+        """
+        self._data.save_config(file)
+
+    def load_config(self,file):
+        """
+        loads a previously built .ini file, assigning the results to the current process stack
+        will present a warning if config file parameters are not present
+        Parameters
+        ----------
+        file : str
+            the config file to load
+
+
+        """
+        self._data.load_config(file)
+
 
 
 class _AnxcorProcessor:
@@ -212,8 +289,9 @@ class _AnxcorProcessor:
         xarray      = self.data.get_task('xconvert')(channels, starttime=starttime, station=station, dask_client=dask_client )
         downsampled = self.data.get_task('resample')(xarray, starttime=starttime, station=station, dask_client=dask_client )
         tasks = [downsampled]
-        process_list = self.data.get_task('process')
-        for process in process_list:
+        process_list = self.data.get_process_order()
+        for process_key in process_list:
+            process = self.data.get_process(process_key)
             task   = tasks.pop()
             result = process(task,starttime=starttime, station=station, dask_client=dask_client )
             tasks.append(result)
@@ -235,7 +313,7 @@ class _AnxcorProcessor:
             futures.append(correlation_stack)
 
         combined_crosscorrelations = self._reduce(futures,
-                                                  station='combined',
+                                                  station='combine',
                                                   reducing_func=self.data.get_task('combine'),
                                                   dask_client=dask_client)
 
@@ -267,7 +345,7 @@ class _AnxcorProcessor:
                                                                 station=receiver,
                                                                 dask_client=dask_client)
 
-            correlation = self.data.get_task('correlate')(source_ch_ops,
+            correlation = self.data.get_task('crosscorrelate')(source_ch_ops,
                                                    receiver_ch_ops,
                                                    station='src:{}rec:{}'.format(source,receiver),
                                                    starttime=starttime,
@@ -313,20 +391,25 @@ class _AnxcorProcessor:
 
 
 class _AnxcorData:
-    TASKS = ['data', 'xconvert', 'resample', 'process', 'correlate', 'stack', 'combine']
-    def __init__(self,window_length: float =3600.0, include_pairs=None,exclude_pairs=None, **kwargs):
-        self._window_length = window_length
-        self._include_pairs=include_pairs
-        self._exclude_pairs=exclude_pairs
+    TASKS = ['data', 'xconvert', 'resample', 'process', 'crosscorrelate', 'stack', 'combine']
+    def __init__(self,window_length: float =3600.0):
+        self._window_length=window_length
         self._tasks = {
             'data': DataLoader(window_length),
             'xconvert': XArrayConverter(),
             'resample': XResample(),
-            'process': [],
-            'correlate': XArrayXCorrelate(),
+            'process' : {},
+            'crosscorrelate': XArrayXCorrelate(),
             'combine': XArrayCombine(),
             'stack': XArrayStack()
             }
+        self._process_order = []
+
+    def get_process_order(self):
+        return self._process_order.copy()
+
+    def get_process(self,process_key):
+        return self._tasks['process'][process_key]
 
     def get_window_length(self):
         return self._window_length
@@ -336,77 +419,40 @@ class _AnxcorData:
         station_pairs = list(itertools.combinations_with_replacement(stations, 2))
         return station_pairs
 
-    def save_at_step(self, folder, type='resample', order=None, **kwargs):
-        """
-        Parameters
-        ----------
-        folder
-        type:
-            one of:
-            'data'
-            'resample'
-            'xconvert'
-            'process'
-            'correlate'
-            'write_stack'
-            'combine'
-            'write_combine'
-            an integer representing the order of extra station ops
-        order: int
-            the order of the processing stack to assign a write function
-        Returns
-        -------
-        """
-        if isinstance(type, str):
-            if type in self._tasks.keys():
-                if order is None:
-                    self._tasks[type].set_folder(folder, 'write', **kwargs)
-                elif isinstance(order, int) and order < len(self._tasks[type]):
-                    self._tasks[type][order].set_folder(folder, 'write', **kwargs)
-                else:
-                    raise Exception('Write assign call error. please refer to documentation')
-            else:
-                raise Exception('Not a valid key')
+    def save_at_task(self, folder, task : str='resample'):
+        if task in self._tasks.keys() and task!='process':
+             self._tasks[task].set_io_task(folder, 'save')
+        else:
+            print('{} is Not a valid task'.format(task))
 
-    def load_at_step(self, folder, type='resample', order=None, **kwargs):
-        """
-        Parameters
-        ----------
-        folder
-        type:
-            one of:
-            'data'
-            'resample'
-            'xconvert'
-            'process'
-            'correlate'
-            'write_stack'
-            'combine'
-            'write_combine'
-            an integer representing the order of extra station ops
-        order: int
-            the order of the processing stack to assign a write function
-        Returns
-        -------
-        """
-        if isinstance(type, str):
-            if type in self._tasks.keys():
-                if order is None:
-                    self._tasks[type].set_folder(folder, 'read', **kwargs)
-                    self._disable_tasks(type)
-                elif isinstance(order, int) and order < len(self._tasks[type]):
-                    self._tasks[type][order].set_folder(folder, 'read', **kwargs)
-                    self._disable_process(order)
-                    self._disable_tasks('process')
-                else:
-                    raise Exception('Write assign call error. please refer to documentation')
-            else:
-                raise Exception('Not a valid key')
+    def save_at_process(self, folder, process : str='whiten'):
+        if process in self._process_order:
+             self._tasks['process'][process].set_io_task(folder, 'save')
+        else:
+            print('{} is Not a valid process'.format(process))
 
 
-    def _disable_process(self, position):
-        for index in range(0, position + 1):
-            self._tasks['process'][index].disable()
+    def load_at_process(self, folder, process='resample'):
+        if process in self._process_order:
+            self._tasks['process'][process].set_io_task(folder, 'load')
+            self._disable_tasks('process')
+            self._disable_process(process)
+        else:
+            print('{} is Not a valid process'.format(process))
+
+    def load_at_task(self, folder, task='resample'):
+        if task in self._tasks.keys() and task!='process':
+             self._tasks[task].set_io_task(folder, 'load')
+             self._disable_tasks(task)
+        else:
+            print('{} is Not a valid task'.format(task))
+
+
+    def _disable_process(self, process):
+        index = self._process_order.index(process)
+        for disable in range(0, index + 1):
+            pr = self._process_order[disable]
+            self._tasks['process'][pr].disable()
 
 
     def _disable_tasks(self, key):
@@ -416,7 +462,8 @@ class _AnxcorData:
             if task is not 'process':
                 self._tasks[task].disable()
             else:
-                self._disable_process(len(self._tasks['process']) - 1)
+                if self._process_order:
+                    self._disable_process(self._process_order[-1])
 
 
     def add_dataset(self, dataset, name, trace_prep=None, **kwargs):
@@ -424,21 +471,58 @@ class _AnxcorData:
 
 
     def add_process(self, process):
-        self._tasks['process'].append(process)
+        key = process.get_name()
+        self._tasks['process'][key]=process
+        self._process_order.append(key)
 
-
-    def set_parameters(self, process, key_dict, *args):
-        if process == 'process':
-            self._tasks[process][args[0]].set_param(key_dict)
+    def set_task_kwargs(self,task: str,kwargs: dict):
+        if task in self._tasks.keys():
+            self._tasks[task].set_kwargs(kwargs)
         else:
-            self._tasks[process].set_param(key_dict)
+            print('{}: is not a valid task. ignoring'.format(task))
 
+    def set_process_kwargs(self,process: str, kwargs: dict):
+        if process in self._tasks['process'].keys():
+            self._tasks['process'][process].set_kwargs(kwargs)
+        else:
+            print('{}: is not a valid process. ignoring'.format(process))
 
     def get_task(self,key):
         if key in self._tasks.keys():
             return self._tasks[key]
         else:
             raise KeyError('key does not exist in tasks')
+
+    def save_config(self, file):
+        config = {}
+        for task in self.TASKS:
+            if task!='process':
+                config[task] = self._tasks[task].get_kwargs()
+            else:
+                config[task] = {
+                    'processing order' : self._process_order,
+                }
+                for key, process in self._tasks[task].items():
+                    config[task][key]=process.get_kwargs()
+        with open(file, 'w') as configfile:
+            json.dump(config,configfile, sort_keys=True, indent=4)
+
+
+    def load_config(self, file):
+        with open(file, 'r') as p_file:
+            config = json.load(p_file)
+        for task in self.TASKS:
+            if task!='process':
+                self._tasks[task].set_kwargs(config[task])
+            else:
+                self._process_order = config[task]['processing order']
+                for key, process_kwargs in config[task].items():
+                    if key!='processing order':
+                        if key not in self._tasks[task].keys():
+                            print('{} does not exist inside current Anxcor Object\n'.format(key)+\
+                                  'Skipping for now..')
+                        else:
+                            self._tasks[task][key].set_kwargs(process_kwargs)
 
 
 class _AnxcorConverter:

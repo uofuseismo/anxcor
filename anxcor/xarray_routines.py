@@ -177,13 +177,6 @@ class XArrayTaper(ab.XArrayProcessor):
     def _get_process(self):
         return 'taper'
 
-class XAlign(ab.XArrayProcessor):
-
-    def __init__(self):
-        super().__init__()
-
-#TODO: add stuff for interpolating between a start and stop timestamp
-
 
 class XResample(ab.XArrayProcessor):
     """
@@ -192,13 +185,13 @@ class XResample(ab.XArrayProcessor):
 
     def __init__(self, target_rate=10.0,**kwargs):
         super().__init__(**kwargs)
-        self.target = target_rate
-        self.target_rule = str(int((1.0 / target_rate) * SECONDS_2_NANOSECONDS)) + 'N'
+        self._kwargs['target_rate'] = target_rate
 
     def _single_thread_execute(self, xarray: xr.DataArray,*args,starttime=0,**kwargs):
         delta =  xarray.attrs['delta']
         sampling_rate = 1.0 / delta
-        nyquist       = self.target / 2.0
+        nyquist       = self._kwargs['target_rate'] / 2.0
+        target_rule = str(int((1.0 /self._kwargs['target_rate']) * SECONDS_2_NANOSECONDS)) + 'N'
 
         mean_array     = xarray.mean(dim=['time'])
         demeaned_array = xarray - mean_array
@@ -212,7 +205,7 @@ class XResample(ab.XArrayProcessor):
                                         kwargs={'upper_frequency':    nyquist,
                                                 'sampling_rate': sampling_rate})
 
-        resampled_array= filtered_array.resample(time=self.target_rule)\
+        resampled_array= filtered_array.resample(time=target_rule)\
             .interpolate('linear')
 
         starttime_datetime = np.datetime64(UTCDateTime(starttime).datetime)
@@ -226,13 +219,13 @@ class XResample(ab.XArrayProcessor):
         return resampled_array
 
     def _add_metadata_key(self):
-        return ('delta',1.0/self.target)
+        return ('delta',1.0/self._kwargs['target_rate'])
 
     def _get_process(self):
         return 'resample'
 
     def _add_operation_string(self):
-        return 'resampled@{}Hz'.format(self.target)
+        return 'resampled@{}Hz'.format(self._kwargs['target_rate'])
 
 
 
@@ -242,13 +235,9 @@ class XArrayXCorrelate(ab.XArrayProcessor):
 
     """
 
-    def __init__(self,max_tau_shift=100.0,gpu_enable=False,**kwargs):
+    def __init__(self,max_tau_shift=100.0,**kwargs):
         super().__init__(**kwargs)
         self._kwargs['max_tau_shift']=max_tau_shift
-        self._kwargs['gpu_enable']=gpu_enable
-        if gpu_enable:
-            import torch
-            self._kwargs['torch']=torch
 
     def _single_thread_execute(self, source_xarray: xr.DataArray, receiver_xarray: xr.DataArray,*args, **kwargs):
         if source_xarray is not None and receiver_xarray is not None:
@@ -314,40 +303,83 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
     applies a temporal norm operation to an xarray timeseries
     """
 
-    def __init__(self,time_mean=10.0, lower_frequency=0.001,
-                 upper_frequency=5.0, type='hv_preserve',**kwargs):
+    def __init__(self, time_window=10.0, lower_frequency=0.001,
+                 upper_frequency=5.0, t_norm_type='reduce_channel',
+                 rolling_procedure='mean',
+                 reduction_procedure='max', **kwargs):
         super().__init__(**kwargs)
-        self._type  = type
-        self._time_mean = time_mean
-        self._lower = lower_frequency
-        self._upper = upper_frequency
+        self._kwargs['t_norm_type']         = t_norm_type
+        self._kwargs['time_window']         = time_window
+        self._kwargs['lower_frequency']     = lower_frequency
+        self._kwargs['upper_frequency']     = upper_frequency
+        self._kwargs['rolling_procedure']   = rolling_procedure
+        self._kwargs['reduction_procedure'] = reduction_procedure
+
 
     def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
+        time_average         = self._kwargs['time_window']
+
         sampling_rate   = 1.0/xarray.attrs['delta']
-        rolling_samples = int(sampling_rate*self._time_mean)
+
         bandpassed_array = xr.apply_ufunc(filt_ops.butter_bandpass_filter,xarray,
                                         input_core_dims=[['time']],
                                         output_core_dims = [['time']],
-                                        kwargs={'lower_frequency':self._lower,
-                                                'upper_frequency':self._upper,
-                                                'sample_rate':sampling_rate})
-        if self._type == 'hv_preserve':
-            bandpassed_array = abs(bandpassed_array).rolling(time=rolling_samples,center=True).mean()\
-            .ffill('time').bfill('time').max(dim='channel')
-        else:
-            bandpassed_array = abs(bandpassed_array).rolling(time=rolling_samples, center=True).mean() \
-                .ffill('time').bfill('time')
+                                        kwargs={**self._kwargs,
+                                                **{'sample_rate':sampling_rate}})
+
+        bandpassed_array = self._apply_rolling_method(bandpassed_array, sampling_rate)
+        bandpassed_array = bandpassed_array.ffill('time').bfill('time')
+        bandpassed_array = self._reduce_by_channel(bandpassed_array)
+
 
         xarray = xarray / bandpassed_array
         return xarray
+
+    def _apply_rolling_method(self, bandpassed_array, sampling_rate):
+        time_window       = self._kwargs['time_window']
+        rolling_samples   = int(sampling_rate * time_window)
+        rolling_procedure = self._kwargs['rolling_procedure']
+
+        if rolling_procedure == 'mean':
+            bandpassed_array = abs(bandpassed_array).rolling(time=rolling_samples,
+                                                             min_periods=1,center=True).mean()
+        elif rolling_procedure == 'median':
+            bandpassed_array = abs(bandpassed_array).rolling(time=rolling_samples,
+                                                             min_periods=1,center=True).median()
+        elif rolling_procedure == 'min':
+            bandpassed_array = abs(bandpassed_array).rolling(time=rolling_samples,
+                                                             min_periods=1,center=True).min()
+        elif rolling_procedure == 'max':
+            bandpassed_array = abs(bandpassed_array).rolling(time=rolling_samples,
+                                                             min_periods=1,center=True).max()
+        else:
+            bandpassed_array = abs(bandpassed_array)
+        return bandpassed_array
+
+    def _reduce_by_channel(self, bandpassed_array):
+        reduction_procedure = self._kwargs['reduction_procedure']
+        norm_type           = self._kwargs['t_norm_type']
+        if norm_type == 'reduce_channel':
+            if reduction_procedure   == 'mean':
+                bandpassed_array = abs(bandpassed_array).mean(dim='channel')
+            elif reduction_procedure == 'median':
+                bandpassed_array = abs(bandpassed_array).median(dim='channel')
+            elif reduction_procedure == 'min':
+                bandpassed_array = abs(bandpassed_array).min(dim='channel')
+            elif reduction_procedure == 'max':
+                bandpassed_array = abs(bandpassed_array).max(dim='channel')
+        return bandpassed_array
 
     def _get_process(self):
         return 'temp_norm'
 
 
     def _add_operation_string(self):
-        return 'temporal_norm@type({}),time_mean({}),f_norm_basis({})<f<({})'.format(
-            self._type,self._time_mean,self._lower,self._upper)
+        return 'temporal_norm@type({}),rolling({}),reduce_by({}).'+\
+               'time_mean({}),f_norm_basis({})<f<({})'.format(
+            self._kwargs['t_norm_type'],self._kwargs['time_window'],
+            self._kwargs['rolling_procedure'], self._kwargs['reduction_procedure'],
+            self._kwargs['lower_frequency'],self._kwargs['upper_frequency'])
 
 
 

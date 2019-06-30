@@ -105,7 +105,7 @@ class TestMetadataInCombine(unittest.TestCase):
         times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))
         result = anxcor.process(times)
         #
         self.assertTrue('src:FG.21rec:FG.22' in result.attrs.keys())
@@ -115,7 +115,7 @@ class TestMetadataInCombine(unittest.TestCase):
         times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
         bank = WavebankWrapperWLatLons(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))
         result = anxcor.process(times)
         print(result.variables.values)
         #
@@ -126,7 +126,7 @@ class TestMetadataInCombine(unittest.TestCase):
         times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
         bank = WavebankWrapperWLatLons(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))
         result = anxcor.process(times)
         len_variables = len(list(result.data_vars))
         #
@@ -137,7 +137,7 @@ class TestMetadataInCombine(unittest.TestCase):
         times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
         bank = WavebankWrapperWLatLons(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))
         result = anxcor.process(times)
         len_pair = len(list(result.coords['pair'].values))
         len_src = len(list(result.coords['src_chan'].values))

@@ -65,7 +65,7 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         # downsample both to 10hz sampling rate
 
         down   = XResample(10)
-        t_norm =XArrayTemporalNorm(time_mean=2.0)
+        t_norm =XArrayTemporalNorm(time_window=2.0)
 
         noise_loc_1_eq = down(noise_loc_1_eq,starttime=0,station=0)
         noise_loc_2_eq = down(noise_loc_2_eq,starttime=0,station=0)
@@ -99,7 +99,7 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         noise_loc_1_eq = noise_loc_1.copy()
 
         down   = XResample(10)
-        t_norm =XArrayTemporalNorm(time_mean=2.0)
+        t_norm =XArrayTemporalNorm(time_window=2.0)
 
         noise_loc_2_eq       = down(noise_loc_1_eq,starttime=0,station=0)
 

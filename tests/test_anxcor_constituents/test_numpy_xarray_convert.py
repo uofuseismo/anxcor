@@ -1,5 +1,5 @@
 import unittest
-from .synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
+from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
 from xarray_routines import XArrayXCorrelate, XArrayConverter
 import numpy as np
 import xarray as xr

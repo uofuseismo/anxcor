@@ -73,10 +73,10 @@ class TestObspyUtilFunction(unittest.TestCase):
         anxcor = Anxcor(3600)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))
         result = anxcor.process([starttime_stamp])
         streams = anxcor.xarray_to_obspy(result)
-        self.assertEqual(len(streams),27,'not enough traces retained!')
+        self.assertEqual(len(streams),9,'not enough traces retained!')
 
     def test_rotation(self):
         # stations 21, & 22
@@ -85,11 +85,11 @@ class TestObspyUtilFunction(unittest.TestCase):
         anxcor = Anxcor(3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_parameters('correlate', dict(dummy_task=True))
+        anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))
         result = anxcor.process([starttime_stamp])
         rotated_result = anxcor.align_station_pairs(result)
         streams = anxcor.xarray_to_obspy(result)
-        self.assertEqual(len(streams),27,'not enough traces retained!')
+        self.assertEqual(len(streams),9,'not enough traces retained!')
 
 
 

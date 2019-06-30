@@ -10,7 +10,7 @@ def write(xarray, path, extension):
     data.attrs = {}
     data.to_netcdf(array_path)
     with open(attributes_path, 'w') as p_file:
-        json.dump(xarray.attrs, p_file)
+        json.dump(xarray.attrs, p_file, sort_keys=True, indent=4)
 
 
 def read(path, extension):
@@ -116,9 +116,8 @@ class _XArrayRead(_IO):
 
 class _XDaskTask:
 
-    def __init__(self,verbosity=0,dummy_task=False,**kwargs):
+    def __init__(self,dummy_task=False,**kwargs):
         self._kwargs = kwargs
-        self._kwargs['verbosity']=verbosity
         self._kwargs['dummy_task']=dummy_task
         self.read  = _XArrayRead(None)
         self.write = _XArrayWrite(None)
@@ -127,19 +126,26 @@ class _XDaskTask:
     def disable(self):
         self._enabled=False
 
-    def set_folder(self, folder, action,**kwargs):
-        if action=='write':
+    def set_io_task(self, folder, action, **kwargs):
+        if action=='save':
             self.write.set_folder(folder)
         else:
             self.read.set_folder(folder)
 
 
-    def set_param(self,kwarg):
+    def set_kwargs(self, kwarg):
         for key, value in kwarg.items():
             if key in self._kwargs.keys():
                 self._kwargs[key]=value
             else:
-                print('given key is not a selectable parameter')
+                print('key [{}] is not a assignable parameter for {}\n'.format(key,self.get_name())+\
+                    'skipping...')
+
+    def get_kwargs(self):
+        return {**self._kwargs}
+
+    def get_name(self):
+        return self._get_process()
 
     def __call__(self, *args, dask_client=None, **kwargs):
         key = self._get_operation_key(kwargs['starttime'],kwargs['station'])
