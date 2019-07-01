@@ -114,7 +114,8 @@ if you'd rather have the data as an obspy stream, anxcor provides a conversion o
 
 - Component Rotation along azimuth and backazimuth
 - FTAN and beamforming routines
-- Custom Crosscorrelation preprocessing functions
+- Custom crosscorrelation preprocessing functions
+- GPU implementations of crosscorrelation
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
