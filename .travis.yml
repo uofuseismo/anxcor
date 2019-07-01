@@ -24,7 +24,6 @@ install:
   - source activate test
   - conda install --yes numpy=$NUMPY scipy=$SCIPY xarray=$XARRAY pandas=$PANDAS obspy=$OBSPY pip bottleneck=$BNECK
   - pip install obsplus
-  - git clone https://github.com/uofuseismo/anxcor.git
 
 # command to run tests
 script:
