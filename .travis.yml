@@ -1,3 +1,4 @@
+version: 0.0.0
 language: python
 matrix:
   include:
@@ -17,6 +18,7 @@ before_install:
   - conda update --yes conda
   - conda config --add channels conda-forge
   - python -m pip install --upgrade pip
+  - export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 install:
   - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
