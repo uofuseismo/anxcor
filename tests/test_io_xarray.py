@@ -2,6 +2,7 @@ import unittest
 from obsplus.bank import WaveBank
 from obspy.core import Stream, Trace
 from anxcor.utils import _clean_files_in_dir, _how_many_fmt
+import anxcor.utils as utils
 from anxcor.core import Anxcor, AnxcorDatabase
 from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
 import numpy as np
@@ -13,7 +14,8 @@ target_dir = 'test_data/test_ancor_bank/test_save_output'
 
 starttime_stamp = 1481761092.0 + 3600 * 24
 
-os.mkdir('tests/test_data/test_ancor_bank/test_save_output')
+if not utils.folder_exists(target_dir):
+    os.mkdir('tests/test_data/test_ancor_bank/test_save_output')
 class TestProcess:
 
     def __init__(self):
