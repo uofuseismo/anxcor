@@ -1,11 +1,11 @@
 import unittest
-from tests.anxcor_tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
+from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
 from xarray_routines import XArrayXCorrelate, XArrayConverter
 from anxcor.containers import XArrayStack
 from anxcor.filters import _multiply_in_mat, xarray_crosscorrelate
 import numpy as np
 import xarray as xr
-import matplotlib.pyplot as plt
+
 
 def shift_trace(data,time=1.0,delta=0.1):
     sampling_rate = int(1.0/delta)

@@ -1,6 +1,6 @@
 import unittest
 from xarray_routines import XArrayWhiten, XArrayConverter, XArrayTemporalNorm, XResample, XArrayXCorrelate
-from tests.anxcor_tests.synthetic_trace_factory import create_random_trace
+from tests.synthetic_trace_factory import create_random_trace
 from obspy.core import read
 import numpy as np
 import xarray as xr

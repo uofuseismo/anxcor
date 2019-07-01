@@ -1,6 +1,6 @@
 import unittest
 from xarray_routines import XArrayConverter, XArrayRemoveMeanTrend
-from tests.anxcor_tests.synthetic_trace_factory import linear_ramp_trend
+from tests.synthetic_trace_factory import linear_ramp_trend
 import numpy as np
 process = XArrayRemoveMeanTrend()
 converter = XArrayConverter()

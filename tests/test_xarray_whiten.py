@@ -1,6 +1,6 @@
 import unittest
 from xarray_routines import XArrayWhiten, XArrayConverter
-from tests.anxcor_tests.synthetic_trace_factory import  create_sinsoidal_trace
+from tests.synthetic_trace_factory import  create_sinsoidal_trace
 import scipy.fftpack as fft
 import numpy as np
 whiten = XArrayWhiten(smoothing_window_ratio=0.025, upper_frequency=25.0, lower_frequency=0.001, order=2)

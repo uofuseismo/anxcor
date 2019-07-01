@@ -1,9 +1,7 @@
 import unittest
-from tests.anxcor_tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
+from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay
 from xarray_routines import XArrayXCorrelate, XArrayConverter
 import numpy as np
-import xarray as xr
-import matplotlib.pyplot as plt
 
 converter = XArrayConverter()
 class TestCorrelation(unittest.TestCase):

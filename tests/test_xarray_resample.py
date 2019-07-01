@@ -1,5 +1,5 @@
 import unittest
-from tests.anxcor_tests.synthetic_trace_factory import create_sinsoidal_trace
+from tests.synthetic_trace_factory import create_sinsoidal_trace
 import numpy as np
 from xarray_routines import XResample, XArrayConverter
 
