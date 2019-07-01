@@ -18,7 +18,7 @@ before_install:
   - conda update --yes conda
   - conda config --add channels conda-forge
   - python -m pip install --upgrade pip
-  - export PYTHONPATH=$PYTHONPATH:$(pwd)\
+  - export PYTHONPATH=$PYTHONPATH:$(pwd)
   - python --version
   - whereis python
 

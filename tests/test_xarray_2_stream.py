@@ -80,7 +80,7 @@ class TestObspyUtilFunction(unittest.TestCase):
         # stations 21, & 22
         # 3 windows say
         #
-        anxcor = Anxcor(3600, 0.5)
+        anxcor = Anxcor(3600)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))

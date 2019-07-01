@@ -7,6 +7,7 @@ import json
 
 save_dir = 'tests/test_data/test_ancor_bank/test_save_config'
 print(os.getcwd())
+os.mkdir('tests/test_data/test_ancor_bank/test_save_config')
 class TestConfig(unittest.TestCase):
 
     def tearDown(self):

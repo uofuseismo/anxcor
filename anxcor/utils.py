@@ -86,3 +86,10 @@ def _how_many_fmt(directory,format='.sac'):
     filelist = get_filelist(directory)
     saclist  = get_files_with_extensions(filelist, format)
     return len(saclist)
+
+def get_folderpath(filepath):
+
+    for i in range(len(filepath)-1,-1,-1):
+        if filepath[i]==os.sep:
+            folder = filepath[:i]
+            return folder

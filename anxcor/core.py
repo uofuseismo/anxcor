@@ -8,7 +8,7 @@ import itertools
 from obspy.core import UTCDateTime, Stream, Trace
 
 import json
-
+import utils
 class Anxcor:
 
 
@@ -503,11 +503,20 @@ class _AnxcorData:
                 }
                 for key, process in self._tasks[task].items():
                     config[task][key]=process.get_kwargs()
+
+        folder = utils.get_folderpath(file)
+        if not utils.folder_exists(folder):
+            print('given folder to save file does not exist. ignoring save call')
+            return None
         with open(file, 'w') as configfile:
             json.dump(config,configfile, sort_keys=True, indent=4)
 
 
     def load_config(self, file):
+        if not utils.file_exists(file):
+            print('given .ini file to load file does not exist. Inoring load call')
+            return None
+
         with open(file, 'r') as p_file:
             config = json.load(p_file)
         for task in self.TASKS:

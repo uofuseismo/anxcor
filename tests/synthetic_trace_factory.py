@@ -3,7 +3,7 @@ import numpy as np
 from scipy import  signal
 from scipy import fftpack
 import pandas as pd
-import matplotlib.pyplot as plt
+
 
 
 def linear_ramp_trend(sampling_rate=40.0, duration = 5.0,height=1.0,mean=0.5):
