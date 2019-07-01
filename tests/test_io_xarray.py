@@ -6,13 +6,14 @@ from anxcor.core import Anxcor, AnxcorDatabase
 from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
 import numpy as np
 import xarray as xr
+import os
 
 source_dir = 'tests/test_data/test_ancor_bank/test_waveforms_multi_station'
 target_dir = 'test_data/test_ancor_bank/test_save_output'
 
 starttime_stamp = 1481761092.0 + 3600 * 24
 
-
+os.mkdir('tests/test_data/test_ancor_bank/test_save_output')
 class TestProcess:
 
     def __init__(self):
