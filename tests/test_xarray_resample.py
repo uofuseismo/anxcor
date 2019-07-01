@@ -1,7 +1,7 @@
 import unittest
 from tests.synthetic_trace_factory import create_sinsoidal_trace
 import numpy as np
-from xarray_routines import XResample, XArrayConverter
+from anxcor.xarray_routines import XResample, XArrayConverter
 
 converter =XArrayConverter()
 

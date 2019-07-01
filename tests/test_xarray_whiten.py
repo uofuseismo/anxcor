@@ -1,5 +1,5 @@
 import unittest
-from xarray_routines import XArrayWhiten, XArrayConverter
+from anxcor.xarray_routines import XArrayWhiten, XArrayConverter
 from tests.synthetic_trace_factory import  create_sinsoidal_trace
 import scipy.fftpack as fft
 import numpy as np

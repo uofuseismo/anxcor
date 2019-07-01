@@ -1,6 +1,6 @@
 import unittest
 import os
-from utils import _clean_files_in_dir, _how_many_fmt
+from anxcor.utils import _clean_files_in_dir, _how_many_fmt
 from anxcor.core import Anxcor
 from anxcor.xarray_routines import XArrayTemporalNorm
 import json

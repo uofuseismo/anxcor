@@ -1,5 +1,5 @@
 import unittest
-from xarray_routines import XArrayWhiten, XArrayConverter, XArrayTemporalNorm, XResample, XArrayXCorrelate
+from anxcor.xarray_routines import XArrayWhiten, XArrayConverter, XArrayTemporalNorm, XResample, XArrayXCorrelate
 from tests.synthetic_trace_factory import create_random_trace
 from obspy.core import read
 import numpy as np

@@ -1,7 +1,7 @@
 import unittest
 from obsplus.bank import WaveBank
 from obspy.core import Stream, Trace
-from utils import _clean_files_in_dir, _how_many_fmt
+from anxcor.utils import _clean_files_in_dir, _how_many_fmt
 from anxcor.core import Anxcor, AnxcorDatabase
 from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
 import numpy as np

@@ -1,6 +1,6 @@
 import unittest
 from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
-from xarray_routines import XArrayXCorrelate, XArrayConverter
+from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter
 from anxcor.containers import XArrayStack
 from anxcor.filters import _multiply_in_mat, xarray_crosscorrelate
 import numpy as np

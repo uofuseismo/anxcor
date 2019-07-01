@@ -1,6 +1,6 @@
 import unittest
 from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay
-from xarray_routines import XArrayXCorrelate, XArrayConverter
+from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter
 import numpy as np
 
 converter = XArrayConverter()

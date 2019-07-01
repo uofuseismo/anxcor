@@ -1,11 +1,8 @@
 import unittest
 from obsplus.bank import WaveBank
 from obspy.core import Stream, Trace
-from utils import _clean_files_in_dir, _how_many_fmt
 from anxcor.core import Anxcor, AnxcorDatabase
-from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
 import numpy as np
-import xarray as xr
 import pytest
 source_dir = 'test_data/test_ancor_bank/test_waveforms_multi_station'
 target_dir = 'test_data/test_ancor_bank/test_save_output'
