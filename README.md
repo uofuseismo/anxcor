@@ -9,7 +9,7 @@
 **ANXCOR** is a python library for performing seismic ambient noise crosscorrelations.
 
 
-ANXCOR's object oriented design allows it to leverage common datascience packages like pandas, numpy, and scipy, as well as the popular seismology package Obspy to streamline its computation. Furthermore, it leverages both xarray and dask to achieve embarassingly parallel execution. Use of these popular packages makes working with ANXCOR intuitive, concise, and extensible without deep domain experience in compiled languages.
+ANXCOR's object oriented design allows it to leverage common datascience packages like [pandas](https://pandas.pydata.org/), [numpy](https://www.numpy.org/), and [scipy](https://www.scipy.org/), as well as the popular seismology package [obspy](https://github.com/obspy/obspy) to streamline its computation. Furthermore, it leverages both [xarray](http://xarray.pydata.org) and [dask](https://dask.org) to achieve embarassingly parallel execution. Use of these popular packages makes working with ANXCOR intuitive, concise, and extensible without deep domain experience in compiled languages.
 
 ANXCOR is not intended to replace existing seismic ambient noise processing codes. Instead, our goal is to provide a framework for rapid prototyping of new processing routines, and small-batch production of seismic ambient noise correlation functions. ANXCOR is also designed with readability in mind; it should be immediately obvious from code alone what functions functions do and how they work without comments (we do, however, aim to provide extensive documentation of the code base). 
 
@@ -24,7 +24,7 @@ Anxcor was designed to seamlessly integrate with anaconda and pip. Eventually, w
 ```
 conda install numpy scipy pandas xarray obspy bottleneck
 ```
-Anxcor can work without optional dask or obsplus dependencies, but in case you want parallel execution and/or a great waveform repo manager, we suggest installing them via:
+Anxcor can work without optional dask or [obsplus](https://github.com/niosh-mining/obsplus) dependencies, but in case you want parallel execution and/or a great waveform repo manager, we suggest installing them via:
 ```
 conda install dask
 pip install obsplus
