@@ -1,5 +1,5 @@
 import unittest
-from .synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
+from tests.anxcor_tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
 from xarray_routines import XArrayXCorrelate, XArrayConverter
 from anxcor.containers import XArrayStack
 from anxcor.filters import _multiply_in_mat, xarray_crosscorrelate
@@ -27,7 +27,7 @@ class TestCorrelation(unittest.TestCase):
         zero_target_index = correlation.data.shape[3]//2
 
         zero_source_index = np.argmax(correlation.data[0,0,0,:])
-        self.assertEqual(zero_source_index,zero_target_index,'autocorrelation failed')
+        assert zero_source_index == zero_target_index,'autocorrelation failed'
 
     def test_stacking_preserves_metadata(self):
         correlator = XArrayXCorrelate(max_tau_shift=5.0)
@@ -40,11 +40,11 @@ class TestCorrelation(unittest.TestCase):
 
         attrs = stack.attrs
 
-        self.assertTrue('starttime' in attrs.keys(), 'starttime did not persist through stacking')
-        self.assertTrue('endtime' in attrs.keys(), 'endtime did not persist through stacking')
-        self.assertEqual(attrs['stacks'],2,'unexpected stack length')
-        self.assertTrue('operations' in attrs.keys(), 'operations did not persist through stacking')
-        self.assertTrue('delta' in attrs.keys(), 'delta did not persist through stacking')
+        assert 'starttime' in attrs.keys(), 'starttime did not persist through stacking'
+        assert 'endtime' in attrs.keys(), 'endtime did not persist through stacking'
+        assert attrs['stacks'] == 2,'unexpected stack length'
+        assert 'operations' in attrs.keys(), 'operations did not persist through stacking'
+        assert 'delta' in attrs.keys(), 'delta did not persist through stacking'
 
 
     def test_has_starttime(self):
@@ -54,7 +54,7 @@ class TestCorrelation(unittest.TestCase):
 
         keys = correlator(syth_trace1,syth_trace1,starttime=0,station=0).attrs.keys()
 
-        self.assertTrue('starttime' in keys, 'starttime not preserved through correlation')
+        assert 'starttime' in keys, 'starttime not preserved through correlation'
 
     def test_has_endtime(self):
 
@@ -63,7 +63,7 @@ class TestCorrelation(unittest.TestCase):
 
         keys = correlator(syth_trace1, syth_trace1,starttime=0,station=0).attrs.keys()
 
-        self.assertTrue('endtime' in keys, 'endtime not preserved through correlation')
+        assert 'endtime' in keys, 'endtime not preserved through correlation'
 
     def test_has_delta(self):
 
@@ -72,7 +72,7 @@ class TestCorrelation(unittest.TestCase):
 
         keys = correlator(syth_trace1, syth_trace1,starttime=0,station=0).attrs.keys()
 
-        self.assertTrue('delta' in keys, 'delta not preserved through correlation')
+        assert 'delta' in keys, 'delta not preserved through correlation'
 
     def test_has_stacks(self):
 
@@ -81,7 +81,7 @@ class TestCorrelation(unittest.TestCase):
 
         keys = correlator(syth_trace1, syth_trace1,starttime=0,station=0).attrs.keys()
 
-        self.assertTrue('stacks' in keys, 'stacks not preserved through correlation')
+        assert 'stacks' in keys, 'stacks not preserved through correlation'
 
     def test_one_stack(self):
 
@@ -90,7 +90,7 @@ class TestCorrelation(unittest.TestCase):
 
         attr = correlator(syth_trace1, syth_trace1,starttime=0,station=0).attrs
 
-        self.assertEqual(attr['stacks'],1,'stacks assigned improper value')
+        assert attr['stacks'] == 1,'stacks assigned improper value'
 
     def test_autocorrelation_delta_attr(self):
 
@@ -99,7 +99,7 @@ class TestCorrelation(unittest.TestCase):
 
         correlation = correlator(syth_trace1,syth_trace1,starttime=0,station=0)
 
-        self.assertTrue('delta' in correlation.attrs.keys(),'did not propagate the delta value')
+        assert 'delta' in correlation.attrs.keys(),'did not propagate the delta value'
 
     def test_autocorrelation_starttime_attr(self):
 
@@ -108,7 +108,7 @@ class TestCorrelation(unittest.TestCase):
 
         correlation = correlator(syth_trace1,syth_trace1,starttime=0,station=0)
 
-        self.assertTrue('starttime' in correlation.attrs.keys(),'did not propagate the delta value')
+        assert 'starttime' in correlation.attrs.keys(),'did not propagate the delta value'
 
     def test_name(self):
 
@@ -117,7 +117,7 @@ class TestCorrelation(unittest.TestCase):
 
         correlation = correlator(syth_trace1,syth_trace1,starttime=0,station=0)
 
-        self.assertTrue(isinstance(correlation.name,str),'improper name type')
+        assert isinstance(correlation.name,str),'improper name type'
 
     def test_array_is_real(self):
 
@@ -126,7 +126,7 @@ class TestCorrelation(unittest.TestCase):
 
         correlation = correlator(syth_trace1,syth_trace1,starttime=0,station=0)
 
-        self.assertEqual(correlation.data.dtype,np.float64,'improper data type')
+        assert correlation.data.dtype == np.float64,'improper data type'
 
     def test_correlation_length(self):
 
@@ -135,9 +135,9 @@ class TestCorrelation(unittest.TestCase):
         syth_trace2 = converter([create_random_trace(station='2',network='v')],starttime=0,station=0)
         try:
             correlation = correlator(syth_trace1,syth_trace2,starttime=0,station=0)
-            self.assertTrue(False,'failed to catch exception')
+            assert False,'failed to catch exception'
         except Exception:
-            self.assertTrue(True, 'failed to catch exception')
+            assert True, 'failed to catch exception'
 
 
     def test_shift_trace(self):
@@ -154,7 +154,7 @@ class TestCorrelation(unittest.TestCase):
         zero_index = max_tau_shift*40
         tau_shift  = time_shift*40# added two because of noise effects
         max_index  = np.argmax(correlation.data)
-        self.assertEqual(max_index,zero_index+tau_shift,'failed to correctly identify tau shift')
+        assert max_index == zero_index+tau_shift,'failed to correctly identify tau shift'
 
     def test_correct_pair_ee(self):
         max_tau_shift = 8
@@ -175,7 +175,7 @@ class TestCorrelation(unittest.TestCase):
         correlation_ee     = correlator(converter([e1.copy()],starttime=0,station=0),
                                         converter([e2.copy()],starttime=0,station=0),starttime=0,station=0)
         result_1     = correlation_source.loc['e', 'e', :, :] - correlation_ee
-        self.assertEqual(0,np.sum(result_1.data))
+        assert 0 == np.sum(result_1.data)
 
 
     def test_correct_pair_zz(self):
@@ -197,7 +197,7 @@ class TestCorrelation(unittest.TestCase):
         correlation_zz = correlator(converter([z1.copy()],starttime=0,station=0),
                                     converter([z2.copy()],starttime=0,station=0),starttime=0,station=0)
         result_1 = correlation_source.loc['z', 'z', :, :] - correlation_zz
-        self.assertEqual(0, np.sum(result_1.data))
+        assert 0 == np.sum(result_1.data)
 
     def test_correct_pair_ez(self):
         max_tau_shift = 8
@@ -218,7 +218,7 @@ class TestCorrelation(unittest.TestCase):
         correlation_zz = correlator(converter([e1.copy()],starttime=0,station=0),
                                     converter([z2.copy()],starttime=0,station=0),starttime=0,station=0)
         result_1 = correlation_source.loc['e', 'z', :, :] - correlation_zz
-        self.assertEqual(0, np.sum(result_1.data))
+        assert 0 == np.sum(result_1.data)
 
     def test_correct_pair_ze(self):
         max_tau_shift = 8
@@ -242,7 +242,7 @@ class TestCorrelation(unittest.TestCase):
 
         result_1 = correlation_source.loc['z', 'e', :, :] - correlation_ze[0, 0, :, :]
 
-        self.assertEqual(0, np.sum(result_1.data))
+        assert 0 == np.sum(result_1.data)
 
 
 
@@ -268,7 +268,7 @@ class TestCorrelation(unittest.TestCase):
 
         result_1 = correlation_source.loc['e', 'z', :, :] - correlation_ez24[0, 0, :, :]
 
-        self.assertEqual(0, np.sum(result_1.data))
+        assert 0 == np.sum(result_1.data)
 
     def test_proper_matrix_order(self):
         one = np.arange(0,4).reshape((4,1))
@@ -279,7 +279,7 @@ class TestCorrelation(unittest.TestCase):
                              [1, 2, 3],
                              [2, 4, 6],
                              [3, 6, 9]])
-        self.assertEqual(np.sum(source[:,:,0]-target),0)
+        assert np.sum(source[:,:,0]-target) == 0
 
 
     def test_xcorr_dummy_execution(self):
@@ -308,13 +308,13 @@ class TestCorrelation(unittest.TestCase):
         xarray_source.attrs   = attrs
         result = xarray_crosscorrelate(xarray_source,xarray_receiver,dummy_task=True,starttime=0,station=0)
 
-        self.assertTrue(result.loc['d','z',:,0]==9)
-        self.assertTrue(result.loc['c', 'z', :, 0] == 6)
+        assert result.loc['d','z',:,0]==9
+        assert result.loc['c', 'z', :, 0] == 6
 
     def test_nonetype_in_out(self):
         correlator = XArrayXCorrelate()
         result = correlator(None,None, starttime=0, station=0)
-        self.assertEqual(result, None)
+        assert result == None
 
 
 if __name__ == '__main__':

@@ -6,9 +6,9 @@ from anxcor.core import Anxcor, AnxcorDatabase
 from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
 import numpy as np
 import xarray as xr
-
-source_dir = '../test_data/test_ancor_bank/test_waveforms_multi_station'
-target_dir = '../test_data/test_ancor_bank/test_save_output'
+import pytest
+source_dir = 'test_data/test_ancor_bank/test_waveforms_multi_station'
+target_dir = 'test_data/test_ancor_bank/test_save_output'
 
 starttime_stamp = 1481761092.0 + 3600 * 24
 
@@ -76,8 +76,9 @@ class TestObspyUtilFunction(unittest.TestCase):
         anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))
         result = anxcor.process([starttime_stamp])
         streams = anxcor.xarray_to_obspy(result)
-        self.assertEqual(len(streams),9,'not enough traces retained!')
+        assert len(streams) == 9,'not enough traces retained!'
 
+    @pytest.mark.skip('to be implemented')
     def test_rotation(self):
         # stations 21, & 22
         # 3 windows say
@@ -89,7 +90,7 @@ class TestObspyUtilFunction(unittest.TestCase):
         result = anxcor.process([starttime_stamp])
         rotated_result = anxcor.align_station_pairs(result)
         streams = anxcor.xarray_to_obspy(result)
-        self.assertEqual(len(streams),9,'not enough traces retained!')
+        assert len(streams) == 9,'not enough traces retained!'
 
 
 

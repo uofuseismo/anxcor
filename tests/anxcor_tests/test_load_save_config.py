@@ -5,7 +5,7 @@ from anxcor.core import Anxcor
 from anxcor.xarray_routines import XArrayTemporalNorm
 import json
 
-save_dir = '../test_data/test_ancor_bank/test_save_config'
+save_dir = 'test_data/test_ancor_bank/test_save_config'
 class TestConfig(unittest.TestCase):
 
     def tearDown(self):
@@ -15,7 +15,7 @@ class TestConfig(unittest.TestCase):
         anxcor = Anxcor(window_length=3600)
         anxcor.save_config(save_dir + os.sep + 'config.ini')
         amnt = _how_many_fmt(save_dir,'.ini')
-        self.assertEqual(amnt,1)
+        assert amnt == 1
 
     def test_tau_is_correct(self):
         target_shift = 15.0
@@ -27,7 +27,7 @@ class TestConfig(unittest.TestCase):
 
         source_tau_shift = config['crosscorrelate']['max_tau_shift']
 
-        self.assertEqual(target_shift,source_tau_shift)
+        assert target_shift == source_tau_shift
 
 
     def test_load_config_wout_routine(self):
@@ -37,7 +37,7 @@ class TestConfig(unittest.TestCase):
 
         anxcor2 = Anxcor(window_length=3600)
         anxcor2.load_config(save_dir + os.sep + 'config.ini')
-        self.assertTrue(True)
+        assert True
 
 
     def test_load_config_with_routine(self):
@@ -51,7 +51,7 @@ class TestConfig(unittest.TestCase):
         anxcor2.load_config(save_dir + os.sep + 'config.ini')
         tnorm=anxcor2.get_task('process')['temp_norm']
         time_mean_src = tnorm._kwargs['time_window']
-        self.assertEqual(time_mean_target,time_mean_src)
+        assert time_mean_target == time_mean_src
 
 
 if __name__ == '__main__':

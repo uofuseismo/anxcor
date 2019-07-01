@@ -1,4 +1,3 @@
-
 from  anxcor.containers import DataLoader, XArrayCombine, XArrayStack, AnxcorDatabase
 from  anxcor.xarray_routines import XArrayConverter, XResample, XArrayXCorrelate
 from anxcor.abstractions import XArrayProcessor
@@ -7,7 +6,7 @@ from xarray import Dataset
 import numpy as np
 import itertools
 from obspy.core import UTCDateTime, Stream, Trace
-import configparser
+
 import json
 
 class Anxcor:

@@ -1,6 +1,6 @@
 import unittest
 from xarray_routines import XArrayWhiten, XArrayConverter, XArrayTemporalNorm, XResample, XArrayXCorrelate
-from .synthetic_trace_factory import create_random_trace
+from tests.anxcor_tests.synthetic_trace_factory import create_random_trace
 from obspy.core import read
 import numpy as np
 import xarray as xr
@@ -80,7 +80,7 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         zero_index     = len(x_corr_eq)//2
 
 
-        self.assertGreater(x_corr_eq[zero_index],x_corr_eq_tnorm[zero_index])
+        assert x_corr_eq[zero_index] > x_corr_eq_tnorm[zero_index]
 
     def test_variable_type(self):
         # first, make a noise trace and shift it by tau * sampling rate\
@@ -106,7 +106,7 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         noise_loc_2_eq_tnorm = t_norm(noise_loc_2_eq,starttime=0,station=0)
 
 
-        self.assertEquals(noise_loc_2_eq_tnorm.dtype,np.float64)
+        assert noise_loc_2_eq_tnorm.dtype == np.float64
 
     def get_duration_of_eq(self,file):
         earthquake_trace = read(file, format='sac')[0]
@@ -127,4 +127,4 @@ class TestBasicTemporalNormalization(unittest.TestCase):
     def test_nonetype_in_out(self):
         t_norm = XArrayTemporalNorm()
         result = t_norm(None,starttime=0,station=0)
-        self.assertTrue(True)
+        assert True

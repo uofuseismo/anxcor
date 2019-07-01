@@ -1,5 +1,5 @@
 import unittest
-from .synthetic_trace_factory import create_sinsoidal_trace
+from tests.anxcor_tests.synthetic_trace_factory import create_sinsoidal_trace
 import numpy as np
 from xarray_routines import XResample, XArrayConverter
 
@@ -20,8 +20,8 @@ class TestDownsample(unittest.TestCase):
         target        = np.argmax(trace_initial.data.ravel())   * trace_initial.attrs['delta']
         source        = np.argmax(trace_processed.data.ravel()) * trace_processed.attrs['delta']
 
-        self.assertAlmostEqual(target,source,int(np.log10(1/target_rate)),"filter introduced phase shift")
+        assert round(abs(target-source), int(np.log10(1/target_rate))) == 0,"filter introduced phase shift"
 
     def test_nonetype_in_out(self):
         result = converter(None, starttime=0, station=0)
-        self.assertEqual(result,None)
+        assert result == None

@@ -1,14 +1,11 @@
 import unittest
 from obsplus.bank import WaveBank
 from obspy.core import Stream, Trace
-from utils import _clean_files_in_dir, _how_many_fmt
 from anxcor.core import Anxcor, AnxcorDatabase
-from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
 import numpy as np
-import xarray as xr
 
-source_dir = '../test_data/test_ancor_bank/test_waveforms_multi_station'
-target_dir = '../test_data/test_ancor_bank/test_save_output'
+source_dir = 'test_data/test_ancor_bank/test_waveforms_multi_station'
+target_dir = 'test_data/test_ancor_bank/test_save_output'
 
 starttime_stamp = 1481761092.0 + 3600 * 24
 
@@ -108,7 +105,7 @@ class TestMetadataInCombine(unittest.TestCase):
         anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))
         result = anxcor.process(times)
         #
-        self.assertTrue('src:FG.21rec:FG.22' in result.attrs.keys())
+        assert 'src:FG.21rec:FG.22' in result.attrs.keys()
 
     def test_metadata_with_latlons(self):
         anxcor = Anxcor(3600)
@@ -119,7 +116,7 @@ class TestMetadataInCombine(unittest.TestCase):
         result = anxcor.process(times)
         print(result.variables.values)
         #
-        self.assertTrue('location' in result.attrs['src:FG.21rec:FG.22'].keys())
+        assert 'location' in result.attrs['src:FG.21rec:FG.22'].keys()
 
     def test_output_dataset_format(self):
         anxcor = Anxcor(3600)
@@ -130,7 +127,7 @@ class TestMetadataInCombine(unittest.TestCase):
         result = anxcor.process(times)
         len_variables = len(list(result.data_vars))
         #
-        self.assertEqual(len_variables,1,'too many variables added to dataset')
+        assert len_variables == 1,'too many variables added to dataset'
 
     def test_output_dimension_lengths(self):
         anxcor = Anxcor(3600)
@@ -143,9 +140,9 @@ class TestMetadataInCombine(unittest.TestCase):
         len_src = len(list(result.coords['src_chan'].values))
         len_rec = len(list(result.coords['rec_chan'].values))
         #
-        self.assertEqual(len_pair,3,'not enough pairs retained')
-        self.assertEqual(len_src, 3, 'not enough source channels retained')
-        self.assertEqual(len_rec, 3, 'not enough receiver channels retained')
+        assert len_pair == 3,'not enough pairs retained'
+        assert len_src == 3, 'not enough source channels retained'
+        assert len_rec == 3, 'not enough receiver channels retained'
 
 
 

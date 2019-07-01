@@ -1,6 +1,6 @@
 import unittest
 from xarray_routines import XArrayWhiten, XArrayConverter
-from .synthetic_trace_factory import  create_sinsoidal_trace
+from tests.anxcor_tests.synthetic_trace_factory import  create_sinsoidal_trace
 import scipy.fftpack as fft
 import numpy as np
 whiten = XArrayWhiten(smoothing_window_ratio=0.025, upper_frequency=25.0, lower_frequency=0.001, order=2)
@@ -17,7 +17,7 @@ class TestSpectralWhitening(unittest.TestCase):
         pow_period_original = self.get_power_at_freq(10.0,trace)
         trace   = whiten(trace,starttime=0,station=0)
         pow_period_final   = self.get_power_at_freq(10.0, trace)
-        self.assertGreater(pow_period_original,pow_period_final,"whitening failed")
+        assert pow_period_original > pow_period_final,"whitening failed"
 
     def test_array_is_real(self):
         trace = convert([create_sinsoidal_trace(sampling_rate=100, period=0.5, duration=3)],starttime=0,station=0)
@@ -26,7 +26,7 @@ class TestSpectralWhitening(unittest.TestCase):
         trace.attrs = freq_2.attrs
         trace = whiten(trace,starttime=0,station=0)
 
-        self.assertEqual(trace.data.dtype,np.float64,'improper data type')
+        assert trace.data.dtype == np.float64,'improper data type'
 
 
     def get_power_at_freq(self, frequency, xarray):
@@ -50,7 +50,7 @@ class TestSpectralWhitening(unittest.TestCase):
 
     def test_nonetype_in_out(self):
         result = whiten(None,starttime=0,station=0)
-        self.assertTrue(True)
+        assert True
 
 
 if __name__ == '__main__':
