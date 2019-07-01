@@ -27,7 +27,9 @@ install:
   - source activate test
   - conda install --yes numpy scipy xarray pandas obspy bottleneck pytest
   - conda install --yes pip
-  - pip install obsplus --verbose
+  - pip install obsplus --
+  - python --version
+  - whereis python
 
 # command to run tests
 script:
