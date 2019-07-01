@@ -3,12 +3,12 @@ matrix:
   include:
 
     - python: 3.6
-      env: NUMPY=1.16.4 SCIPY=1.0.1 XARRAY=0.12.0 PANDAS=0.24.2 OBSPY=1.1.0 BNECK=1.2
+      env: NUMPY=1.16.4 SCIPY=1.0.1 XARRAY=0.12 PANDAS=0.24.2 OBSPY=1.1 BNECK=1.2
       sudo: false
 
     - python: 3.7
       dist: xenial
-      env: NUMPY=1.16.4 SCIPY=1.0.1 XARRAY=0.12.0 PANDAS=0.24.2 OBSPY=1.1.0
+      env: NUMPY=1.16.4 SCIPY=1.0.1 XARRAY=0.12 PANDAS=0.24.2 OBSPY=1.1 BNECK=1.2
       sudo: true
 
 before_install:
@@ -17,6 +17,7 @@ before_install:
   - ./miniconda.sh -b
   - export PATH=/home/travis/miniconda3/bin:$PATH
   - conda update --yes conda
+  - conda config --add channels conda-forge
 
 install:
   - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
