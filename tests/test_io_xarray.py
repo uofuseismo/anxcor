@@ -7,7 +7,7 @@ from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
 import numpy as np
 import xarray as xr
 
-source_dir = 'test_data/test_ancor_bank/test_waveforms_multi_station'
+source_dir = 'tests/test_data/test_ancor_bank/test_waveforms_multi_station'
 target_dir = 'test_data/test_ancor_bank/test_save_output'
 
 starttime_stamp = 1481761092.0 + 3600 * 24

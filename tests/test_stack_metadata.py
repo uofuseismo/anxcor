@@ -4,7 +4,7 @@ from obspy.core import Stream, Trace
 from anxcor.core import Anxcor, AnxcorDatabase
 import numpy as np
 
-source_dir = 'test_data/test_ancor_bank/test_waveforms_multi_station'
+source_dir = 'tests/test_data/test_ancor_bank/test_waveforms_multi_station'
 target_dir = 'test_data/test_ancor_bank/test_save_output'
 
 starttime_stamp = 1481761092.0 + 3600 * 24
