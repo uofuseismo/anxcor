@@ -126,9 +126,5 @@ Please make sure to update tests as appropriate.
 - PhD Student Kevin A. Mendoza was the primary developer, and is responsible for the original architecture of the project.
 - PhD Student Daniel Wells contributed a number of test suites.
 
-## License
-[GNU GPLv3](https://choosealicense.com/licenses/gpl-3.0/)
-
-## Attribution
 
 
