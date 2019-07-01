@@ -39,7 +39,7 @@ from obsplus.bank import WaveBank
 from obspy.core import Stream, Trace
 from anxcor.core import Anxcor, AnxcorDatabase
 ```
-Anxcor needs to be provided AnxcorDatabase objects in order to access your data. So first, lets create one by encapsulating an obsplus wavebank. Our object needs to implement a get_waveforms() and a get_stations() method. The specifics of both are detailed in the docs. We'll go ahead and instantiate this class with a directory link pointing to our seismic data on file. If there is a ton of data in this directory, it might take awhile to instantiate properly. Note that Anxcor expects you, the user, to remove the response from your data as desired. 
+Anxcor needs to be provided AnxcorDatabase objects in order to access your data. So first, lets create one by encapsulating an obsplus wavebank. Our object needs to implement a get_waveforms() and a get_stations() method. We'll go ahead and instantiate this class with a directory link pointing to our seismic data on file. If there is a ton of data in this directory, it might take awhile to instantiate properly. Note that Anxcor expects you, the user, to remove the response from your data as desired. 
 ```python
 class WavebankWrapper(AnxcorDatabase):
 
