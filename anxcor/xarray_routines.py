@@ -404,11 +404,13 @@ class XArrayWhiten(ab.XArrayProcessor):
             'whiten_type':whiten_type}
 
     def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
+        channel   = xarray.get_axis_num(dim='channel')
         new_array = xr.apply_ufunc(filt_ops.xarray_whiten, xarray,
                                           input_core_dims=[['time']],
                                           output_core_dims=[['time']],
                                           kwargs={**self._kwargs ,
                                                   **{'delta':xarray.attrs['delta'],
+                                                     'channel_axis':channel,
                                                      'axis' :xarray.get_axis_num('time')}})
 
         return  new_array

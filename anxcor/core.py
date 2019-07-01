@@ -7,7 +7,9 @@ import numpy as np
 import itertools
 from obspy.core import UTCDateTime, Stream, Trace
 import json
-import  anxcor.utils as utils
+import anxcor.utils as utils
+
+
 class Anxcor:
 
 
