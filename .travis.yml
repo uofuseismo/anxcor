@@ -3,12 +3,10 @@ matrix:
   include:
 
     - python: 3.6
-      env: NUMPY=1.16.4 SCIPY=1.0.1 XARRAY=0.12 PANDAS=0.24.2 OBSPY=1.1 BNECK=1.2
       sudo: false
 
     - python: 3.7
       dist: xenial
-      env: NUMPY=1.16.4 SCIPY=1.0.1 XARRAY=0.12 PANDAS=0.24.2 OBSPY=1.1 BNECK=1.2
       sudo: true
 
 before_install:
@@ -18,11 +16,12 @@ before_install:
   - export PATH=/home/travis/miniconda3/bin:$PATH
   - conda update --yes conda
   - conda config --add channels conda-forge
+  - python -m pip install --upgrade pip
 
 install:
   - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
   - source activate test
-  - conda install --yes numpy=$NUMPY scipy=$SCIPY xarray=$XARRAY pandas=$PANDAS obspy=$OBSPY bottleneck=$BNECK
+  - conda install --yes numpy scipy xarray pandas obspy bottleneck
   - conda install --yes pip
   - pip install obsplus --verbose
 
