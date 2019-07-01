@@ -39,7 +39,7 @@ from obsplus.bank import WaveBank
 from obspy.core import Stream, Trace
 from anxcor.core import Anxcor, AnxcorDatabase
 ```
-Anxcor needs to be provided AnxcorDatabase objects in order to access your data. So first, lets create one by encapsulating an obsplus wavebank. Our object needs to implement a get_waveforms() and a get_stations() method. The specifics of both are detailed in the docs. We'll go ahead and instantiate this class with a directory link pointing to our seismic data on file. If there is a ton of data in this directory, it might take awhile to instantiate properly
+Anxcor needs to be provided AnxcorDatabase objects in order to access your data. So first, lets create one by encapsulating an obsplus wavebank. Our object needs to implement a get_waveforms() and a get_stations() method. The specifics of both are detailed in the docs. We'll go ahead and instantiate this class with a directory link pointing to our seismic data on file. If there is a ton of data in this directory, it might take awhile to instantiate properly. Note that Anxcor expects you, the user, to remove the response from your data as desired. 
 ```python
 class WavebankWrapper(AnxcorDatabase):
 
@@ -94,7 +94,13 @@ Now lets add the dataset and process the times! Each dataset provided to Anxcor 
 anxcor.add_dataset(bank, 'nodals')
 result = anxcor.process(times)
 ```
-There you have it. Within a few seconds, anxcor will give you back a correlated, stacked, and combined [XArray](http://xarray.pydata.org/en/stable/data-structures.html#dataset) DataSet. The Dataset has dimensions of channel, station_pair, and time. Attached metadata can be accessed via the ```.attrs``` property, and contains all relevant metadata extracted from the original crosscorrelations. 
+If you want to parallelize this process using dask, provide a dask client:
+```python
+from dask.distributed import Client
+client = Client()
+result=anxcor.process(times,dask_client=client)
+```
+There you have it. Within a few seconds, anxcor will give you back a correlated, stacked, and combined [XArray DataSet](http://xarray.pydata.org/en/stable/data-structures.html#dataset). The Dataset has dimensions of channel, station_pair, and time. Attached metadata can be accessed via the ```.attrs``` property, and contains all relevant metadata extracted from the original crosscorrelations. 
 
 if you'd rather have the data as an obspy stream, anxcor provides a conversion option:
 
@@ -104,6 +110,11 @@ if you'd rather have the data as an obspy stream, anxcor provides a conversion o
 
 
 ## Known Issues
+## Planned Enhancements
+
+- Component Rotation along azimuth and backazimuth
+- FTAN and beamforming routines
+- Custom Crosscorrelation preprocessing functions
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
