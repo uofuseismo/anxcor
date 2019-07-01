@@ -7,7 +7,7 @@ import xarray as xr
 whiten    = XArrayWhiten(smoothing_window_ratio=0.025, upper_frequency=25.0, lower_frequency=0.001, order=2)
 convert   = XArrayConverter()
 correlate = XArrayXCorrelate(max_tau_shift=40)
-source_file = 'test_data/test_teleseism/test_teleseism.BHE.SAC'
+source_file = 'tests/test_data/test_teleseism/test_teleseism.BHE.SAC'
 
 def source_earthquake():
     earthquake_trace       = read(source_file, format='sac')[0]
