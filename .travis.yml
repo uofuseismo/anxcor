@@ -23,8 +23,8 @@ install:
   - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
   - source activate test
   - conda install --yes numpy=$NUMPY scipy=$SCIPY xarray=$XARRAY pandas=$PANDAS obspy=$OBSPY bottleneck=$BNECK
-  - conda install pip
-  - pip install --yes obsplus
+  - conda install --yes pip
+  - pip install obsplus
 
 # command to run tests
 script:
