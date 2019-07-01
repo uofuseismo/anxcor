@@ -1,6 +1,5 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Build Status](https://travis-ci.org/uofuseismo/anxcor.png?branch=master)](https://travis-ci.org/uofuseismo/anxcor)
-[![Coverage Status](https://coveralls.io/repos/github/uofuseismo/anxcor/badge.png?branch=master)](https://coveralls.io/github/uofuseismo/anxcor?branch=master)
 
 ## ANXCOR: Ambient Noise X (cross) Correlation
 
