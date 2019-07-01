@@ -24,7 +24,7 @@ install:
   - source activate test
   - conda install --yes numpy=$NUMPY scipy=$SCIPY xarray=$XARRAY pandas=$PANDAS obspy=$OBSPY bottleneck=$BNECK
   - conda install --yes pip
-  - pip install obsplus
+  - pip install obsplus --verbose
 
 # command to run tests
 script:
