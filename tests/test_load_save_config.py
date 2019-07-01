@@ -6,6 +6,7 @@ from anxcor.xarray_routines import XArrayTemporalNorm
 import json
 
 save_dir = 'test_data/test_ancor_bank/test_save_config'
+print(os.getcwd())
 class TestConfig(unittest.TestCase):
 
     def tearDown(self):

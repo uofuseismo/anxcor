@@ -28,6 +28,7 @@ install:
   - conda install --yes numpy scipy xarray pandas obspy bottleneck pytest
   - conda install --yes pip
   - pip install obsplus --
+  - pip install python-coveralls
   - python --version
   - whereis python
 
