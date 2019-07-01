@@ -394,12 +394,14 @@ class XArrayWhiten(ab.XArrayProcessor):
     whitens the frequency spectrum of a given xarray
     """
     def __init__(self, smoothing_window_ratio=10.0, lower_frequency=0.001,
-                 upper_frequency=5.0, order=2, **kwargs):
+                 upper_frequency=5.0, order=2,whiten_type='cross_component', **kwargs):
         super().__init__(**kwargs)
-        self._kwargs = {'smoothing_window_ratio': smoothing_window_ratio,
-                       'lower_frequency': lower_frequency,
-                       'upper_frequency': upper_frequency,
-                        'order':order}
+        self._kwargs = {
+            'smoothing_window_ratio': smoothing_window_ratio,
+            'lower_frequency': lower_frequency,
+            'upper_frequency': upper_frequency,
+            'order':order,
+            'whiten_type':whiten_type}
 
     def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
         new_array = xr.apply_ufunc(filt_ops.xarray_whiten, xarray,

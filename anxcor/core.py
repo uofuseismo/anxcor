@@ -6,9 +6,8 @@ from xarray import Dataset
 import numpy as np
 import itertools
 from obspy.core import UTCDateTime, Stream, Trace
-
 import json
-import utils
+import  anxcor.utils as utils
 class Anxcor:
 
 
