@@ -4,4 +4,4 @@ from anxcor.xarray_routines import XArrayBandpass, XArrayConverter, XArrayRemove
 from anxcor.core import Anxcor, AnxcorDatabase
 import numpy as np
 
-__version__='0.0.0'
+__version__='0.0.1'
