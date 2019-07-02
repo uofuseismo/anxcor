@@ -235,7 +235,10 @@ class Anxcor:
         stacked crosscorrelations. If a dask client is provided it will return a future instance.
         See Dask Documentation for further details
         """
-        return self._processor.process(starttimes, dask_client=dask_client)
+        if self._data.has_data():
+            return self._processor.process(starttimes, dask_client=dask_client)
+        else:
+            print('no data banks added. will not execute.')
 
     def xarray_to_obspy(self, xdataset: Dataset):
         """
@@ -418,6 +421,9 @@ class _AnxcorData:
         stations = self._tasks['data'].get_stations()
         station_pairs = list(itertools.combinations_with_replacement(stations, 2))
         return station_pairs
+
+    def has_data(self):
+        return self._tasks['data'].has_data()
 
     def save_at_task(self, folder, task : str='resample'):
         if task in self._tasks.keys() and task!='process':

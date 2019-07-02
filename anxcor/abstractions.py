@@ -192,7 +192,7 @@ class _XDaskTask:
             if dask_client is None:
                 self.write(result, process, folder, file)
             else:
-                dask_client.submit(self.write, result,  process, folder, file, key=key)
+                dask_client.submit(self.write, result,  process, folder, file, key='writing: '+ key)
         return result
 
     def _get_io_string_vars(self, starttime, station):
@@ -271,10 +271,11 @@ class _XDaskTask:
         return window
 
     def _get_operation_key(self,starttime,station):
-        return '{} {} {}'.format(self._get_process(), station, self._window_key_convert(starttime))
+        return '{}'.format(self._get_process())
 
     def _should_process(self, *args):
         return True
+
 
 class XArrayProcessor(_XDaskTask):
 

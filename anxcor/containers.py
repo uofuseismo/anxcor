@@ -111,6 +111,9 @@ class DataLoader(ab.XDatasetProcessor):
 
         return station_list
 
+    def has_data(self):
+        return len(self._datasets.keys())>0
+
     def _combine(self, total_list, produced_list, key):
         for trace in produced_list:
             trace.stats.data_type = key
