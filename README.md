@@ -57,7 +57,7 @@ with these packages.
 
 ## Documentation
 
-learn more about ANXCOR at its official documentation, which does not exist juust yet.
+learn more about ANXCOR at the [wiki](https://github.com/uofuseismo/anxcor/wiki).
 
 
 ## Acknowledgements
