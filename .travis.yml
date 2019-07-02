@@ -1,5 +1,7 @@
 version: 0.0.0
 language: python
+notifications:
+  email: false
 matrix:
   include:
 
@@ -32,7 +34,12 @@ install:
   - python --version
   - whereis python
 
+
+
 # command to run tests
 script:
   - pytest tests
-  - py.test tests
+  - py.test xarray --cov=xarray --cov-config ci/.coveragerc --cov-report term-missing
+
+after_success:
+  - coveralls

@@ -3,3 +3,5 @@ from anxcor.xarray_routines import XArrayBandpass, XArrayConverter, XArrayRemove
     XArrayWhiten, XArrayTaper, XArrayTemporalNorm
 from anxcor.core import Anxcor, AnxcorDatabase
 import numpy as np
+
+__version__='0.0.0'
