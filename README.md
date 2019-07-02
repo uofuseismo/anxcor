@@ -6,6 +6,8 @@
 
 ## ANXCOR: Ambient Noise X (cross) Correlation
 
+
+
 **ANXCOR** is a python library for performing seismic ambient noise crosscorrelations.
 
 
@@ -94,7 +96,7 @@ times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 4* 15*60, 0.25)
 ```
 Now lets add the dataset and process the times! Each dataset provided to Anxcor requires an accompanying name to keep track of metadata. we'll call this name 'test' for now
 ```python
-anxcor.add_dataset(bank, 'nodals')
+anxcor.add_dataset(bank, 'test')
 result = anxcor.process(times)
 ```
 If you want to parallelize this process using dask, provide a dask client:
