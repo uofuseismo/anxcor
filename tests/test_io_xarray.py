@@ -77,8 +77,26 @@ class TestIntegratedIOOps(unittest.TestCase):
         anxcor.add_dataset(bank, 'nodals')
         anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))
         result = anxcor.process(times)
+        pairs = list(result.coords['pair'].values)
+        assert len(pairs) == 3
 
-        assert isinstance(result, xr.Dataset)
+    def test_dask_execution(self):
+        # stations 21, & 22
+        # 3 windows say
+        #
+        from distributed import Client, LocalCluster
+        from dask.distributed import progress
+        cluster = LocalCluster(n_workers=1, threads_per_worker=1)
+        c = Client(cluster)
+        anxcor = Anxcor(window_length=3600)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.set_task_kwargs('crosscorrelate')
+        result = anxcor.process(times,dask_client=c)
+        result = result.result()
+        pairs  = list(result.coords['pair'].values)
+        assert len(pairs)==3
 
 
     def test_read_xconvert(self):
