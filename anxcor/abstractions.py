@@ -271,7 +271,8 @@ class _XDaskTask:
         return window
 
     def _get_operation_key(self,starttime,station):
-        return '{}'.format(self._get_process())
+        window_key = self._window_key_convert(starttime)
+        return '{}-{}-{}'.format(self._get_process(),station,starttime)
 
     def _should_process(self, *args):
         return True

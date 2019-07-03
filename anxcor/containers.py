@@ -244,7 +244,7 @@ class XArrayCombine(ab.XDatasetProcessor):
         else:
             result = xr.merge([first_data, second_data])
         if not isinstance(result, xr.Dataset):
-            name = result.name
+            name   = result.name
             coords = result.coords
             result = xr.Dataset(data_vars={name: result}, coords=coords)
         return result
@@ -295,9 +295,6 @@ class XArrayCombine(ab.XDatasetProcessor):
 
     def _get_process(self):
         return 'combine'
-
-    def _time_signature(self,time):
-        return time
 
     def _window_key_convert(self,window):
         return window
