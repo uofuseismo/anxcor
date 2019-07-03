@@ -302,6 +302,7 @@ class XArrayCombine(ab.XDatasetProcessor):
     def _window_key_convert(self,window):
         return window
 
+
     def starttime_parser(self,first,second):
         return 'depth:{}branch:{}'.format(first, second)
 
@@ -365,8 +366,6 @@ class XArrayStack(ab.XArrayProcessor):
     def _should_process(self,xarray1,xarray2, *args):
         return xarray1 is not None or xarray2 is not None
 
-    def _time_signature(self,time):
-        return time
 
     def _window_key_convert(self,window):
         return window

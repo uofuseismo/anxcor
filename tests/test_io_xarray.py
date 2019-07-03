@@ -18,6 +18,7 @@ endtime_stamp   = 5*2*60
 
 if not utils.folder_exists(target_dir):
     os.mkdir('tests/test_data/test_anxcor_database/test_save_output')
+
 class TestProcess:
 
     def __init__(self):

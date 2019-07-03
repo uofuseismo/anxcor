@@ -7,8 +7,9 @@ from anxcor.xarray_routines import XArrayTemporalNorm
 import json
 
 save_dir = 'tests/test_data/test_anxcor_database/test_save_config'
-if not utils.folder_exists(save_dir):
+if not utils.folder_exists(save_dir) or not utils.file_exists(save_dir):
     os.mkdir(save_dir)
+
 class TestConfig(unittest.TestCase):
 
     def tearDown(self):

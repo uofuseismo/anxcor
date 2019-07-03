@@ -202,7 +202,7 @@ class _XDaskTask:
 
     def _get_io_string_vars(self, starttime, station):
         process = self._get_process()
-        folder = self._time_signature(starttime)
+        folder = self._window_key_convert(starttime)
         file = station
         return file, folder, process
 
@@ -210,9 +210,6 @@ class _XDaskTask:
         result = self.read(result, process,folder,file)
         result = self._addition_read_processing(result)
         return result
-
-    def _time_signature(self,time):
-        return UTCDateTime(int(time*100)/100.0).isoformat()
 
     def _single_thread_execute(self,*args,**kwargs):
         pass
