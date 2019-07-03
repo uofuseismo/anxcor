@@ -285,6 +285,7 @@ class Anxcor:
 class _AnxcorProcessor:
 
     time_format = '%d-%m-%Y %H:%M:%S'
+    CORR_FORMAT = 'src:{} rec:{}'
     def __init__(self,data):
         self.data =data
 
@@ -350,7 +351,7 @@ class _AnxcorProcessor:
 
             correlation = self.data.get_task('crosscorrelate')(source_ch_ops,
                                                    receiver_ch_ops,
-                                                   station='src:{}rec:{}'.format(source,receiver),
+                                                   station=self.CORR_FORMAT.format(source,receiver),
                                                    starttime=starttime,
                                                    dask_client=dask_client)
 
@@ -389,7 +390,12 @@ class _AnxcorProcessor:
                 new_future_list.append(result)
             tree_depth +=1
             future_stack=new_future_list
-        return future_stack[0]
+
+        result = reducing_func(future_stack[0], None,
+                      station=station,
+                      starttime=reducing_func.starttime_parser('Final', 0),
+                      dask_client=dask_client)
+        return result
 
 
 

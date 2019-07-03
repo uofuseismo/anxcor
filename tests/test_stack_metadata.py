@@ -4,10 +4,11 @@ from obspy.core import Stream, Trace
 from anxcor.core import Anxcor, AnxcorDatabase
 import numpy as np
 
-source_dir = 'tests/test_data/test_ancor_bank/test_waveforms_multi_station'
-target_dir = 'test_data/test_ancor_bank/test_save_output'
+source_dir = 'tests/test_data/test_anxcor_database/test_waveforms_multi_station'
+target_dir = 'test_data/test_anxcor_database/test_save_output'
 
-starttime_stamp = 1481761092.0 + 3600 * 24
+starttime_stamp = 0
+endtime_stamp   = 5*2*60
 
 
 class TestProcess:
@@ -46,7 +47,7 @@ class WavebankWrapper(AnxcorDatabase):
         return Stream(traces=traces)
 
     def get_stations(self):
-        df = self.bank.get_uptime_df()
+        df = self.bank.get_availability_df()
 
         def create_seed(row):
             network = row['network']
@@ -75,13 +76,13 @@ class WavebankWrapperWLatLons(AnxcorDatabase):
                       'starttime':trace.stats.starttime,
                       'channel': trace.stats.channel,
                       'network': trace.stats.network,
-                      'latitude': trace.stats.sac['stla'],
-                      'longitude': -trace.stats.sac['stlo'],}
+                      'latitude': 38.0,
+                      'longitude': -117,}
             traces.append(Trace(data,header=header))
         return Stream(traces=traces)
 
     def get_stations(self):
-        df = self.bank.get_uptime_df()
+        df = self.bank.get_availability_df()
 
         def create_seed(row):
             network = row['network']
@@ -98,49 +99,45 @@ class TestMetadataInCombine(unittest.TestCase):
 
     def test_stacking_preserves_pair_key(self):
 
-        anxcor = Anxcor(3600)
-        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
+        anxcor = Anxcor(120)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 120, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))
         result = anxcor.process(times)
         #
-        assert 'src:FG.21rec:FG.22' in result.attrs.keys()
+        assert 'src:AX.1rec:AX.2' in result.attrs.keys()
 
     def test_metadata_with_latlons(self):
-        anxcor = Anxcor(3600)
-        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
+        anxcor = Anxcor(120)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 120, 0.5)
         bank = WavebankWrapperWLatLons(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))
         result = anxcor.process(times)
-        print(result.variables.values)
+
         #
-        assert 'location' in result.attrs['src:FG.21rec:FG.22'].keys()
+        assert 'location' in result.attrs['src:AX.1rec:AX.1'].keys()
 
     def test_output_dataset_format(self):
-        anxcor = Anxcor(3600)
-        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
+        anxcor = Anxcor(120)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 120, 0.5)
         bank = WavebankWrapperWLatLons(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))
         result = anxcor.process(times)
         len_variables = len(list(result.data_vars))
         #
         assert len_variables == 1,'too many variables added to dataset'
 
     def test_output_dimension_lengths(self):
-        anxcor = Anxcor(3600)
-        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
+        anxcor = Anxcor(120)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 120, 0.5)
         bank = WavebankWrapperWLatLons(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))
         result = anxcor.process(times)
         len_pair = len(list(result.coords['pair'].values))
         len_src = len(list(result.coords['src_chan'].values))
         len_rec = len(list(result.coords['rec_chan'].values))
         #
-        assert len_pair == 3,'not enough pairs retained'
+        assert len_pair == 6,'not enough pairs retained'
         assert len_src == 3, 'not enough source channels retained'
         assert len_rec == 3, 'not enough receiver channels retained'
 

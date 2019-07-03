@@ -1,6 +1,7 @@
 import  anxcor.utils as utils
 from obspy.core import UTCDateTime
 import xarray as xr
+import sys
 import json
 
 def write(xarray, path, extension):
@@ -89,6 +90,7 @@ class _XArrayWrite(_IO):
             folder    = '{}{}{}{}{}'.format(self._file, utils.sep, process, utils.sep, folder)
             self._chkmkdir(folder)
             write(xarray, folder, file)
+        return None
 
 
 class _XArrayRead(_IO):
@@ -192,7 +194,10 @@ class _XDaskTask:
             if dask_client is None:
                 self.write(result, process, folder, file)
             else:
-                dask_client.submit(self.write, result,  process, folder, file, key='writing: '+ key)
+                if 'dask' not in sys.modules:
+                    from dask.distributed import fire_and_forget
+                end = dask_client.submit(self.write, result,  process, folder, file, key='writing: '+ key)
+                fire_and_forget(end)
         return result
 
     def _get_io_string_vars(self, starttime, station):
@@ -272,7 +277,7 @@ class _XDaskTask:
 
     def _get_operation_key(self,starttime,station):
         window_key = self._window_key_convert(starttime)
-        return '{}-{}-{}'.format(self._get_process(),station,starttime)
+        return '{}-{}-{}'.format(self._get_process(),station,window_key)
 
     def _should_process(self, *args):
         return True

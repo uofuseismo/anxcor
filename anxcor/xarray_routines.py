@@ -235,7 +235,7 @@ class XArrayXCorrelate(ab.XArrayProcessor):
 
     """
 
-    def __init__(self,max_tau_shift=100.0,**kwargs):
+    def __init__(self,max_tau_shift=10.0,**kwargs):
         super().__init__(**kwargs)
         self._kwargs['max_tau_shift']=max_tau_shift
 

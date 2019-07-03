@@ -34,11 +34,11 @@ def combine_xarrays_along_dim(full_array, earthquake):
 
 class TestBasicTemporalNormalization(unittest.TestCase):
 
-    def test_reduce_earthquake_zero_time_xcorr_func(self):
+    def test_increase_earthquake_shift_time_xcorr_func(self):
         # first, make a noise trace and shift it by tau * sampling rate\
         file = source_file
         duration = 400
-        shift = 30
+        shift = 3
         noise_loc_1 = create_random_trace(sampling_rate=40, duration=duration)
         noise_loc_1.data+= create_random_trace(sampling_rate=40, duration=duration).data
         noise_loc_1 = convert([noise_loc_1],starttime=0,station=0)
@@ -80,7 +80,7 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         zero_index     = len(x_corr_eq)//2
 
 
-        assert x_corr_eq[zero_index] > x_corr_eq_tnorm[zero_index]
+        assert x_corr_eq[zero_index+int(40*shift)] < x_corr_eq_tnorm[zero_index+int(40*shift)]
 
     def test_variable_type(self):
         # first, make a noise trace and shift it by tau * sampling rate\

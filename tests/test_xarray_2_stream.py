@@ -4,10 +4,10 @@ from obspy.core import Stream, Trace
 from anxcor.core import Anxcor, AnxcorDatabase
 import numpy as np
 import pytest
-source_dir = 'tests/test_data/test_ancor_bank/test_waveforms_multi_station'
-target_dir = 'test_data/test_ancor_bank/test_save_output'
+source_dir = 'tests/test_data/test_anxcor_database/test_waveforms_multi_station'
+target_dir = 'test_data/test_anxcor_database/test_save_output'
 
-starttime_stamp = 1481761092.0 + 3600 * 24
+starttime_stamp = 0
 
 
 class TestProcess:
@@ -42,13 +42,13 @@ class WavebankWrapper(AnxcorDatabase):
                       'starttime':trace.stats.starttime,
                       'channel': trace.stats.channel,
                       'network': trace.stats.network,
-                      'latitude': trace.stats.sac['stla'],
-                      'longitude': -trace.stats.sac['stlo'],}
+                      'latitude': 38.0,
+                      'longitude': -117,}
             traces.append(Trace(data,header=header))
         return Stream(traces=traces)
 
     def get_stations(self):
-        df = self.bank.get_uptime_df()
+        df = self.bank.get_availability_df()
 
         def create_seed(row):
             network = row['network']
@@ -67,13 +67,12 @@ class TestObspyUtilFunction(unittest.TestCase):
         # stations 21, & 22
         # 3 windows say
         #
-        anxcor = Anxcor(3600)
+        anxcor = Anxcor(120)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))
         result = anxcor.process([starttime_stamp])
         streams = anxcor.xarray_to_obspy(result)
-        assert len(streams) == 9,'not enough traces retained!'
+        assert len(streams) == 54,'not enough traces retained!'
 
     @pytest.mark.skip('to be implemented')
     def test_rotation(self):

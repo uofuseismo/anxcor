@@ -3,7 +3,8 @@ import  anxcor.abstractions as ab
 import  anxcor.utils as os_utils
 from  obspy.core import read, Stream, UTCDateTime
 import xarray as xr
-
+FLOAT_PRECISION = 1e-9
+import numpy as np
 
 def execute_if_ok_else_pass_through(method, one, two):
     if one is None and two is not None:
@@ -196,9 +197,11 @@ class DataLoader(ab.XDatasetProcessor):
             end= trace.stats.endtime.timestamp
             delta=trace.stats.delta
 
-            cond1 = abs(st - starttime) < delta
-            cond2 = abs(end - endtime) < delta
-            if cond1 and cond2:
+            cond1 = abs(st  - starttime)  <= delta + FLOAT_PRECISION
+            cond2 = abs(end - endtime)    <= delta + FLOAT_PRECISION
+            if hasattr(trace.data,'mask'):
+                trace.data = trace.data.data
+            if cond1 and cond2 and not np.any(np.isnan(trace.data)):
                 valid_traces.append(trace)
 
         return Stream(traces=valid_traces)
@@ -358,6 +361,9 @@ class XArrayStack(ab.XArrayProcessor):
 
     def _get_process(self):
         return 'stack'
+
+    def _should_process(self,xarray1,xarray2, *args):
+        return xarray1 is not None or xarray2 is not None
 
     def _time_signature(self,time):
         return time
