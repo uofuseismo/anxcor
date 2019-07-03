@@ -75,7 +75,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_task_kwargs('crosscorrelate', dict(dummy_task=True))
+        anxcor.set_task_kwargs('crosscorrelate')
         result = anxcor.process(times)
         pairs = list(result.coords['pair'].values)
         assert len(pairs) == 3
@@ -92,7 +92,6 @@ class TestIntegratedIOOps(unittest.TestCase):
         times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 3600, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_task_kwargs('crosscorrelate')
         result = anxcor.process(times,dask_client=c)
         result = result.result()
         pairs  = list(result.coords['pair'].values)
