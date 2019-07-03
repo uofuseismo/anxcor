@@ -89,8 +89,3 @@ def plot_spectrum(trace):
     amplitudes /= np.max(amplitudes)
     freqs = fftpack.fftfreq(len(trace.data)) * sample_rate
 
-    plt.figure()
-    plt.plot(freqs, amplitudes)
-
-    plt.xlim([-sample_rate / 2, sample_rate / 2])
-    plt.show()
