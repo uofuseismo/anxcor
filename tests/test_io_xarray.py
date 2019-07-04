@@ -10,7 +10,7 @@ from os import path
 import os
 
 source_dir = 'tests/test_data/test_anxcor_database/test_waveforms_multi_station'
-target_dir = 'test_data/test_anxcor_database/test_save_output'
+target_dir = 'tests/test_data/test_anxcor_database/test_save_output'
 
 starttime_stamp = 0
 endtime_stamp   = 5*2*60
