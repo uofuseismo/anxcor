@@ -41,7 +41,7 @@ install:
 
 # command to run tests
 script:
-  - pytest --cov=anxcor/
+  - pytest -v --cov=anxcor
 
 after_success:
   - coveralls
