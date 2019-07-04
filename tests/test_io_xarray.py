@@ -5,9 +5,8 @@ from anxcor.utils import _clean_files_in_dir, _how_many_fmt
 import anxcor.utils as utils
 from anxcor.core import Anxcor, AnxcorDatabase
 from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
-import numpy as np
-import pytest
 import xarray as xr
+from os import path
 import os
 
 source_dir = 'tests/test_data/test_anxcor_database/test_waveforms_multi_station'
@@ -16,7 +15,7 @@ target_dir = 'test_data/test_anxcor_database/test_save_output'
 starttime_stamp = 0
 endtime_stamp   = 5*2*60
 
-if not utils.folder_exists(target_dir) or not utils.file_exists(target_dir):
+if not path.exists(target_dir):
     os.mkdir(target_dir)
 
 class TestProcess:

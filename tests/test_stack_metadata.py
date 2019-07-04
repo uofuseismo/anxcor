@@ -10,16 +10,6 @@ target_dir = 'test_data/test_anxcor_database/test_save_output'
 starttime_stamp = 0
 endtime_stamp   = 5*2*60
 
-
-class TestProcess:
-
-    def __init__(self):
-        pass
-
-    def process(self, trace):
-        pass
-
-
 def get_ancor_set():
     bank = WaveBank(source_dir)
     return bank
