@@ -2,7 +2,9 @@
 [![Build Status](https://travis-ci.org/uofuseismo/anxcor.png?branch=master)](https://travis-ci.org/uofuseismo/anxcor)
 ![PyPI](https://img.shields.io/pypi/v/anxcor.png?color=blue&style=plastic)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/anxcor.png?style=plastic)
-[![Python 3.6][ 3.7](https://img.shields.io/badge/python-3.6-blue.svg)(https://www.python.org/downloads/release/python-360/)(https://img.shields.io/badge/python-3.7-blue.svg)](https://www.python.org/downloads/release/python-370/)]
+[![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)]
+[![Python 3.7](https://img.shields.io/badge/python-3.7-blue.svg)]
+[![Coverage Status](https://coveralls.io/repos/github/uofuseismo/anxcor/badge.svg?branch=master)](https://coveralls.io/github/uofuseismo/anxcor?branch=master)
 
 
 ## ANXCOR: Ambient Noise X (cross) Correlation
