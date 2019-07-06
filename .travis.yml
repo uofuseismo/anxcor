@@ -20,10 +20,6 @@ before_install:
   - conda update --yes conda
   - conda config --add channels conda-forge
   - python -m pip install --upgrade pip
-  - pip install pytest
-  - pip install pytest-cov
-  - pip install --upgrade setuptools
-  - pip install coveralls
   - export PYTHONPATH=$PYTHONPATH:$(pwd)
   - python --version
   - whereis python
@@ -31,10 +27,14 @@ before_install:
 install:
   - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
   - source activate test
-  - conda install --yes numpy scipy xarray pandas obspy bottleneck pytest
+  - conda install --yes numpy scipy xarray pandas obspy bottleneck
   - conda install --yes dask
   - conda install --yes pip
   - pip install obsplus
+  - pip install pytest
+  - pip install pytest-cov
+  - pip install --upgrade setuptools
+  - pip install coveralls
   - python --version
   - whereis python
 

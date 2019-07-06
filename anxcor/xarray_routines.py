@@ -128,10 +128,10 @@ class XArrayBandpass(ab.XArrayProcessor):
         if self._kwargs['upper_frequency'] > sampling_rate / 2:
             ufunc_kwargs['upper_frequency'] = sampling_rate / 2
 
-        tapered_array  = xr.apply_ufunc(filt_ops.taper,xarray,
+        filtered_array = xr.apply_ufunc(filt_ops.taper, xarray,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
-                                        kwargs=ufunc_kwargs)
+                                        kwargs={**self._kwargs})
         filtered_array = xr.apply_ufunc(filt_ops.butter_bandpass_filter, tapered_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
@@ -199,7 +199,11 @@ class XResample(ab.XArrayProcessor):
                                         input_core_dims=[['time']],
                                         output_core_dims = [['time']],
                                         kwargs={'type':'linear'})
-        filtered_array = xr.apply_ufunc(filt_ops.lowpass_filter,detrend_array,
+        tapered_array = xr.apply_ufunc(filt_ops.taper, detrend_array,
+                                        input_core_dims=[['time']],
+                                        output_core_dims=[['time']],
+                                        kwargs={**self._kwargs})
+        filtered_array = xr.apply_ufunc(filt_ops.lowpass_filter,tapered_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={'upper_frequency':    nyquist,
@@ -235,9 +239,10 @@ class XArrayXCorrelate(ab.XArrayProcessor):
 
     """
 
-    def __init__(self,max_tau_shift=10.0,**kwargs):
+    def __init__(self,max_tau_shift=10.0,taper=0.01,**kwargs):
         super().__init__(**kwargs)
         self._kwargs['max_tau_shift']=max_tau_shift
+        self._kwargs['taper'] = taper
 
     def _single_thread_execute(self, source_xarray: xr.DataArray, receiver_xarray: xr.DataArray,*args, **kwargs):
         if source_xarray is not None and receiver_xarray is not None:
@@ -254,6 +259,15 @@ class XArrayXCorrelate(ab.XArrayProcessor):
     def _metadata_to_persist(self, xarray_1,xarray_2, **kwargs):
         if xarray_2 is None or xarray_1 is None:
             return None
+
+        xarray_1 = xr.apply_ufunc(filt_ops.taper, xarray_1,
+                                  input_core_dims=[['time']],
+                                  output_core_dims=[['time']],
+                                  kwargs={**self._kwargs})
+        xarray_2 = xr.apply_ufunc(filt_ops.taper, xarray_2,
+                                  input_core_dims=[['time']],
+                                  output_core_dims=[['time']],
+                                  kwargs={**self._kwargs})
 
         attrs = {'delta'    : xarray_1.attrs['delta'],
                  'starttime': xarray_1.attrs['starttime'],

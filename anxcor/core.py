@@ -2,6 +2,7 @@ from  anxcor.containers import DataLoader, XArrayCombine, XArrayStack, AnxcorDat
 from  anxcor.xarray_routines import XArrayConverter, XResample, XArrayXCorrelate
 from anxcor.abstractions import XArrayProcessor
 from typing import List
+import xarray as xr
 from xarray import Dataset
 import numpy as np
 import itertools
@@ -560,6 +561,18 @@ class _AnxcorConverter:
             starttimes.append(time)
             time+=delta
         return starttimes
+
+    def xarray_3D_to_2D(self,xdataset: xr.DataSet):
+        # get vars
+        new_ds = xdataset.assign_coords(component='{}{}{}'.format(xdataset.src_chan,':',xdataset.rec_chan))
+        new_ds = new_ds.drop_dims(['src_chan','rec_chan'])
+        return new_ds
+
+    def xarray_2D_to_3D(self,xdataset: xr.DataSet):
+        new_ds = xdataset.assign_coords(src_chan=xdataset.component.split(':')[0])
+        new_ds = new_ds.assign_coords(rec_chan=xdataset.component.split(':')[1])
+        new_ds = new_ds.drop_dims(['component'])
+        return new_ds
 
     def xarray_to_obspy(self,xdataset):
         attrs = xdataset.attrs
