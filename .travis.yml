@@ -33,7 +33,7 @@ install:
   - conda install --yes numpy scipy xarray pandas obspy bottleneck pytest
   - conda install --yes dask
   - conda install --yes pip
-  - pip install obsplus --
+  - pip install obsplus --yes
   - python --version
   - whereis python
 
@@ -41,7 +41,7 @@ install:
 
 # command to run tests
 script:
-  - pytest -v --cov=anxcor
+  - pytest -v --cov=anxcor tests
 
 after_success:
   - coveralls
