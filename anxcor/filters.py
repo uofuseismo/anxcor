@@ -225,7 +225,7 @@ def _cross_correlate_xarray_data(source_xarray, receiver_xarray,gpu_enable=False
         return None
 
 
-    return xcorr_mat
+    return xcorr_mat / time_size
 
 def _multiply_in_mat(one,two,dtype=np.complex64):
     zero_mat = np.zeros((one.shape[0],
