@@ -3,7 +3,6 @@ from  anxcor.xarray_routines import XArrayConverter, XResample, XArrayXCorrelate
 from anxcor.abstractions import XArrayProcessor
 from typing import List
 import xarray as xr
-from xarray import Dataset
 import numpy as np
 import itertools
 from obspy.core import UTCDateTime, Stream, Trace
