@@ -9,6 +9,7 @@
 
 ## ANXCOR: Ambient Noise X (cross) Correlation
 
+## *CURRENTLY IN DEVELOPMENT/UNSTABLE*
 
 **ANXCOR** is a python library for performing seismic ambient noise crosscorrelations.
 
