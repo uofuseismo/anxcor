@@ -150,7 +150,7 @@ class _XDaskTask:
         return self._get_process()
 
     def __call__(self, *args, dask_client=None, **kwargs):
-        key = self._get_operation_key(kwargs['starttime'],kwargs['station'])
+        key = self._get_operation_key(**kwargs)
 
         result = None
         if self._enabled and not self.read.is_enabled() and self._should_process(*args):
@@ -159,8 +159,7 @@ class _XDaskTask:
             else:
                 result = dask_client.submit(self._execute, *args, key=key,**kwargs)
 
-        result = self._io_operations(*args, dask_client=dask_client, result=result,
-                                     starttime=kwargs['starttime'], station=kwargs['station'])
+        result = self._io_operations(*args, dask_client=dask_client, result=result,**kwargs)
         return result
 
     def _execute(self, *args, **kwargs):
@@ -272,7 +271,7 @@ class _XDaskTask:
     def _window_key_convert(self,window):
         return window
 
-    def _get_operation_key(self,starttime,station):
+    def _get_operation_key(self,starttime=0,station=0,**kwargs):
         window_key = self._window_key_convert(starttime)
         return '{}-{}-{}'.format(self._get_process(),station,window_key)
 
