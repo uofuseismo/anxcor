@@ -215,7 +215,7 @@ class Anxcor:
         """
         self._data.load_at_process(folder, process)
 
-    def process(self, starttimes: List[float], dask_client=None) -> Dataset:
+    def process(self, starttimes: List[float], dask_client=None) -> DataSet:
         """
         Perform the crosscorrelation routines. By default this processes, stacks, and combines
         all crosscorrelations during the given starttimes. See documentation for finer control
@@ -240,7 +240,7 @@ class Anxcor:
         else:
             print('no data banks added. will not execute.')
 
-    def xarray_to_obspy(self, xdataset: Dataset):
+    def xarray_to_obspy(self, xdataset: DataSet):
         """
         convert the output of a anxcor correlation into an obspy stream
 
