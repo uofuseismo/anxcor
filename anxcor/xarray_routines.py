@@ -45,11 +45,11 @@ class XArrayConverter(ab.XArrayProcessor):
         stations = []
         delta = None
         time_array = None
-        data_type = None
-        starttime = None
-        latitude = None
-        longitude = None
-        elevation = None
+        data_type  = 'default'
+        starttime  = None
+        latitude   = None
+        longitude  = None
+        elevation  = None
         for trace in stream:
             station_code = self._get_station_id(trace)
             if station_code not in stations:
@@ -67,7 +67,8 @@ class XArrayConverter(ab.XArrayProcessor):
 
                 time_array = np.arange(starttime, endtime + timedelta, timedelta)
                 starttime = trace.stats.starttime.timestamp
-                data_type = trace.stats.data_type
+                if hasattr(trace.stats,'data_type'):
+                    data_type = trace.stats.data_type
                 stats_keys = trace.stats.keys()
                 if 'latitude' in stats_keys:
                     latitude = trace.stats.latitude
