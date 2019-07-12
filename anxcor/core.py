@@ -215,7 +215,7 @@ class Anxcor:
         """
         self._data.load_at_process(folder, process)
 
-    def process(self, starttimes: List[float], dask_client=None) -> DataSet:
+    def process(self, starttimes: List[float], dask_client=None) -> xr.DataSet:
         """
         Perform the crosscorrelation routines. By default this processes, stacks, and combines
         all crosscorrelations during the given starttimes. See documentation for finer control
@@ -240,7 +240,7 @@ class Anxcor:
         else:
             print('no data banks added. will not execute.')
 
-    def xarray_to_obspy(self, xdataset: DataSet):
+    def xarray_to_obspy(self, xdataset: xr.DataSet):
         """
         convert the output of a anxcor correlation into an obspy stream
 
@@ -573,7 +573,7 @@ class _AnxcorConverter:
         new_ds = new_ds.drop_dims(['component'])
         return new_ds
 
-    def xarray_to_obspy(self,xdataset):
+    def xarray_to_obspy(self,xdataset: xr.DataSet):
         attrs = xdataset.attrs
         traces = []
         starttime = list(xdataset.coords['time'].values)[0]
@@ -616,7 +616,7 @@ class _AnxcorConverter:
         network_2 = stations[1].split('.')[0]
         return station_1, station_2, network_1, network_2
 
-    def align_station_pairs(self,xdataset):
+    def align_station_pairs(self,xdataset: xr.DataSet):
         attrs = xdataset.attrs.copy()
         del attrs['delta']
         del attrs['operations']
