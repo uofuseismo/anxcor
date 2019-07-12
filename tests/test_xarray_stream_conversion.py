@@ -1,8 +1,10 @@
 import unittest
 from obsplus.bank import WaveBank
-from obspy.core import Stream, Trace
+from obspy.core import Stream, Trace, read
 from anxcor.core import Anxcor, AnxcorDatabase
+from anxcor.xarray_routines import XArrayConverter
 import numpy as np
+
 import pytest
 source_dir = 'tests/test_data/test_anxcor_database/test_waveforms_multi_station'
 target_dir = 'test_data/test_anxcor_database/test_save_output'
@@ -64,6 +66,13 @@ class TestObspyUtilFunction(unittest.TestCase):
         result = anxcor.process([starttime_stamp])
         streams = anxcor.xarray_to_obspy(result)
         assert len(streams) == 54,'not enough traces retained!'
+
+
+    def test_basic_read_conversion_functionality(self):
+        stream = read()
+        xarray = XArrayConverter()(stream)
+        assert True
+
 
     @pytest.mark.skip('to be implemented')
     def test_rotation(self):
