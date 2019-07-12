@@ -211,16 +211,7 @@ class XArrayResample(ab.XArrayProcessor):
                                                 'sampling_rate': sampling_rate})
 
         resampled_array= filtered_array.resample(time=target_rule)\
-            .interpolate('linear')
-
-        starttime_datetime = np.datetime64(UTCDateTime(starttime).datetime)
-        endtime_datetime   = np.datetime64(UTCDateTime(starttime +
-                                                       delta*resampled_array.data.shape[-1]).datetime)
-        timedelta = pd.Timedelta(delta, 's').to_timedelta64()
-        time_array = np.arange(starttime_datetime, endtime_datetime + timedelta, timedelta)
-        resampled_array = resampled_array.interp(time=time_array).bfill('time').ffill('time')
-
-
+            .interpolate('linear').bfill('time').ffill('time')
         return resampled_array
 
     def _add_metadata_key(self):
