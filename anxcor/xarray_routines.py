@@ -329,7 +329,7 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
                  upper_frequency=c.T_NORM_UPPER_FREQ,
                  t_norm_type=c.T_NORM_TYPE,
                  rolling_metric=c.ROLLING_METRIC,
-                 reduction_metric=c.REDUCTION_METRIC,
+                 reduce_metric=c.REDUCE_METRIC,
                  taper=c.TAPER_DEFAULT, **kwargs):
         super().__init__(**kwargs)
         self._kwargs['t_norm_type']         = t_norm_type
@@ -337,7 +337,7 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
         self._kwargs['lower_frequency']     = lower_frequency
         self._kwargs['upper_frequency']     = upper_frequency
         self._kwargs['rolling_metric']   = rolling_metric
-        self._kwargs['reduction_metric'] = reduction_metric
+        self._kwargs['reduce_metric'] = reduce_metric
         self._kwargs['taper']               = taper
 
 
@@ -380,7 +380,7 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
         return bandpassed_array
 
     def _reduce_by_channel(self, bandpassed_array):
-        reduction_procedure = self._kwargs['reduction_metric']
+        reduction_procedure = self._kwargs['reduce_metric']
         norm_type           = self._kwargs['t_norm_type']
         if norm_type == 'reduce_metric':
             if reduction_procedure   == 'mean':
@@ -407,8 +407,8 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
             op='temporal_norm@type:{} window: {},rolling_metric: {},reduce_metric: {},taper: {},bandpass: {}<x(t)<{}'.format(
             self._kwargs['t_norm_type'],
             self._kwargs['time_window'],
-            self._kwargs['rolling_procedure'],
-            self._kwargs['reduction_procedure'],
+            self._kwargs['rolling_metric'],
+            self._kwargs['reduce_metric'],
             self._kwargs['taper'],
             self._kwargs['lower_frequency'],
             self._kwargs['upper_frequency'])
@@ -416,7 +416,7 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
             op='temporal_norm@type:{} window: {},rolling_metric: {},taper: {},bandpass: {}<x(t)<{}'.format(
                 self._kwargs['t_norm_type'],
                 self._kwargs['time_window'],
-                self._kwargs['rolling_procedure'],
+                self._kwargs['rolling_metric'],
                 self._kwargs['taper'],
                 self._kwargs['lower_frequency'],
                 self._kwargs['upper_frequency'])

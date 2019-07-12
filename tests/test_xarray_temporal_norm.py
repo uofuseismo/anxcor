@@ -1,7 +1,13 @@
 import unittest
 from anxcor.xarray_routines import XArrayWhiten, XArrayConverter, XArrayTemporalNorm, XArrayResample, XArrayXCorrelate
+# travis import
 from tests.synthetic_trace_factory import create_random_trace
+# relative import
+#from synthetic_trace_factory import create_random_trace
 from obspy.core import read
+from anxcor.xarray_routines import XArrayRemoveMeanTrend
+from obspy.clients.fdsn import Client
+from obspy.core import UTCDateTime
 import numpy as np
 import xarray as xr
 whiten    = XArrayWhiten(smoothing_window_ratio=0.025, upper_frequency=25.0, lower_frequency=0.001, order=2)
@@ -67,11 +73,11 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         down   = XArrayResample(10)
         t_norm =XArrayTemporalNorm(time_window=2.0)
 
-        noise_loc_1_eq = down(noise_loc_1_eq,starttime=0,station=0)
-        noise_loc_2_eq = down(noise_loc_2_eq,starttime=0,station=0)
+        noise_loc_1_eq = down(noise_loc_1_eq)
+        noise_loc_2_eq = down(noise_loc_2_eq)
 
-        noise_loc_2_eq_tnorm = t_norm(noise_loc_2_eq.copy(),starttime=0,station=0)
-        noise_loc_1_eq_tnorm = t_norm(noise_loc_1_eq.copy(),starttime=0,station=0)
+        noise_loc_2_eq_tnorm = t_norm(noise_loc_2_eq.copy())
+        noise_loc_1_eq_tnorm = t_norm(noise_loc_1_eq.copy())
 
 
         x_corr_eq      = self.max_corr_norm(noise_loc_1_eq, noise_loc_2_eq)
@@ -101,9 +107,9 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         down   = XArrayResample(10)
         t_norm =XArrayTemporalNorm(time_window=2.0)
 
-        noise_loc_2_eq       = down(noise_loc_1_eq,starttime=0,station=0)
+        noise_loc_2_eq       = down(noise_loc_1_eq)
 
-        noise_loc_2_eq_tnorm = t_norm(noise_loc_2_eq,starttime=0,station=0)
+        noise_loc_2_eq_tnorm = t_norm(noise_loc_2_eq)
 
 
         assert noise_loc_2_eq_tnorm.dtype == np.float64
@@ -119,12 +125,31 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         return idx/sampling_rate
 
     def max_corr_norm(self, one, two):
-        corr_func= correlate(one,two,starttime=0,station=0)
+        corr_func= correlate(one,two)
         corr_func=corr_func.data.ravel()
         corr_func/=np.max(abs(corr_func))
         return corr_func
 
     def test_nonetype_in_out(self):
         t_norm = XArrayTemporalNorm()
-        result = t_norm(None,starttime=0,station=0)
+        result = t_norm(None)
+        assert True
+
+    def test_jupyter_example(self):
+        client = Client("IRIS")
+        t = UTCDateTime("2018-12-25 12:00:00").timestamp
+        st = client.get_waveforms("UU", "SPU", "*", "H*", t, t + 6 * 60 * 60, attach_response=True)
+        pre_filt = (0.003, 0.005, 40.0, 45.0)
+        st.remove_response(output='DISP', pre_filt=pre_filt)
+        converter = XArrayConverter()
+        resampler = XArrayResample(target_rate=10.0)
+        rmmean_trend = XArrayRemoveMeanTrend()
+        temp_normalizer = XArrayTemporalNorm(t_norm_type='reduce_metric',
+                                             lower_frequency=0.001, upper_frequency=0.1,
+                                             time_window=2.0, rolling_procedure='mean',
+                                             reduce_metric='max')
+        xarray = converter(st)
+        resampled_array = resampler(xarray)
+        rmm_array = rmmean_trend(resampled_array)
+        t_normed_array = temp_normalizer(rmm_array)
         assert True
