@@ -36,7 +36,7 @@ class TestConfig(unittest.TestCase):
 
     def test_load_config_wout_routine(self):
         anxcor = Anxcor(window_length=120.0)
-        anxcor.add_process(XArrayTemporalNorm(time_window=15, rolling_procedure='max'))
+        anxcor.add_process(XArrayTemporalNorm(time_window=15, rolling_metric='max'))
         anxcor.save_config(save_dir + os.sep + 'config.ini')
 
         anxcor2 = Anxcor(window_length=120.0)
@@ -47,7 +47,7 @@ class TestConfig(unittest.TestCase):
     def test_load_config_with_routine(self):
         time_mean_target = 15
         anxcor = Anxcor(window_length=120.0)
-        anxcor.add_process(XArrayTemporalNorm(time_window=time_mean_target, rolling_procedure='max'))
+        anxcor.add_process(XArrayTemporalNorm(time_window=time_mean_target, rolling_metric='max'))
         anxcor.save_config(save_dir + os.sep + 'config.ini')
 
         anxcor2 = Anxcor(window_length=120.0)

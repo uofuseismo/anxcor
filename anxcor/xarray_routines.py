@@ -328,16 +328,16 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
                  lower_frequency=c.T_NORM_LOWER_FREQ,
                  upper_frequency=c.T_NORM_UPPER_FREQ,
                  t_norm_type=c.T_NORM_TYPE,
-                 rolling_procedure=c.ROLLING_PROCEDURE,
-                 reduction_procedure=c.REDUCTION_PROCEDURE,
-                 taper=c.TAPER_DEFAULT,**kwargs):
+                 rolling_metric=c.ROLLING_METRIC,
+                 reduction_metric=c.REDUCTION_METRIC,
+                 taper=c.TAPER_DEFAULT, **kwargs):
         super().__init__(**kwargs)
         self._kwargs['t_norm_type']         = t_norm_type
         self._kwargs['time_window']         = time_window
         self._kwargs['lower_frequency']     = lower_frequency
         self._kwargs['upper_frequency']     = upper_frequency
-        self._kwargs['rolling_procedure']   = rolling_procedure
-        self._kwargs['reduction_procedure'] = reduction_procedure
+        self._kwargs['rolling_metric']   = rolling_metric
+        self._kwargs['reduction_metric'] = reduction_metric
         self._kwargs['taper']               = taper
 
 
@@ -361,7 +361,7 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
     def _apply_rolling_method(self, bandpassed_array, sampling_rate):
         time_window       = self._kwargs['time_window']
         rolling_samples   = int(sampling_rate * time_window)
-        rolling_procedure = self._kwargs['rolling_procedure']
+        rolling_procedure = self._kwargs['rolling_metric']
 
         if rolling_procedure == 'mean':
             bandpassed_array = abs(bandpassed_array).rolling(time=rolling_samples,
@@ -380,7 +380,7 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
         return bandpassed_array
 
     def _reduce_by_channel(self, bandpassed_array):
-        reduction_procedure = self._kwargs['reduction_procedure']
+        reduction_procedure = self._kwargs['reduction_metric']
         norm_type           = self._kwargs['t_norm_type']
         if norm_type == 'reduce_metric':
             if reduction_procedure   == 'mean':
@@ -403,11 +403,24 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
 
 
     def _add_operation_string(self):
-        return 'temporal_norm@type({}),rolling({}),reduce_by({}).'+\
-               'time_mean({}),f_norm_basis({})<f<({})'.format(
-            self._kwargs['t_norm_type'],self._kwargs['time_window'],
-            self._kwargs['rolling_procedure'], self._kwargs['reduction_procedure'],
-            self._kwargs['lower_frequency'],self._kwargs['upper_frequency'])
+        if self._kwargs['t_norm_type']=='reduce_metric':
+            op='temporal_norm@type:{} window: {},rolling_metric: {},reduce_metric: {},taper: {},bandpass: {}<x(t)<{}'.format(
+            self._kwargs['t_norm_type'],
+            self._kwargs['time_window'],
+            self._kwargs['rolling_procedure'],
+            self._kwargs['reduction_procedure'],
+            self._kwargs['taper'],
+            self._kwargs['lower_frequency'],
+            self._kwargs['upper_frequency'])
+        else:
+            op='temporal_norm@type:{} window: {},rolling_metric: {},taper: {},bandpass: {}<x(t)<{}'.format(
+                self._kwargs['t_norm_type'],
+                self._kwargs['time_window'],
+                self._kwargs['rolling_procedure'],
+                self._kwargs['taper'],
+                self._kwargs['lower_frequency'],
+                self._kwargs['upper_frequency'])
+        return op
 
 
 
