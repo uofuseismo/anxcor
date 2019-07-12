@@ -184,9 +184,10 @@ class XArrayResample(ab.XArrayProcessor):
     resamples the provided xarray to a lower frequency
     """
 
-    def __init__(self, target_rate=10.0,**kwargs):
+    def __init__(self, target_rate=10.0,taper=0.05,**kwargs):
         super().__init__(**kwargs)
         self._kwargs['target_rate'] = target_rate
+        self._kwargs['taper']       = taper
 
     def _single_thread_execute(self, xarray: xr.DataArray,*args,starttime=0,**kwargs):
         delta =  xarray.attrs['delta']
