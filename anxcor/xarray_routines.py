@@ -2,15 +2,13 @@
 xarray.DataArray operations for use with Anxcor processing routines
 
 """
-
+import anxcor.constants as c
 import numpy as np
 import xarray as xr
 import anxcor.filters as filt_ops
 import pandas as pd
 import  anxcor.abstractions as ab
-from obspy.core import UTCDateTime
-OPERATIONS_SEPARATION_CHARACTER = '\n'
-SECONDS_2_NANOSECONDS = 1e9
+
 
 
 class XArrayConverter(ab.XArrayProcessor):
@@ -35,7 +33,7 @@ class XArrayConverter(ab.XArrayProcessor):
         station = trace.stats.station
         return network + '.' + station
 
-    def _single_thread_execute(self, stream,*args,starttime=0, **kwargs):
+    def _single_thread_execute(self, stream,*args, **kwargs):
         if stream is not None and len(stream)>0:
             return self._convert_trace_2_xarray(stream)
         return None
@@ -43,6 +41,7 @@ class XArrayConverter(ab.XArrayProcessor):
     def _convert_trace_2_xarray(self, stream):
         channels = []
         stations = []
+
         delta = None
         time_array = None
         data_type  = 'default'
@@ -115,7 +114,10 @@ class XArrayBandpass(ab.XArrayProcessor):
     applies a bandpass filter to a provided xarray
     """
 
-    def __init__(self,upper_frequency=10.0,lower_frequency=0.01,order=2,taper=0.1,**kwargs):
+    def __init__(self,upper_frequency=c.UPPER_CUTOFF_FREQ,
+                    lower_frequency=c.LOWER_CUTOFF_FREQ,
+                    order=c.FILTER_ORDER_BANDPASS,
+                    taper=c.TAPER_DEFAULT,**kwargs):
         super().__init__(**kwargs)
         self._kwargs = {'upper_frequency':upper_frequency,
                         'lower_frequency':lower_frequency,
@@ -133,7 +135,7 @@ class XArrayBandpass(ab.XArrayProcessor):
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**self._kwargs})
-        filtered_array = xr.apply_ufunc(filt_ops.butter_bandpass_filter, tapered_array,
+        filtered_array = xr.apply_ufunc(filt_ops.butter_bandpass_filter, filtered_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**ufunc_kwargs,**{
@@ -160,7 +162,7 @@ class XArrayTaper(ab.XArrayProcessor):
 
     """
 
-    def __init__(self,taper=0.1,**kwargs):
+    def __init__(self,taper=c.TAPER_DEFAULT,**kwargs):
         super().__init__(**kwargs)
         self._kwargs = {'taper':taper}
 
@@ -184,7 +186,8 @@ class XArrayResample(ab.XArrayProcessor):
     resamples the provided xarray to a lower frequency
     """
 
-    def __init__(self, target_rate=10.0,taper=0.05,**kwargs):
+    def __init__(self, target_rate=c.RESAMPLE_DEFAULT,
+                 taper=c.TAPER_DEFAULT,**kwargs):
         super().__init__(**kwargs)
         self._kwargs['target_rate'] = target_rate
         self._kwargs['taper']       = taper
@@ -193,7 +196,7 @@ class XArrayResample(ab.XArrayProcessor):
         delta =  xarray.attrs['delta']
         sampling_rate = 1.0 / delta
         nyquist       = self._kwargs['target_rate'] / 2.0
-        target_rule = str(int((1.0 /self._kwargs['target_rate']) * SECONDS_2_NANOSECONDS)) + 'N'
+        target_rule = str(int((1.0 /self._kwargs['target_rate']) * c.SECONDS_2_NANOSECONDS)) + 'N'
 
         mean_array     = xarray.mean(dim=['time'])
         demeaned_array = xarray - mean_array
@@ -232,7 +235,8 @@ class XArrayXCorrelate(ab.XArrayProcessor):
 
     """
 
-    def __init__(self,max_tau_shift=10.0,taper=0.01,**kwargs):
+    def __init__(self,max_tau_shift=c.MAX_TAU_DEFAULT,
+                 taper=c.TAPER_DEFAULT,**kwargs):
         super().__init__(**kwargs)
         self._kwargs['max_tau_shift']=max_tau_shift
         self._kwargs['taper'] = taper
@@ -266,7 +270,7 @@ class XArrayXCorrelate(ab.XArrayProcessor):
                  'starttime': xarray_1.attrs['starttime'],
                  'stacks'   : 1,
                  'endtime'  : xarray_1.attrs['starttime'] + xarray_1.attrs['delta'] * xarray_1.data.shape[-1],
-                 'operations': xarray_1.attrs['operations'] + OPERATIONS_SEPARATION_CHARACTER + \
+                 'operations': xarray_1.attrs['operations'] + c.OPERATIONS_SEPARATION_CHARACTER + \
                                'correlated@{}<t<{}'.format(self._kwargs['max_tau_shift'],self._kwargs['max_tau_shift'])}
         if 'location' in xarray_1.attrs.keys() and 'location' in xarray_2.attrs.keys():
             attrs['location'] = {'src':xarray_1.attrs['location'],
@@ -298,11 +302,13 @@ class XArrayRemoveMeanTrend(ab.XArrayProcessor):
         detrend_array = xr.apply_ufunc(filt_ops.detrend, xarray,
                                        input_core_dims=[['time']],
                                        output_core_dims=[['time']],
-                                       kwargs={'type': 'linear'},keep_attrs=True)
+                                       kwargs={'type': 'linear'},
+                                       keep_attrs=True)
         demeaned = xr.apply_ufunc(filt_ops.detrend, detrend_array,
                                        input_core_dims=[['time']],
                                        output_core_dims=[['time']],
-                                       kwargs={'type': 'constant'}, keep_attrs=True)
+                                       kwargs={'type': 'constant'},
+                                       keep_attrs=True)
 
         return demeaned
 
@@ -318,10 +324,13 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
     applies a temporal norm operation to an xarray timeseries
     """
 
-    def __init__(self, time_window=10.0, lower_frequency=0.001,
-                 upper_frequency=5.0, t_norm_type='reduce_channel',
-                 rolling_procedure='mean',
-                 reduction_procedure='max', **kwargs):
+    def __init__(self, time_window=c.T_NORM_WINDOW,
+                 lower_frequency=c.T_NORM_LOWER_FREQ,
+                 upper_frequency=c.T_NORM_UPPER_FREQ,
+                 t_norm_type=c.T_NORM_TYPE,
+                 rolling_procedure=c.ROLLING_PROCEDURE,
+                 reduction_procedure=c.REDUCTION_PROCEDURE,
+                 taper=c.TAPER_DEFAULT,**kwargs):
         super().__init__(**kwargs)
         self._kwargs['t_norm_type']         = t_norm_type
         self._kwargs['time_window']         = time_window
@@ -329,11 +338,10 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
         self._kwargs['upper_frequency']     = upper_frequency
         self._kwargs['rolling_procedure']   = rolling_procedure
         self._kwargs['reduction_procedure'] = reduction_procedure
+        self._kwargs['taper']               = taper
 
 
     def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
-        time_average         = self._kwargs['time_window']
-
         sampling_rate   = 1.0/xarray.attrs['delta']
 
         bandpassed_array = xr.apply_ufunc(filt_ops.butter_bandpass_filter,xarray,
@@ -402,8 +410,11 @@ class XArrayWhiten(ab.XArrayProcessor):
     """
     whitens the frequency spectrum of a given xarray
     """
-    def __init__(self, smoothing_window_ratio=10.0, lower_frequency=0.001,
-                 upper_frequency=5.0, order=2,whiten_type='cross_component', **kwargs):
+    def __init__(self, smoothing_window_ratio=c.WHITEN_WINDOW_RATIO,
+                 lower_frequency=c.LOWER_CUTOFF_FREQ,
+                 upper_frequency=c.UPPER_CUTOFF_FREQ,
+                 order=c.FILTER_ORDER_WHITEN,
+                 whiten_type=c.WHITEN_TYPE, **kwargs):
         super().__init__(**kwargs)
         self._kwargs = {
             'smoothing_window_ratio': smoothing_window_ratio,
