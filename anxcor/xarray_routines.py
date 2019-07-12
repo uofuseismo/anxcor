@@ -144,7 +144,7 @@ class XArrayBandpass(ab.XArrayProcessor):
         return filtered_array
 
     def _add_operation_string(self):
-        return 'bandpass@{}<{}'.format(self._kwargs['lower_frequency'],
+        return 'bandpass@{}<x(t)<{}'.format(self._kwargs['lower_frequency'],
                                        self._kwargs['upper_frequency'])
 
     def _get_process(self):
@@ -382,7 +382,7 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
     def _reduce_by_channel(self, bandpassed_array):
         reduction_procedure = self._kwargs['reduction_procedure']
         norm_type           = self._kwargs['t_norm_type']
-        if norm_type == 'reduce_channel':
+        if norm_type == 'reduce_metric':
             if reduction_procedure   == 'mean':
                 bandpassed_array = abs(bandpassed_array).mean(dim='channel')
             elif reduction_procedure == 'median':
@@ -391,6 +391,11 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
                 bandpassed_array = abs(bandpassed_array).min(dim='channel')
             elif reduction_procedure == 'max':
                 bandpassed_array = abs(bandpassed_array).max(dim='channel')
+            elif 'z' in reduction_procedure.lower() or 'n' in reduction_procedure.lower() \
+                    or 'e' in reduction_procedure.lower():
+                for coordinate in list(bandpassed_array.coords['channel'].values):
+                    if reduction_procedure in coordinate.lower():
+                        return bandpassed_array[dict(channel=coordinate)]
         return bandpassed_array
 
     def _get_process(self):
@@ -424,13 +429,15 @@ class XArrayWhiten(ab.XArrayProcessor):
             'whiten_type':whiten_type}
 
     def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
-        channel   = xarray.get_axis_num(dim='channel')
+        channel     = xarray.get_axis_num(dim='channel')
+        channels=list(xarray.coords['channel'].values)
         new_array = xr.apply_ufunc(filt_ops.xarray_whiten, xarray,
                                           input_core_dims=[['time']],
                                           output_core_dims=[['time']],
                                           kwargs={**self._kwargs ,
                                                   **{'delta':xarray.attrs['delta'],
                                                      'channel_axis':channel,
+                                                     'channel_map':channels,
                                                      'axis' :xarray.get_axis_num('time')}})
 
         return  new_array

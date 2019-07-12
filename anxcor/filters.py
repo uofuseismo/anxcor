@@ -80,7 +80,9 @@ def taper(data, taper=0.1,axis=-1,**kwargs):
 def xarray_whiten(data, taper=0.1, smoothing_window_ratio=0.1,
                         lower_frequency=None,
                         upper_frequency=None, axis=-1, delta=0.1,
-                        whiten_type=None,channel_axis=0,**kwargs):
+                        whiten_type=None,
+                        channel_axis=0,
+                        channel_map=None,**kwargs):
 
     len_time_axis = data.shape[axis]
 
@@ -96,6 +98,13 @@ def xarray_whiten(data, taper=0.1, smoothing_window_ratio=0.1,
     running_spec  = np.apply_along_axis(convolve, axis, np.abs(freq_domain), convolve_ones, mode='same')
     if whiten_type=='cross_component':
         running_spec = np.max(running_spec,axis=channel_axis)
+    elif whiten_type=='per_component':
+        running_spec = running_spec
+    elif 'z' in whiten_type or 'n' in whiten_type or 'e' in whiten_type:
+        if whiten_type in channel_map:
+            index = channel_map.index(whiten_type)
+            running_spec = running_spec[index,0,:]
+
     freq_domain   = np.divide(freq_domain, running_spec)
 
     b, a     = _butter_bandpass(lower_frequency, upper_frequency, 1 / delta, **kwargs)
