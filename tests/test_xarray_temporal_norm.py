@@ -1,5 +1,5 @@
 import unittest
-from anxcor.xarray_routines import XArrayWhiten, XArrayConverter, XArrayTemporalNorm, XResample, XArrayXCorrelate
+from anxcor.xarray_routines import XArrayWhiten, XArrayConverter, XArrayTemporalNorm, XArrayResample, XArrayXCorrelate
 from tests.synthetic_trace_factory import create_random_trace
 from obspy.core import read
 import numpy as np
@@ -64,7 +64,7 @@ class TestBasicTemporalNormalization(unittest.TestCase):
 
         # downsample both to 10hz sampling rate
 
-        down   = XResample(10)
+        down   = XArrayResample(10)
         t_norm =XArrayTemporalNorm(time_window=2.0)
 
         noise_loc_1_eq = down(noise_loc_1_eq,starttime=0,station=0)
@@ -98,7 +98,7 @@ class TestBasicTemporalNormalization(unittest.TestCase):
 
         noise_loc_1_eq = noise_loc_1.copy()
 
-        down   = XResample(10)
+        down   = XArrayResample(10)
         t_norm =XArrayTemporalNorm(time_window=2.0)
 
         noise_loc_2_eq       = down(noise_loc_1_eq,starttime=0,station=0)

@@ -1,5 +1,5 @@
 from  anxcor.containers import DataLoader, XArrayCombine, XArrayStack, AnxcorDatabase
-from  anxcor.xarray_routines import XArrayConverter, XResample, XArrayXCorrelate
+from  anxcor.xarray_routines import XArrayConverter, XArrayResample, XArrayXCorrelate
 from anxcor.abstractions import XArrayProcessor
 from typing import List
 import xarray as xr
@@ -406,7 +406,7 @@ class _AnxcorData:
         self._tasks = {
             'data': DataLoader(window_length),
             'xconvert': XArrayConverter(),
-            'resample': XResample(),
+            'resample': XArrayResample(),
             'process' : {},
             'crosscorrelate': XArrayXCorrelate(),
             'combine': XArrayCombine(),

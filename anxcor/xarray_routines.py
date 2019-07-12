@@ -179,7 +179,7 @@ class XArrayTaper(ab.XArrayProcessor):
         return 'taper'
 
 
-class XResample(ab.XArrayProcessor):
+class XArrayResample(ab.XArrayProcessor):
     """
     resamples the provided xarray to a lower frequency
     """

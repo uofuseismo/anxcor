@@ -1,7 +1,7 @@
 import unittest
 from tests.synthetic_trace_factory import create_sinsoidal_trace
 import numpy as np
-from anxcor.xarray_routines import XResample, XArrayConverter
+from anxcor.xarray_routines import XArrayResample, XArrayConverter
 
 converter =XArrayConverter()
 
@@ -9,7 +9,7 @@ class TestDownsample(unittest.TestCase):
 
     def test_phase_shift_not_introduced(self):
         target_rate     = 20
-        process         = XResample(target_rate=target_rate)
+        process         = XArrayResample(target_rate=target_rate)
         trace           = create_sinsoidal_trace(sampling_rate=100, period=0.5,    duration=0.5)
         starttime       = trace.stats.starttime.timestamp
         trace_initial   = converter([create_sinsoidal_trace(sampling_rate=100, period=0.5,    duration=0.5)],
