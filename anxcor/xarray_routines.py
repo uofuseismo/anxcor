@@ -295,14 +295,16 @@ class XArrayRemoveMeanTrend(ab.XArrayProcessor):
 
     def _single_thread_execute(self,xarray,*args,**kwargs):
 
-        mean_array = xarray.mean(dim=['time'])
-        demeaned_array = xarray - mean_array
-        detrend_array = xr.apply_ufunc(filt_ops.detrend, demeaned_array,
+        detrend_array = xr.apply_ufunc(filt_ops.detrend, xarray,
                                        input_core_dims=[['time']],
                                        output_core_dims=[['time']],
                                        kwargs={'type': 'linear'},keep_attrs=True)
+        demeaned = xr.apply_ufunc(filt_ops.detrend, detrend_array,
+                                       input_core_dims=[['time']],
+                                       output_core_dims=[['time']],
+                                       kwargs={'type': 'constant'}, keep_attrs=True)
 
-        return detrend_array
+        return demeaned
 
     def _add_operation_string(self):
         return 'remove_Mean&Trend'
