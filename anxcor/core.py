@@ -215,7 +215,7 @@ class Anxcor:
         """
         self._data.load_at_process(folder, process)
 
-    def process(self, starttimes: List[float], dask_client=None) -> xr.DataSet:
+    def process(self, starttimes: List[float], dask_client=None) -> xr.Dataset:
         """
         Perform the crosscorrelation routines. By default this processes, stacks, and combines
         all crosscorrelations during the given starttimes. See documentation for finer control
@@ -240,7 +240,7 @@ class Anxcor:
         else:
             print('no data banks added. will not execute.')
 
-    def xarray_to_obspy(self, xdataset: xr.DataSet):
+    def xarray_to_obspy(self, xdataset: xr.Dataset):
         """
         convert the output of a anxcor correlation into an obspy stream
 
@@ -561,19 +561,19 @@ class _AnxcorConverter:
             time+=delta
         return starttimes
 
-    def xarray_3D_to_2D(self,xdataset: xr.DataSet):
+    def xarray_3D_to_2D(self,xdataset: xr.Dataset):
         # get vars
         new_ds = xdataset.assign_coords(component='{}{}{}'.format(xdataset.src_chan,':',xdataset.rec_chan))
         new_ds = new_ds.drop_dims(['src_chan','rec_chan'])
         return new_ds
 
-    def xarray_2D_to_3D(self,xdataset: xr.DataSet):
+    def xarray_2D_to_3D(self,xdataset: xr.Dataset):
         new_ds = xdataset.assign_coords(src_chan=xdataset.component.split(':')[0])
         new_ds = new_ds.assign_coords(rec_chan=xdataset.component.split(':')[1])
         new_ds = new_ds.drop_dims(['component'])
         return new_ds
 
-    def xarray_to_obspy(self,xdataset: xr.DataSet):
+    def xarray_to_obspy(self,xdataset: xr.Dataset):
         attrs = xdataset.attrs
         traces = []
         starttime = list(xdataset.coords['time'].values)[0]
@@ -616,7 +616,7 @@ class _AnxcorConverter:
         network_2 = stations[1].split('.')[0]
         return station_1, station_2, network_1, network_2
 
-    def align_station_pairs(self,xdataset: xr.DataSet):
+    def align_station_pairs(self,xdataset: xr.Dataset):
         attrs = xdataset.attrs.copy()
         del attrs['delta']
         del attrs['operations']
