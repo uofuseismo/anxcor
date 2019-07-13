@@ -328,8 +328,8 @@ class XArrayTemporalNorm(ab.XArrayProcessor):
                  lower_frequency=c.T_NORM_LOWER_FREQ,
                  upper_frequency=c.T_NORM_UPPER_FREQ,
                  t_norm_type=c.T_NORM_TYPE,
-                 rolling_metric=c.ROLLING_METRIC,
-                 reduce_metric=c.REDUCE_METRIC,
+                 rolling_metric=c.T_NORM_ROLLING_METRIC,
+                 reduce_metric=c.T_NORM_REDUCE_METRIC,
                  taper=c.TAPER_DEFAULT, **kwargs):
         super().__init__(**kwargs)
         self._kwargs['t_norm_type']         = t_norm_type
@@ -432,35 +432,122 @@ class XArrayWhiten(ab.XArrayProcessor):
                  lower_frequency=c.LOWER_CUTOFF_FREQ,
                  upper_frequency=c.UPPER_CUTOFF_FREQ,
                  order=c.FILTER_ORDER_WHITEN,
-                 reduce_metric=c.WHITEN_REDUCE_METRIC, **kwargs):
+                 reduce_metric=c.WHITEN_REDUCE_METRIC,
+                 whiten_type  =c.WHITEN_TYPE,
+                 rolling_metric=c.WHITEN_ROLLING_METRIC,
+                 taper=c.TAPER_DEFAULT,
+                 **kwargs):
         super().__init__(**kwargs)
         self._kwargs = {
             'smoothing_window_ratio': smoothing_window_ratio,
             'lower_frequency': lower_frequency,
             'upper_frequency': upper_frequency,
             'order':order,
-            'reduce_metric':reduce_metric}
+            'taper':taper,
+            'whiten_type'   : whiten_type,
+            'reduce_metric' : reduce_metric,
+            'rolling_metric': rolling_metric}
 
     def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
-        channels=list(xarray.coords['channel'].values)
-        new_array = xr.apply_ufunc(filt_ops.xarray_whiten, xarray,
-                                          input_core_dims=[['time']],
-                                          output_core_dims=[['time']],
-                                          kwargs={**self._kwargs ,
-                                                  **{'delta':xarray.attrs['delta'],
-                                                     'channel_map':channels,
-                                                     'axis' :xarray.get_axis_num('time')}})
+        import matplotlib.pyplot as plt
+        fig, [ax_time, ax_freq]=plt.subplots(nrows=2,ncols=1,figsize=(7,7))
+        tapered_array = xr.apply_ufunc(filt_ops.taper, xarray,
+                                        input_core_dims=[['time']],
+                                        output_core_dims=[['time']],
+                                        kwargs={**self._kwargs},keep_attrs=True)
 
-        return  new_array
+        ax_time.plot(tapered_array[0,0,:],label='input time array',lw=0.5)
+
+        fourier_array = filt_ops.create_fourier_xarray(tapered_array)
+        ax_freq.loglog(abs(fourier_array[0,0,:]),label='initial spectrum',lw=0.5)
+
+        smoothed_spectrum = self._apply_rolling_method(fourier_array, tapered_array.data.shape[-1])
+        smoothed_spectrum = smoothed_spectrum.ffill('frequency').bfill('frequency')
+        smoothed_spectrum = self._reduce_by_channel(smoothed_spectrum)
+
+        ax_freq.loglog(smoothed_spectrum[0,0,:],label='smoothed spectrum',lw=0.5)
+
+        whitened_array    = fourier_array / smoothed_spectrum
+        whitened_array.attrs['delta']=tapered_array.attrs['delta']
+
+        ax_freq.loglog(abs(whitened_array[0, 0, :]), label='whitened spectrum',lw=0.5)
+
+        whitened_array = filt_ops.bandpass_in_frequency_domain(whitened_array,**self._kwargs)
+
+        ax_freq.loglog(abs(whitened_array[0, 0, :]), label='bandpassed spectrum',lw=0.5)
+
+        result           = filt_ops.create_time_domain_array(whitened_array,tapered_array)
+
+        ax_time.plot(result[0, 0, :], label='output time array',lw=0.5)
+        ax_freq.legend()
+        ax_time.legend()
+
+        plt.show()
+        return result
+
+
+    def _apply_rolling_method(self, xarray, time_window):
+        smoothing_window_ratio = self._kwargs['smoothing_window_ratio']
+        rolling_samples = int(smoothing_window_ratio * time_window)
+        rolling_procedure = self._kwargs['rolling_metric']
+
+        if rolling_procedure == 'mean':
+            xarray = abs(xarray).rolling(frequency=rolling_samples,
+                                         min_periods=1, center=True).mean()
+        elif rolling_procedure == 'median':
+            xarray = abs(xarray).rolling(frequency=rolling_samples,
+                                         min_periods=1, center=True).median()
+        elif rolling_procedure == 'min':
+            xarray = abs(xarray).rolling(frequency=rolling_samples,
+                                         min_periods=1, center=True).min()
+        elif rolling_procedure == 'max':
+            xarray = abs(xarray).rolling(frequency=rolling_samples,
+                                         min_periods=1, center=True).max()
+        else:
+            xarray = abs(xarray)
+        return xarray
+
+    def _reduce_by_channel(self, xarray):
+        reduction_procedure = self._kwargs['reduce_metric']
+        whiten_type = self._kwargs['whiten_type']
+        if whiten_type == 'reduce_metric':
+            if reduction_procedure == 'mean':
+                xarray = abs(xarray).mean(dim='channel')
+            elif reduction_procedure == 'median':
+                xarray = abs(xarray).median(dim='channel')
+            elif reduction_procedure == 'min':
+                xarray = abs(xarray).min(dim='channel')
+            elif reduction_procedure == 'max':
+                xarray = abs(xarray).max(dim='channel')
+            elif 'z' in reduction_procedure.lower() or 'n' in reduction_procedure.lower() \
+                    or 'e' in reduction_procedure.lower():
+                for coordinate in list(xarray.coords['channel'].values):
+                    if reduction_procedure in coordinate.lower():
+                        return xarray[dict(channel=coordinate)]
+        return xarray
 
     def _get_process(self):
         return 'whiten'
 
     def _add_operation_string(self):
-        return 'f_whiten@reduce_metric: {}, window ratio: {},frequency_window: {}<x(t)<({})hz'.format(
-            self._kwargs['reduce_metric'],
-            self._kwargs['smoothing_window_ratio'],self._kwargs['lower_frequency'],
-            self._kwargs['upper_frequency'])
+        if self._kwargs['whiten_type'] == 'reduce_metric':
+            op = 'Whiten@type:{} window_ratio: {},rolling_metric: {},reduce_metric: {},taper: {},bandpass: {}<x(t)<{}'.format(
+                self._kwargs['whiten_type'],
+                self._kwargs['smoothing_window_ratio'],
+                self._kwargs['rolling_metric'],
+                self._kwargs['reduce_metric'],
+                self._kwargs['taper'],
+                self._kwargs['lower_frequency'],
+                self._kwargs['upper_frequency'])
+        else:
+            op = 'Whiten@type:{} window_ratio: {},rolling_metric: {},taper: {},bandpass: {}<x(t)<{}'.format(
+                self._kwargs['whiten_type'],
+                self._kwargs['smoothing_window_ratio'],
+                self._kwargs['rolling_metric'],
+                self._kwargs['taper'],
+                self._kwargs['lower_frequency'],
+                self._kwargs['upper_frequency'])
+        return op
 
 
 

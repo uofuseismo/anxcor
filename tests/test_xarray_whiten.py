@@ -70,8 +70,8 @@ class TestSpectralWhitening(unittest.TestCase):
         xarray = converter(st)
         resampled_array = resampler(xarray)
         rmm_array = rmmean_trend(resampled_array)
-        whitening_op = XArrayWhiten(taper=0.05, whiten_type='cross_component', upper_frequency=4.0,
-                                    lower_frequency=0.005, smoothing_window_ratio=0.01)
+        whitening_op = XArrayWhiten(taper=0.05, whiten_type='cross_component', upper_frequency=3.0,
+                                    lower_frequency=0.01, smoothing_window_ratio=0.01)
 
         whitened_array = whitening_op(rmm_array)
         assert whitened_array[0,0,0]==0

@@ -77,81 +77,34 @@ def taper(data, taper=0.1,axis=-1,**kwargs):
 
     return result
 
-def xarray_whiten(data,
-                  taper=0.1,
-                  smoothing_window_ratio=0.1,
-                  axis=-1,
-                  delta=0.1,
-                  lower_frequency=None,
-                  upper_frequency=None,
-                  reduce_metric=None,
-                  channel_map=None, **kwargs):
-    import matplotlib.pyplot as plt
-    figure, (ax1, ax2) = plt.subplots(2,1,figsize=(7,7))
+def create_fourier_xarray(xarray : xr.DataArray):
+    freq_domain = _into_frequency_domain(xarray.data, axis=xarray.get_axis_num('time'))
+    frequencies = _get_deltaf(xarray.data.shape[-1],xarray.attrs['delta'])
+    channels    = list(xarray.coords['channel'].values)
+    station_ids = list(xarray.coords['station_id'].values)
+    frequencies = frequencies.tolist()
+    xarray_freq = xr.DataArray(freq_domain, coords=[channels,station_ids,frequencies],
+                                            dims  =['channel', 'station_id', 'frequency'])
+    return xarray_freq
 
-    ax1.plot(data[0,0,:],label='before',lw=0.3)
-
-    time_window   = data.shape[-1]
-    source_array  = np.apply_along_axis(_taper,axis,data,taper=taper)
-    freq_domain   = _into_frequency_domain(source_array,axis=axis)
-
-    frequencies   = _get_deltaf(time_window,delta)
-
-    ax2.loglog(frequencies,np.abs(freq_domain[0,0,:]),label='orig freq',lw=0.3)
-    smoothed_freq = _get_smoothed_running_spectra(smoothing_window_ratio, data, freq_domain, axis)
-    smoothed_metric = _get_smoothed_freq_metric(reduce_metric,smoothed_freq,channel_map)
-    ax2.loglog(frequencies,np.abs(smoothed_metric[0,0,:]), label='smoothed freq', lw=0.3)
-
-    whitened_spectra = np.divide(freq_domain, smoothed_metric)
-    ax2.loglog(frequencies,np.abs(whitened_spectra[0,0,:]), label='whitened freq', lw=0.3)
-    bandpass_response= _create_bandpass_frequency_multiplier(time_window,
-                                                             upper_frequency,
-                                                             lower_frequency,
-                                                             delta,**kwargs)
-
-    ax2.loglog(frequencies,np.abs(bandpass_response), label='bp response', lw=0.8,zorder=7)
-
-    whitened_spectra=np.multiply(whitened_spectra,bandpass_response)
-    ax2.loglog(frequencies,np.abs(whitened_spectra[0,0,:]), label='bandpassed & whitened freq', lw=0.3)
-    result           = _into_time_domain(whitened_spectra, axis=axis)[:,:,time_window]
-    ax1.plot(result[0,0,:],label='after',lw=0.3,zorder=0)
-    ax2.legend(ncol=2)
-    ax1.legend()
-    plt.show()
-    return result
+def bandpass_in_frequency_domain(xarray,**kwargs):
+    bandpass_response= _create_bandpass_frequency_multiplier(xarray,**kwargs)
+    xarray*=bandpass_response
+    return xarray
 
 
-def _get_smoothed_running_spectra(ratio, data,freq_data, axis):
-    convolve_window = int(ratio * data.shape[axis])
-    convolve_ones = np.ones((convolve_window,)) / convolve_window
-    running_spec = np.apply_along_axis(convolve, axis, np.abs(freq_data), convolve_ones, mode='same')
-    return running_spec
-
-def _get_smoothed_freq_metric(reduce_metric,smoothed_freq,channel_map):
-    if reduce_metric is None:
-        return smoothed_freq
-    if reduce_metric    == 'max':
-        smoothed_freq  = np.max(smoothed_freq, axis=0)
-
-    elif reduce_metric == 'min':
-        smoothed_freq  = np.min(smoothed_freq, axis=0)
-
-    elif reduce_metric == 'mean':
-        smoothed_freq  = np.mean(smoothed_freq, axis=0)
-
-    elif 'z' in reduce_metric.lower() or 'n' in reduce_metric.lower() or 'e' in reduce_metric.lower():
-        index = channel_map.index(reduce_metric)
-        smoothed_freq = smoothed_freq[index, 0, :]
-
-    return smoothed_freq
-
-def _create_bandpass_frequency_multiplier(window_length, upper_freq, lower_freq, delta, order=4,**kwargs):
+def _create_bandpass_frequency_multiplier(xarray,upper_frequency,lower_frequency,order=4,**kwargs):
+    delta = xarray.attrs['delta']
     nyquist = 0.5 / delta
-    if upper_freq > nyquist:
-        upper_freq = nyquist
-    b, a = _butter_bandpass(lower_freq, upper_freq, 1 / delta,order=order)
-    target_length = fftpack.next_fast_len(window_length)
-    w, resp = freqz(b, a, worN=target_length,fs=1.0/delta)
+    if upper_frequency > nyquist:
+        upper_frequency = nyquist
+    b, a = _butter_bandpass(lower_frequency, upper_frequency, 1 / delta,order=order)
+    normalized_freqs = np.asarray(list(xarray.coords['frequency'].values)) * delta *2* np.pi
+    w, resp = freqz(b, a, worN=normalized_freqs)
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.loglog(np.asarray(list(xarray.coords['frequency'].values)),abs(resp))
+    plt.show()
     return resp
 
 def _check_if_inputs_make_sense(source_array,  max_tau_shift):
@@ -290,15 +243,18 @@ def _multiply_in_mat(one,two,dtype=np.complex64):
 
 def _into_frequency_domain(array,axis=-1):
     target_length = fftpack.next_fast_len(array.shape[axis])
-    fft           = fftpack.fftshift(np.fft.rfft(array, target_length, axis=axis),axes=axis)
+    fft           = np.fft.rfft(array, target_length, axis=axis)
     return fft
 
-def _into_time_domain(array,axis=-1):
-    return np.real(fftpack.ifftshift(np.fft.irfft(array,axis=axis,overwrite_x=True), axes=axis))
+def create_time_domain_array(array_fourier : xr.DataArray,array_original):
+    time_data =np.real(np.fft.fftshift(np.fft.irfft(array_fourier.data,
+                                                    array_original.data.shape[-1], axis=-1),axes=-1)).astype(np.float64)
+    array_original.data = time_data
+    return array_original
 
 def _get_deltaf(time_window_length,delta):
     target_length = fftpack.next_fast_len(time_window_length)
-    frequencies = fftpack.fftshift(np.fft.rfftfreq(target_length, d=delta),axes=-1)
+    frequencies   = np.fft.rfftfreq(target_length, d=delta)
     return frequencies
 
 def _dummy_correlate(source_array,
