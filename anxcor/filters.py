@@ -101,10 +101,12 @@ def _create_bandpass_frequency_multiplier(xarray,upper_frequency,lower_frequency
     b, a = _butter_bandpass(lower_frequency, upper_frequency, 1 / delta,order=order)
     normalized_freqs = np.asarray(list(xarray.coords['frequency'].values)) * delta *2* np.pi
     w, resp = freqz(b, a, worN=normalized_freqs)
+    '''
     import matplotlib.pyplot as plt
     plt.figure()
     plt.loglog(np.asarray(list(xarray.coords['frequency'].values)),abs(resp))
     plt.show()
+    '''
     return resp
 
 def _check_if_inputs_make_sense(source_array,  max_tau_shift):
@@ -247,8 +249,8 @@ def _into_frequency_domain(array,axis=-1):
     return fft
 
 def create_time_domain_array(array_fourier : xr.DataArray,array_original):
-    time_data =np.real(np.fft.fftshift(np.fft.irfft(array_fourier.data,
-                                                    array_original.data.shape[-1], axis=-1),axes=-1)).astype(np.float64)
+    time_data =np.real(np.fft.irfft(array_fourier.data,
+                                                    array_original.data.shape[-1], axis=-1)).astype(np.float64)
     array_original.data = time_data
     return array_original
 
