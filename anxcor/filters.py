@@ -150,8 +150,12 @@ def _create_bandpass_frequency_multiplier(window_length, upper_freq, lower_freq,
     if upper_freq > nyquist:
         upper_freq = nyquist
     b, a = _butter_bandpass(lower_freq, upper_freq, 1 / delta,order=order)
-    delta_fs = _get_deltaf(window_length, delta) * 2 * np.pi
-    w, resp = freqz(b, a, worN=delta_fs)
+    target_length = fftpack.next_fast_len(window_length)
+    w, resp = freqz(b, a, worN=target_length, whole=True,fs=1.0/delta)
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.loglog(w,np.abs(resp))
+    plt.show()
     return resp
 
 def _check_if_inputs_make_sense(source_array,  max_tau_shift):
