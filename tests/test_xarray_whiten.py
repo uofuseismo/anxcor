@@ -60,7 +60,7 @@ class TestSpectralWhitening(unittest.TestCase):
     def test_jupyter_tutorial(self):
         client = Client("IRIS")
         t = UTCDateTime("2018-12-25 12:00:00").timestamp
-        st = client.get_waveforms("UU", "SPU", "*", "H*", t, t + 15 * 60, attach_response=True)
+        st = client.get_waveforms("UU", "SPU", "*", "H*", t, t + 30 * 60, attach_response=True)
         pre_filt = (0.003, 0.005, 40.0, 45.0)
         st.remove_response(output='DISP', pre_filt=pre_filt)
         converter = XArrayConverter()
@@ -70,8 +70,8 @@ class TestSpectralWhitening(unittest.TestCase):
         xarray = converter(st)
         resampled_array = resampler(xarray)
         rmm_array = rmmean_trend(resampled_array)
-        whitening_op = XArrayWhiten(taper=0.05, whiten_type='cross_component', upper_frequency=5.0,
-                                    lower_frequency=0.001, smoothing_window_ratio=0.01)
+        whitening_op = XArrayWhiten(taper=0.05, whiten_type='cross_component', upper_frequency=4.0,
+                                    lower_frequency=0.005, smoothing_window_ratio=0.01)
 
         whitened_array = whitening_op(rmm_array)
         assert whitened_array[0,0,0]==0

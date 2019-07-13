@@ -113,8 +113,8 @@ def xarray_whiten(data,
 
     whitened_spectra=np.multiply(whitened_spectra,bandpass_response)
     ax2.loglog(frequencies,np.abs(whitened_spectra[0,0,:]), label='bandpassed & whitened freq', lw=0.3)
-    result           = _into_time_domain(freq_domain, axis=axis)[:, :, :time_window]
-    ax1.plot(result[0,0,:],label='after',lw=0.3)
+    result           = _into_time_domain(whitened_spectra, axis=axis)[:,:,time_window]
+    ax1.plot(result[0,0,:],label='after',lw=0.3,zorder=0)
     ax2.legend(ncol=2)
     ax1.legend()
     plt.show()
@@ -151,11 +151,7 @@ def _create_bandpass_frequency_multiplier(window_length, upper_freq, lower_freq,
         upper_freq = nyquist
     b, a = _butter_bandpass(lower_freq, upper_freq, 1 / delta,order=order)
     target_length = fftpack.next_fast_len(window_length)
-    w, resp = freqz(b, a, worN=target_length, whole=True,fs=1.0/delta)
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.loglog(w,np.abs(resp))
-    plt.show()
+    w, resp = freqz(b, a, worN=target_length,fs=1.0/delta)
     return resp
 
 def _check_if_inputs_make_sense(source_array,  max_tau_shift):
@@ -294,15 +290,15 @@ def _multiply_in_mat(one,two,dtype=np.complex64):
 
 def _into_frequency_domain(array,axis=-1):
     target_length = fftpack.next_fast_len(array.shape[axis])
-    fft           = fftpack.fftshift(fftpack.rfft(array, target_length, axis=axis),axes=axis)
+    fft           = fftpack.fftshift(np.fft.rfft(array, target_length, axis=axis),axes=axis)
     return fft
 
 def _into_time_domain(array,axis=-1):
-    return fftpack.ifftshift(np.real(fftpack.ifft(array, axis=axis,overwrite_x=True)),axes=axis)
+    return np.real(fftpack.ifftshift(np.fft.irfft(array,axis=axis,overwrite_x=True), axes=axis))
 
 def _get_deltaf(time_window_length,delta):
     target_length = fftpack.next_fast_len(time_window_length)
-    frequencies = fftpack.fftshift(fftpack.fftfreq(target_length, d=delta),axes=-1)
+    frequencies = fftpack.fftshift(np.fft.rfftfreq(target_length, d=delta),axes=-1)
     return frequencies
 
 def _dummy_correlate(source_array,
