@@ -6,9 +6,11 @@ from anxcor.xarray_routines import XArrayWhiten, XArrayConverter, XArrayResample
 from synthetic_trace_factory import  create_sinsoidal_trace
 import scipy.fftpack as fft
 from obspy.clients.fdsn import Client
+import pytest
 from obspy.core import UTCDateTime
 import numpy as np
-whiten = XArrayWhiten(smoothing_window_ratio=0.025, upper_frequency=25.0, lower_frequency=0.001, order=2)
+whiten = XArrayWhiten(smoothing_window_ratio=0.25, upper_frequency=25.0, lower_frequency=0.001,
+                      order=2,rolling_metric='mean')
 convert = XArrayConverter()
 
 class TestSpectralWhitening(unittest.TestCase):
@@ -25,8 +27,10 @@ class TestSpectralWhitening(unittest.TestCase):
         assert pow_period_original > pow_period_final,"whitening failed"
 
     def test_array_is_real(self):
-        trace = convert([create_sinsoidal_trace(sampling_rate=100, period=0.5, duration=3)])
-        freq_2 = convert([create_sinsoidal_trace(sampling_rate=100, period=0.1, duration=3)])
+        tr_1 = create_sinsoidal_trace(sampling_rate=100, period=0.5, duration=3)
+        tr_2 = create_sinsoidal_trace(sampling_rate=100, period=0.1, duration=3)
+        trace = convert([tr_1,tr_1])
+        freq_2 = convert([tr_2,tr_2])
         trace = trace + freq_2
         trace.attrs = freq_2.attrs
         trace = whiten(trace)
@@ -60,7 +64,7 @@ class TestSpectralWhitening(unittest.TestCase):
     def test_jupyter_tutorial(self):
         client = Client("IRIS")
         t = UTCDateTime("2018-12-25 12:00:00").timestamp
-        st = client.get_waveforms("UU", "SPU", "*", "H*", t, t + 30 * 60, attach_response=True)
+        st = client.get_waveforms("UU", "SPU", "*", "H*", t, t + 10 * 60, attach_response=True)
         pre_filt = (0.003, 0.005, 40.0, 45.0)
         st.remove_response(output='DISP', pre_filt=pre_filt)
         converter = XArrayConverter()
@@ -74,7 +78,7 @@ class TestSpectralWhitening(unittest.TestCase):
                                     lower_frequency=0.01, smoothing_window_ratio=0.01)
 
         whitened_array = whitening_op(rmm_array)
-        assert whitened_array[0,0,0]==0
+        assert whitened_array.data[0,0,0]==pytest.approx(0,abs=1e-3)
 
 if __name__ == '__main__':
     unittest.main()

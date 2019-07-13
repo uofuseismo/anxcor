@@ -451,12 +451,14 @@ class XArrayWhiten(ab.XArrayProcessor):
     def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
         import matplotlib.pyplot as plt
         fig, [ax_time, ax_freq]=plt.subplots(nrows=2,ncols=1,figsize=(7,7))
+
         tapered_array = xr.apply_ufunc(filt_ops.taper, xarray,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**self._kwargs},keep_attrs=True)
 
-        ax_time.plot(tapered_array[0,0,:],label='input time array',lw=0.5)
+
+        ax_time.plot(tapered_array[0,0,:]*500000,label='input time array x 5e6',lw=0.5,zorder=5)
 
         fourier_array = filt_ops.create_fourier_xarray(tapered_array)
         ax_freq.loglog(abs(fourier_array[0,0,:]),label='initial spectrum',lw=0.5)
@@ -466,7 +468,6 @@ class XArrayWhiten(ab.XArrayProcessor):
         smoothed_spectrum = self._reduce_by_channel(smoothed_spectrum)
 
         ax_freq.loglog(smoothed_spectrum[0,0,:],label='smoothed spectrum',lw=0.5)
-
         whitened_array    = fourier_array / smoothed_spectrum
         whitened_array.attrs['delta']=tapered_array.attrs['delta']
 
@@ -476,11 +477,13 @@ class XArrayWhiten(ab.XArrayProcessor):
 
         ax_freq.loglog(abs(whitened_array[0, 0, :]), label='bandpassed spectrum',lw=0.5)
 
-        result           = filt_ops.create_time_domain_array(whitened_array,tapered_array)
+        result           = filt_ops.create_time_domain_array1(whitened_array,tapered_array.copy())
 
-        ax_time.plot(result[0, 0, :], label='output time array',lw=0.5)
-        ax_freq.legend()
+        ax_time.plot(result[0, 0, :]*10, label='result',lw=0.5,zorder=3)
+
+        ax_freq.legend(ncol=2)
         ax_time.legend()
+        ax_freq.set_ylim([1e-9,1e1])
 
         plt.show()
         return result
@@ -493,7 +496,7 @@ class XArrayWhiten(ab.XArrayProcessor):
 
         if rolling_procedure == 'mean':
             xarray = abs(xarray).rolling(frequency=rolling_samples,
-                                         min_periods=1, center=True).mean()
+                                         min_periods=1, center=False).mean()
         elif rolling_procedure == 'median':
             xarray = abs(xarray).rolling(frequency=rolling_samples,
                                          min_periods=1, center=True).median()
@@ -511,7 +514,7 @@ class XArrayWhiten(ab.XArrayProcessor):
         reduction_procedure = self._kwargs['reduce_metric']
         whiten_type = self._kwargs['whiten_type']
         if whiten_type == 'reduce_metric':
-            if reduction_procedure == 'mean':
+            if reduction_procedure == 'mean' or reduction_procedure is None:
                 xarray = abs(xarray).mean(dim='channel')
             elif reduction_procedure == 'median':
                 xarray = abs(xarray).median(dim='channel')

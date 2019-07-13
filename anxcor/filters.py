@@ -1,4 +1,4 @@
-from scipy.signal import butter, filtfilt, freqz, detrend, convolve
+from scipy.signal import butter, filtfilt, freqz, detrend, convolve, get_window
 import scipy.fftpack as fftpack
 import xarray as xr
 from obspy.core import UTCDateTime
@@ -64,14 +64,18 @@ def _taper(np_arr,taper=0.1,**kwargs):
 
     return result
 
-def taper(data, taper=0.1,axis=-1,**kwargs):
-    time_length = data.shape[axis]
-    taper_half_length = int(taper*time_length/2)
+def taper(data, taper=0.1,axis=-1,window_type='hanning',**kwargs):
+    taper_length = int(taper*data.shape[-1])
+    if (taper_length % 2) == 0:
+        taper_length+=1
 
-    full_window = np.hamming(int(taper*time_length))
-    ones        = np.ones(time_length)
-    ones[ :taper_half_length]*=full_window[:taper_half_length]
-    ones[-taper_half_length:]*=full_window[-taper_half_length:]
+    center = (taper_length-1) // 2
+    full_window    = get_window(window_type,taper_length,fftbins=False)
+    full_window[0] = 0
+    full_window[-1]= 0
+    ones        = np.ones(data.shape[-1])
+    ones[:center+1]*=full_window[:center+1]
+    ones[-1-center:]*=full_window[center:]
 
     result = data * ones
 
@@ -93,7 +97,7 @@ def bandpass_in_frequency_domain(xarray,**kwargs):
     return xarray
 
 
-def _create_bandpass_frequency_multiplier(xarray,upper_frequency,lower_frequency,order=4,**kwargs):
+def _create_bandpass_frequency_multiplier(xarray,upper_frequency,lower_frequency,order=4,filter_power=3,**kwargs):
     delta = xarray.attrs['delta']
     nyquist = 0.5 / delta
     if upper_frequency > nyquist:
@@ -101,6 +105,7 @@ def _create_bandpass_frequency_multiplier(xarray,upper_frequency,lower_frequency
     b, a = _butter_bandpass(lower_frequency, upper_frequency, 1 / delta,order=order)
     normalized_freqs = np.asarray(list(xarray.coords['frequency'].values)) * delta *2* np.pi
     w, resp = freqz(b, a, worN=normalized_freqs)
+    resp    = np.power(resp,filter_power)
     '''
     import matplotlib.pyplot as plt
     plt.figure()
@@ -211,7 +216,7 @@ def _cross_correlate_xarray_data(source_xarray, receiver_xarray,gpu_enable=False
 
         result = _multiply_in_mat(fft_src,fft_rec)
 
-        xcorr_mat = np.real(np.fft.fftshift(np.fft.irfft(result, corr_length, axis=-1),axes=-1)).astype(np.float64)
+        xcorr_mat = np.real(np.fft.fftshift(np.fft.irfft(result, axis=-1),axes=-1)).astype(np.float64)[:,:,:corr_length]
 
     else:
 
@@ -248,11 +253,11 @@ def _into_frequency_domain(array,axis=-1):
     fft           = np.fft.rfft(array, target_length, axis=axis)
     return fft
 
-def create_time_domain_array(array_fourier : xr.DataArray,array_original):
-    time_data =np.real(np.fft.irfft(array_fourier.data,
-                                                    array_original.data.shape[-1], axis=-1)).astype(np.float64)
-    array_original.data = time_data
+def create_time_domain_array1(array_fourier : xr.DataArray,array_original):
+    time_data =np.real(np.fft.irfft(array_fourier.data, axis=-1)).astype(np.float64)
+    array_original.data = time_data[:,:,:array_original.shape[-1]]
     return array_original
+
 
 def _get_deltaf(time_window_length,delta):
     target_length = fftpack.next_fast_len(time_window_length)
