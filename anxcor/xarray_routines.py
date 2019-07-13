@@ -432,24 +432,22 @@ class XArrayWhiten(ab.XArrayProcessor):
                  lower_frequency=c.LOWER_CUTOFF_FREQ,
                  upper_frequency=c.UPPER_CUTOFF_FREQ,
                  order=c.FILTER_ORDER_WHITEN,
-                 whiten_type=c.WHITEN_TYPE, **kwargs):
+                 reduce_metric=c.WHITEN_REDUCE_METRIC, **kwargs):
         super().__init__(**kwargs)
         self._kwargs = {
             'smoothing_window_ratio': smoothing_window_ratio,
             'lower_frequency': lower_frequency,
             'upper_frequency': upper_frequency,
             'order':order,
-            'whiten_type':whiten_type}
+            'reduce_metric':reduce_metric}
 
     def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
-        channel     = xarray.get_axis_num(dim='channel')
         channels=list(xarray.coords['channel'].values)
         new_array = xr.apply_ufunc(filt_ops.xarray_whiten, xarray,
                                           input_core_dims=[['time']],
                                           output_core_dims=[['time']],
                                           kwargs={**self._kwargs ,
                                                   **{'delta':xarray.attrs['delta'],
-                                                     'channel_axis':channel,
                                                      'channel_map':channels,
                                                      'axis' :xarray.get_axis_num('time')}})
 
@@ -459,7 +457,8 @@ class XArrayWhiten(ab.XArrayProcessor):
         return 'whiten'
 
     def _add_operation_string(self):
-        return 'f_whiten@window_ratio({}),frequency_window({})<f<({})hz'.format( \
+        return 'f_whiten@reduce_metric: {}, window ratio: {},frequency_window: {}<x(t)<({})hz'.format(
+            self._kwargs['reduce_metric'],
             self._kwargs['smoothing_window_ratio'],self._kwargs['lower_frequency'],
             self._kwargs['upper_frequency'])
 
