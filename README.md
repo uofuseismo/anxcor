@@ -39,6 +39,12 @@ Kevin A. Mendoza served as chief architect and programmer of ANXCOR. Development
 ## Attribution
 
 ## Known Issues
+
+* Spectral whitening introduces hilbert transform phase shift when assigning result of rolling window to center of window. Temp fix: assign result to beginning of rolling window.
+
+* Sometimes dask will throw a tornado runtime error on a specific branch, causing the entire operation to restart. Deleting the dask workspace and restarting the python kernel will sometimes fix this. Short term patch might involve a caching of jobs completed under a 'write everything' scheme. 
+
+* Returned DataSet requires some unravelling to properly plot. 
 ## Planned Enhancements
 
 - Component Rotation along azimuth and backazimuth
