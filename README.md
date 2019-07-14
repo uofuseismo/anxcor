@@ -49,6 +49,7 @@ Kevin A. Mendoza served as chief architect and programmer of ANXCOR. Development
 
 - Component Rotation along azimuth and backazimuth
 - FTAN and beamforming routines
+- Port of CPU FFt transformations to the [xrft](https://xrft.readthedocs.io/en/latest/index.html) module
 - Custom crosscorrelation preprocessing functions
 - GPU implementations of crosscorrelation
 
