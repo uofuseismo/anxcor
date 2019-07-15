@@ -250,8 +250,9 @@ def _into_frequency_domain(array,axis=-1):
 
 def create_time_domain_array1(array_fourier : xr.DataArray,array_original):
     time_data =np.real(np.fft.irfft(array_fourier.data, axis=-1)).astype(np.float64)
-    array_original.data = time_data[:,:,:array_original.shape[-1]]
-    return array_original
+    array_new      = array_original.copy()
+    array_new.data = time_data[:,:,:array_original.shape[-1]]
+    return array_new
 
 
 def _get_deltaf(time_window_length,delta):
