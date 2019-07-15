@@ -78,7 +78,7 @@ class TestSpectralWhitening(unittest.TestCase):
                                     lower_frequency=0.01, smoothing_window_ratio=0.01)
 
         whitened_array = whitening_op(rmm_array)
-        assert whitened_array.data[0,0,0]==pytest.approx(0,abs=1e-3)
+        assert whitened_array.data[0,0,0]==pytest.approx(0,abs=1e-2)
 
 if __name__ == '__main__':
     unittest.main()

@@ -97,8 +97,9 @@ def bandpass_in_frequency_domain(xarray,**kwargs):
     return xarray
 
 
-def _create_bandpass_frequency_multiplier(xarray,upper_frequency,lower_frequency,order=4,filter_power=3,**kwargs):
-    delta = xarray.attrs['delta']
+def _create_bandpass_frequency_multiplier(xarray,upper_frequency,
+                                          lower_frequency,order=4,
+                                          filter_power=3,delta=0.01,**kwargs):
     nyquist = 0.5 / delta
     if upper_frequency > nyquist:
         upper_frequency = nyquist
@@ -106,12 +107,6 @@ def _create_bandpass_frequency_multiplier(xarray,upper_frequency,lower_frequency
     normalized_freqs = np.asarray(list(xarray.coords['frequency'].values)) * delta *2* np.pi
     w, resp = freqz(b, a, worN=normalized_freqs)
     resp    = np.power(resp,filter_power)
-    '''
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.loglog(np.asarray(list(xarray.coords['frequency'].values)),abs(resp))
-    plt.show()
-    '''
     return resp
 
 def _check_if_inputs_make_sense(source_array,  max_tau_shift):

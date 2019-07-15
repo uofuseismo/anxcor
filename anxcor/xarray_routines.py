@@ -479,11 +479,10 @@ class XArrayWhiten(XArrayRolling):
     def __init__(self, lower_frequency=0.01,upper_frequency=5.0,order=3,taper=0.1,
                  **kwargs):
         super().__init__(**kwargs)
-        self._kwargs = {
-            'lower_frequency': lower_frequency,
-            'upper_frequency': upper_frequency,
-            'order':order,
-            'taper':taper}
+        self._kwargs['lower_frequency'] = lower_frequency
+        self._kwargs['upper_frequency'] = upper_frequency
+        self._kwargs['order'] = order
+        self._kwargs['taper'] = taper
 
 
     def _preprocess(self,xarray):
@@ -495,7 +494,9 @@ class XArrayWhiten(XArrayRolling):
         return fourier_array
 
     def _postprocess(self,normed_array, xarray):
-        return filt_ops.create_time_domain_array1(normed_array,xarray.copy())
+        bp_freq_domain_array = filt_ops.bandpass_in_frequency_domain(normed_array,
+                                                                     delta=xarray.attrs['delta'],**self._kwargs)
+        return filt_ops.create_time_domain_array1(bp_freq_domain_array, xarray)
 
     def _get_rolling_samples(self,processed_xarray, xarray):
         return int(self._kwargs['window'] * xarray.data.shape[-1])
@@ -504,7 +505,7 @@ class XArrayWhiten(XArrayRolling):
         return 'whiten'
 
     def _add_operation_string(self):
-        if self._kwargs['whiten_type'] == 'reduce_metric':
+        if self._kwargs['approach'] == 'src':
             op = 'Whiten@type:{} window_ratio: {},rolling_metric: {},reduce_metric: {},taper: {},bandpass: {}<x(t)<{}'.format(
                 self._kwargs['approach'],
                 self._kwargs['window'],
