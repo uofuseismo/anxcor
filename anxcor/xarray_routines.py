@@ -390,7 +390,7 @@ class XArrayRolling(ab.XArrayProcessor):
         return xarray
 
     def _reduce_by_channel(self, xarray):
-        approach = self._kwargs['apprach']
+        approach = self._kwargs['approach']
         if approach == 'src':
             reduction_procedure = self._kwargs['reduce_metric']
             if reduction_procedure == 'mean' or reduction_procedure is None:
@@ -443,7 +443,7 @@ class XArrayTemporalNorm(XArrayRolling):
 
 
     def _add_operation_string(self):
-        if self._kwargs['t_norm_type']=='src':
+        if self._kwargs['approach']=='src':
             op='temporal_norm@approach:{} ' \
                'window: {},' \
                'rolling_metric: {},' \
