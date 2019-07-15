@@ -349,7 +349,7 @@ class XArrayRolling(ab.XArrayProcessor):
         return final_processed
 
     def _get_longest_dim_name(self,xarray):
-        coords  = list(xarray.dims.values)
+        coords  = xarray.dims
         index = np.argmax(xarray.data.shape)
         return coords[index]
 
