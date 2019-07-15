@@ -338,12 +338,20 @@ class XArrayRolling(ab.XArrayProcessor):
         processed_array   = self._preprocess(xarray)
         pre_rolling       = self._pre_rolling_process(processed_array, xarray)
         rolling_array     = self._apply_rolling_method(pre_rolling, xarray)
-        rolling_array     = rolling_array.ffill('frequency').bfill('frequency')
+
+        dim               = self._get_longest_dim_name(rolling_array)
+
+        rolling_array     = rolling_array.ffill(dim).bfill(dim)
         post_rolling      = self._post_rolling_process(rolling_array,xarray)
         rolling_processed = self._reduce_by_channel(post_rolling)
         normalized_array  = processed_array / rolling_processed
         final_processed   = self._postprocess(normalized_array,xarray)
         return final_processed
+
+    def _get_longest_dim_name(self,xarray):
+        coords  = list(xarray.coords.values)
+        index = np.argmax(xarray.data.shape)
+        return coords[index]
 
     def _preprocess(self, xarray : xr.DataArray) -> xr.DataArray:
         return xarray
@@ -364,19 +372,19 @@ class XArrayRolling(ab.XArrayProcessor):
     def _apply_rolling_method(self, processed_xarray, original_xarray):
         rolling_samples = self._get_rolling_samples(processed_xarray, original_xarray)
         rolling_procedure = self._kwargs['rolling_metric']
-
+        dim = self._get_longest_dim_name(processed_xarray)
+        rolling_dict = {  dim : rolling_samples,
+                         'min_periods':1,
+                         'center': self._kwargs['center']
+                          }
         if rolling_procedure == 'mean':
-            xarray = abs(processed_xarray).rolling(frequency=rolling_samples,
-                                         min_periods=1, center=self._kwargs['center']).mean()
+            xarray = abs(processed_xarray).rolling(**rolling_dict).mean()
         elif rolling_procedure == 'median':
-            xarray = abs(processed_xarray).rolling(frequency=rolling_samples,
-                                         min_periods=1, center=self._kwargs['center']).median()
+            xarray = abs(processed_xarray).rolling(**rolling_dict).median()
         elif rolling_procedure == 'min':
-            xarray = abs(processed_xarray).rolling(frequency=rolling_samples,
-                                         min_periods=1, center=self._kwargs['center']).min()
+            xarray = abs(processed_xarray).rolling(**rolling_dict).min()
         elif rolling_procedure == 'max':
-            xarray = abs(processed_xarray).rolling(frequency=rolling_samples,
-                                         min_periods=1, center=self._kwargs['center']).max()
+            xarray = abs(processed_xarray).rolling(**rolling_dict).max()
         else:
             xarray = abs(processed_xarray)
         return xarray
@@ -419,7 +427,7 @@ class XArrayTemporalNorm(XArrayRolling):
 
     def _pre_rolling_process(self,processed_array : xr.DataArray, xarray : xr.DataArray):
         sampling_rate = 1.0 /xarray.attrs['delta']
-        filtered_array = xr.apply_ufunc(filt_ops.taper, xarray,
+        filtered_array = xr.apply_ufunc(filt_ops.taper, processed_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**self._kwargs})
