@@ -30,7 +30,7 @@ def linear_ramp_trend(sampling_rate=40.0, duration = 5.0,height=1.0,mean=0.5):
     data += mean*np.ones(int(duration*sampling_rate))
     trace = Trace(data=data,header=header)
     trace.stats.data_type='test'
-    return trace
+    return Stream(traces=[trace])
 
 
 def create_random_trace(sampling_rate=40.0, duration = 5.0, **header_kwargs):
@@ -44,7 +44,7 @@ def create_random_trace(sampling_rate=40.0, duration = 5.0, **header_kwargs):
     data  = np.random.uniform(-1,1,(int(duration*sampling_rate)))
     trace = Trace(data=data, header=header)
     trace.stats.data_type = 'test'
-    return trace
+    return Stream(traces=[trace])
 
 def create_triangle_trace(sampling_rate=40.0, duration = 5.0,**header_kwargs):
     header={
@@ -58,7 +58,7 @@ def create_triangle_trace(sampling_rate=40.0, duration = 5.0,**header_kwargs):
     data  = signal.triang(int(duration*sampling_rate))
     trace = Trace(data=data, header=header)
     trace.stats.data_type = 'test'
-    return trace
+    return Stream(traces=[trace])
 
 
 def create_sinsoidal_trace(sampling_rate=40.0, period=0.5, duration = 5.0,**header_kwargs):
@@ -74,7 +74,7 @@ def create_sinsoidal_trace(sampling_rate=40.0, period=0.5, duration = 5.0,**head
 
     trace = Trace(data=data, header=header)
     trace.stats.data_type = 'test'
-    return trace
+    return Stream(traces=[trace])
 
 def create_sinsoidal_trace_w_decay(sampling_rate=40.0,decay=0.01, period=0.5, duration = 5.0,**header_kwargs):
     header={
@@ -89,7 +89,7 @@ def create_sinsoidal_trace_w_decay(sampling_rate=40.0,decay=0.01, period=0.5, du
 
     trace = Trace(data=data, header=header)
     trace.stats.data_type = 'test'
-    return trace
+    return Stream(traces=[trace])
 
 def plot_spectrum(trace):
     sample_rate = trace.stats['sampling_rate']

@@ -119,7 +119,7 @@ def xarray_time_2_freq(xarray : xr.DataArray,minimum_size=None):
 
 
 def xarray_freq_2_time(array_fourier : xr.DataArray, array_original):
-    time_data =np.real(np.fft.irfft(array_fourier.data, axis=-1)).astype(np.float64)
+    time_data =np.real(np.fft.irfft(_shift_inverse(array_fourier.data),array_original.shape[-1], axis=-1)).astype(np.float64)
     array_new      = array_original.copy()
     array_new.data = time_data[:,:,:array_original.shape[-1]]
     return array_new
@@ -127,7 +127,7 @@ def xarray_freq_2_time(array_fourier : xr.DataArray, array_original):
 
 def xarray_freq_2_time_xcorr(array_fourier : np.ndarray, array_original):
     corr_length = array_original.data.shape[-1]*2-1
-    time_data = np.real(np.fft.irfft(array_fourier.data, axis=-1)).astype(np.float64)[:,:,:corr_length].astype(np.float64)
+    time_data = np.real(np.fft.irfft(_shift_inverse(array_fourier.data), axis=-1)).astype(np.float64)[:,:,:corr_length].astype(np.float64)
     array_new      = array_original.copy()
     array_new.data = time_data[:,:,:array_original.shape[-1]]
     return array_new
@@ -155,8 +155,10 @@ def _create_bandpass_frequency_multiplier(xarray,upper_frequency,
     if upper_frequency > nyquist:
         upper_frequency = nyquist
     sos = _butter_bandpass(lower_frequency, upper_frequency, 1 / delta,order=order)
+
     normalized_freqs = np.asarray(list(xarray.coords['frequency'].values)) * delta *2* np.pi
-    w, resp = sosfreqz(sos, worN=normalized_freqs)
+
+    w, resp = sosfreqz(sos, worN=normalized_freqs,fs=1/delta)
     resp    = np.power(resp,filter_power)
     return resp
 
@@ -229,7 +231,7 @@ def _cross_correlate_xarray_data(source_xarray, receiver_xarray,gpu_enable=False
 
         result = _multiply_in_mat(fft_src,fft_rec)
 
-        xcorr_mat = np.real(np.fft.fftshift(np.fft.irfft(result, axis=-1),axes=-1)).astype(np.float64)[:,:,:corr_length]
+        xcorr_mat = np.fft.fftshift(np.real(np.fft.irfft(result,corr_length, axis=-1)).astype(np.float64))
 
     else:
 
@@ -245,7 +247,7 @@ def _cross_correlate_xarray_data(source_xarray, receiver_xarray,gpu_enable=False
         return None
 
 
-    return xcorr_mat / time_size
+    return xcorr_mat / corr_length
 
 def _multiply_in_mat(one,two,dtype=np.complex64):
     zero_mat = np.zeros((one.shape[0],
@@ -267,13 +269,13 @@ def _into_frequency_domain(array,axis=-1,minimum_size=None):
     else:
         target_length = fftpack.next_fast_len(minimum_size)
     fft               = np.fft.rfft(array, target_length, axis=axis)
-    return fft
+    return _shift_zero_freq(fft)
 
 
 def _get_deltaf(time_window_length,delta):
     target_length = fftpack.next_fast_len(time_window_length)
-    frequencies   = np.fft.rfftfreq(target_length, d=delta)
-    return frequencies
+    frequencies   =np.fft.rfftfreq(target_length, d=delta)
+    return _shift_zero_freq(frequencies)
 
 def _dummy_correlate(source_array,
                      receiver_array):
@@ -283,3 +285,9 @@ def _dummy_correlate(source_array,
     mat = np.real(_multiply_in_mat(source_array.data.reshape((src_len,time)),receiver_array.data.reshape(rec_len,time)))
 
     return mat
+
+def _shift_zero_freq(arr):
+    return np.fft.fftshift(arr,axes=-1)
+
+def _shift_inverse(arr):
+    return np.fft.ifftshift(arr,axes=-1)

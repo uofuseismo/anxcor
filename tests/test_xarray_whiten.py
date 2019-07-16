@@ -4,10 +4,11 @@ from anxcor.xarray_routines import XArrayWhiten, XArrayConverter, XArrayResample
 #from tests.synthetic_trace_factory import  create_sinsoidal_trace
 # for local build
 from synthetic_trace_factory import  create_sinsoidal_trace
+from scipy.signal import correlate
 import scipy.fftpack as fft
 from obspy.clients.fdsn import Client
 import pytest
-from obspy.core import UTCDateTime
+from obspy.core import UTCDateTime, Stream
 import numpy as np
 whiten = XArrayWhiten(smoothing_window_ratio=0.25, upper_frequency=25.0, lower_frequency=0.001,
                       order=2,rolling_metric='mean')
@@ -17,8 +18,8 @@ class TestSpectralWhitening(unittest.TestCase):
 
     def test_whitened_success(self):
 
-        trace    = convert([create_sinsoidal_trace(sampling_rate=100,period=0.5,    duration=3)])
-        freq_2   = convert([create_sinsoidal_trace(sampling_rate=100, period=0.1,   duration=3)])
+        trace    = convert(create_sinsoidal_trace(sampling_rate=100,period=0.5,    duration=3))
+        freq_2   = convert(create_sinsoidal_trace(sampling_rate=100, period=0.1,   duration=3))
         trace     = trace +  freq_2
         trace.attrs = freq_2.attrs
         pow_period_original = self.get_power_at_freq(10.0,trace)
@@ -29,8 +30,10 @@ class TestSpectralWhitening(unittest.TestCase):
     def test_array_is_real(self):
         tr_1 = create_sinsoidal_trace(sampling_rate=100, period=0.5, duration=3)
         tr_2 = create_sinsoidal_trace(sampling_rate=100, period=0.1, duration=3)
-        trace = convert([tr_1,tr_1])
-        freq_2 = convert([tr_2,tr_2])
+        st1 = Stream(traces=[*tr_1,*tr_2])
+        st2 = Stream(traces=[*tr_2, *tr_2])
+        trace = convert(st1)
+        freq_2 = convert(st2)
         trace = trace + freq_2
         trace.attrs = freq_2.attrs
         trace = whiten(trace)
@@ -61,7 +64,7 @@ class TestSpectralWhitening(unittest.TestCase):
         result = whiten(None,starttime=0,station=0)
         assert True
 
-    def test_jupyter_tutorial(self):
+    def test_jupyter_tutorial_tapers(self):
         client = Client("IRIS")
         t = UTCDateTime("2018-12-25 12:00:00").timestamp
         st = client.get_waveforms("UU", "SPU", "*", "H*", t, t + 10 * 60, attach_response=True)
@@ -79,6 +82,36 @@ class TestSpectralWhitening(unittest.TestCase):
 
         whitened_array = whitening_op(rmm_array)
         assert whitened_array.data[0,0,0]==pytest.approx(0,abs=1e-2)
+
+
+    def test_phase_shift(self):
+        stream   = create_sinsoidal_trace(sampling_rate=40.0, duration = 1000.0,
+                                                               period=100)
+        converter = XArrayConverter()
+        xarray = converter(stream)
+        taper=0.5
+        center=True
+        ratio = 0.01
+        whitening_op = XArrayWhiten(taper=0.5, whiten_type='cross_component', upper_frequency=20.0,
+                                    lower_frequency=0.01, smoothing_window_ratio=ratio,center=center)
+
+        whitened_array = whitening_op(xarray)
+        a = whitened_array.data[0,0,:].squeeze()
+        b = xarray.data[0,0,:].squeeze()
+        xcorr = correlate(a, b)
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.plot(a,label='final')
+        plt.plot(b,label='original')
+        plt.legend()
+        plt.title('taper:{} center: {} ratio: {}'.format(taper,center, ratio))
+        plt.show()
+        # delta time array to match xcorr
+        dt = np.arange(1 - a.shape[-1], a.shape[-1])
+
+        recovered_time_shift = dt[xcorr.argmax()]
+
+        assert recovered_time_shift==0
 
 if __name__ == '__main__':
     unittest.main()

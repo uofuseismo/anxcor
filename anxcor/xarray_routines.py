@@ -212,7 +212,7 @@ class XArrayResample(ab.XArrayProcessor):
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={'upper_frequency':    nyquist,
-                                                'sampling_rate': sampling_rate})
+                                                'sample_rate': sampling_rate})
 
         resampled_array= filtered_array.resample(time=target_rule)\
             .interpolate('linear').bfill('time').ffill('time')
