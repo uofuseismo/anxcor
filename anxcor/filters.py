@@ -1,4 +1,4 @@
-from scipy.signal import butter, filtfilt, freqz, detrend, convolve, get_window
+from scipy.signal import butter, sosfiltfilt, sosfreqz, detrend, convolve, get_window
 import scipy.fftpack as fftpack
 import xarray as xr
 from obspy.core import UTCDateTime
@@ -6,15 +6,21 @@ import numpy as np
 import pandas as pd
 STARTTIME_NS_PRECISION = 100.0
 DELTA_MS_PRECISION     = 100.0/1
+"""
+filters contained in this module:
+- lowpass
+- bandpass
+- bandpass in freq
+- taper
+- crosscorrelation
 
+helper methods contained in this module:
+- xarray time to frequency
+- xarray frequency to time
 
-def _butter_lowpass(cutoff, fs, order=5,**kwargs):
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(order, normal_cutoff, btype='low', analog=False)
-    return b, a
-
-def lowpass_filter(data, upper_frequency=0.5, sampling_rate=1, order=2,axis=-1):
+"""
+#################################################### filters ###########################################################
+def lowpass_filter(data, upper_frequency=0.5, sample_rate=1, order=2, axis=-1):
     """
      lowpass filter for n-dimensional arrays
     Parameters
@@ -34,35 +40,19 @@ def lowpass_filter(data, upper_frequency=0.5, sampling_rate=1, order=2,axis=-1):
     -------
         a filtered nd array of same dimensions as the input data
     """
-    b, a = _butter_lowpass(upper_frequency, sampling_rate, order=order)
-    y = filtfilt(b, a, data,axis=axis)
+    sos = _butter_lowpass(upper_frequency, sample_rate, order=order)
+    y = sosfiltfilt(sos, data,axis=axis)
     return y
 
-def _butter_bandpass(lowcut, highcut, fs, order=5):
-    nyq = 0.500000000001 * fs
-    low = lowcut / nyq
-    high = highcut / nyq
-    b, a = butter(order, [low, high], btype='band')
-    return b, a
-
-
-def butter_bandpass_filter(data, lower_frequency=0.01, upper_frequency=1.0, sample_rate=0.5, order=2,**kwargs):
-    b, a = _butter_bandpass(lower_frequency, upper_frequency, sample_rate, order=order)
-    y = filtfilt(b, a, data)
+def bandpass_in_time_domain(data, lower_frequency=0.01, upper_frequency=1.0, sample_rate=0.5, order=2, **kwargs):
+    sos = _butter_bandpass(lower_frequency, upper_frequency, sample_rate, order=order)
+    y = sosfiltfilt(sos, data)
     return y
 
-def _taper(np_arr,taper=0.1,**kwargs):
-    time_length = np_arr.shape[0]
-    taper_half_length = int(taper*time_length/2)
-
-    full_window = np.hamming(int(taper*time_length))
-    ones        = np.ones(time_length)
-    ones[ :taper_half_length]*=full_window[:taper_half_length]
-    ones[-taper_half_length:]*=full_window[-taper_half_length:]
-
-    result = np.multiply(np_arr,ones)
-
-    return result
+def bandpass_in_frequency_domain(xarray,**kwargs):
+    bandpass_response= _create_bandpass_frequency_multiplier(xarray,**kwargs)
+    xarray*=bandpass_response
+    return xarray
 
 def taper(data, taper=0.1,axis=-1,window_type='hanning',**kwargs):
     taper_length = int(taper*data.shape[-1])
@@ -81,61 +71,6 @@ def taper(data, taper=0.1,axis=-1,window_type='hanning',**kwargs):
 
     return result
 
-def create_fourier_xarray(xarray : xr.DataArray):
-    freq_domain = _into_frequency_domain(xarray.data, axis=xarray.get_axis_num('time'))
-    frequencies = _get_deltaf(xarray.data.shape[-1],xarray.attrs['delta'])
-    channels    = list(xarray.coords['channel'].values)
-    station_ids = list(xarray.coords['station_id'].values)
-    frequencies = frequencies.tolist()
-    xarray_freq = xr.DataArray(freq_domain, coords=[channels,station_ids,frequencies],
-                                            dims  =['channel', 'station_id', 'frequency'])
-    return xarray_freq
-
-def bandpass_in_frequency_domain(xarray,**kwargs):
-    bandpass_response= _create_bandpass_frequency_multiplier(xarray,**kwargs)
-    xarray*=bandpass_response
-    return xarray
-
-
-def _create_bandpass_frequency_multiplier(xarray,upper_frequency,
-                                          lower_frequency,order=4,
-                                          filter_power=3,delta=0.01,**kwargs):
-    nyquist = 0.5 / delta
-    if upper_frequency > nyquist:
-        upper_frequency = nyquist
-    b, a = _butter_bandpass(lower_frequency, upper_frequency, 1 / delta,order=order)
-    normalized_freqs = np.asarray(list(xarray.coords['frequency'].values)) * delta *2* np.pi
-    w, resp = freqz(b, a, worN=normalized_freqs)
-    resp    = np.power(resp,filter_power)
-    return resp
-
-def _check_if_inputs_make_sense(source_array,  max_tau_shift):
-    time = source_array.attrs['delta'] * (source_array.data.shape[2]-1)
-    total_time = time
-    if max_tau_shift is not None and total_time <= max_tau_shift:
-        raise Exception('given tau shift is too large for input array')
-
-
-def _check_xcorrelate_assumptions(source_xarray, receiver_xarray, taper, max_tau_shift, dummy_task, **kwargs):
-    assert int(source_xarray.attrs['delta']   * DELTA_MS_PRECISION)/DELTA_MS_PRECISION == \
-           int(receiver_xarray.attrs['delta'] * DELTA_MS_PRECISION)/DELTA_MS_PRECISION, \
-                'array deltas are not equal!!'
-    assert int(source_xarray.attrs['starttime']   * STARTTIME_NS_PRECISION)/STARTTIME_NS_PRECISION==\
-           int(receiver_xarray.attrs['starttime'] * STARTTIME_NS_PRECISION)/STARTTIME_NS_PRECISION, \
-                'differring starttimes!!'+\
-                                             ' will not correlate'
-    assert source_xarray.data.shape[-1]==receiver_xarray.data.shape[-1], \
-        'xarray shapes are different! will not proceed'
-
-def _will_not_correlate_message(source_xarray,receiver_xarray):
-    start1 = UTCDateTime(source_xarray.attrs['starttime'])
-    station_1 = list(source_xarray.coords['station_id'].values)[0]
-    station_2 = list(receiver_xarray.coords['station_id'].values)[0]
-    print('*' * 10)
-    print('will not correlate windows!')
-    print('src {} \nrec {}'.format(station_1,station_2))
-    print('window: {}'.format(start1))
-    print('*'*10)
 
 def xarray_crosscorrelate(source_xarray, receiver_xarray,
                           taper=0.1, max_tau_shift=None, dummy_task=False,**kwargs):
@@ -168,7 +103,90 @@ def xarray_crosscorrelate(source_xarray, receiver_xarray,
 
     return xarray
 
+################################################# converters ###########################################################
 
+def xarray_time_2_freq(xarray : xr.DataArray,minimum_size=None):
+    freq_domain = _into_frequency_domain(xarray.data,
+                                         axis=xarray.get_axis_num('time'),
+                                         minimum_size=minimum_size)
+    frequencies = _get_deltaf(xarray.data.shape[-1],xarray.attrs['delta'])
+    channels    = list(xarray.coords['channel'].values)
+    station_ids = list(xarray.coords['station_id'].values)
+    frequencies = frequencies.tolist()
+    xarray_freq = xr.DataArray(freq_domain, coords=[channels,station_ids,frequencies],
+                                            dims  =['channel', 'station_id', 'frequency'])
+    return xarray_freq
+
+
+def xarray_freq_2_time(array_fourier : xr.DataArray, array_original):
+    time_data =np.real(np.fft.irfft(array_fourier.data, axis=-1)).astype(np.float64)
+    array_new      = array_original.copy()
+    array_new.data = time_data[:,:,:array_original.shape[-1]]
+    return array_new
+
+
+def xarray_freq_2_time_xcorr(array_fourier : np.ndarray, array_original):
+    corr_length = array_original.data.shape[-1]*2-1
+    time_data = np.real(np.fft.irfft(array_fourier.data, axis=-1)).astype(np.float64)[:,:,:corr_length].astype(np.float64)
+    array_new      = array_original.copy()
+    array_new.data = time_data[:,:,:array_original.shape[-1]]
+    return array_new
+
+################################################# helper methods #######################################################
+
+def _butter_lowpass(cutoff, fs, order=5,**kwargs):
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    sos = butter(order, normal_cutoff, btype='low', output='sos')
+    return sos
+
+def _butter_bandpass(lowcut, highcut, fs, order=5):
+    nyq = 0.500000000001 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    sos = butter(order, [low, high], btype='band',output='sos')
+    return sos
+
+
+def _create_bandpass_frequency_multiplier(xarray,upper_frequency,
+                                          lower_frequency,order=4,
+                                          filter_power=3,delta=0.01,**kwargs):
+    nyquist = 0.5 / delta
+    if upper_frequency > nyquist:
+        upper_frequency = nyquist
+    sos = _butter_bandpass(lower_frequency, upper_frequency, 1 / delta,order=order)
+    normalized_freqs = np.asarray(list(xarray.coords['frequency'].values)) * delta *2* np.pi
+    w, resp = sosfreqz(sos, worN=normalized_freqs)
+    resp    = np.power(resp,filter_power)
+    return resp
+
+def _check_if_inputs_make_sense(source_array,  max_tau_shift):
+    time = source_array.attrs['delta'] * (source_array.data.shape[2]-1)
+    total_time = time
+    if max_tau_shift is not None and total_time <= max_tau_shift:
+        raise Exception('given tau shift is too large for input array')
+
+
+def _check_xcorrelate_assumptions(source_xarray, receiver_xarray, taper, max_tau_shift, dummy_task, **kwargs):
+    assert int(source_xarray.attrs['delta']   * DELTA_MS_PRECISION)/DELTA_MS_PRECISION == \
+           int(receiver_xarray.attrs['delta'] * DELTA_MS_PRECISION)/DELTA_MS_PRECISION, \
+                'array deltas are not equal!!'
+    assert int(source_xarray.attrs['starttime']   * STARTTIME_NS_PRECISION)/STARTTIME_NS_PRECISION==\
+           int(receiver_xarray.attrs['starttime'] * STARTTIME_NS_PRECISION)/STARTTIME_NS_PRECISION, \
+                'differring starttimes!!'+\
+                                             ' will not correlate'
+    assert source_xarray.data.shape[-1]==receiver_xarray.data.shape[-1], \
+        'xarray shapes are different! will not proceed'
+
+def _will_not_correlate_message(source_xarray,receiver_xarray):
+    start1 = UTCDateTime(source_xarray.attrs['starttime'])
+    station_1 = list(source_xarray.coords['station_id'].values)[0]
+    station_2 = list(receiver_xarray.coords['station_id'].values)[0]
+    print('*' * 10)
+    print('will not correlate windows!')
+    print('src {} \nrec {}'.format(station_1,station_2))
+    print('window: {}'.format(start1))
+    print('*'*10)
 
 
 def _extract_center_of_ndarray(corr_mat, tau_shift,xarray):
@@ -243,16 +261,13 @@ def _multiply_in_mat(one,two,dtype=np.complex64):
     return zero_mat
 
 
-def _into_frequency_domain(array,axis=-1):
-    target_length = fftpack.next_fast_len(array.shape[axis])
-    fft           = np.fft.rfft(array, target_length, axis=axis)
+def _into_frequency_domain(array,axis=-1,minimum_size=None):
+    if minimum_size is None:
+        target_length = fftpack.next_fast_len(array.shape[axis])
+    else:
+        target_length = fftpack.next_fast_len(minimum_size)
+    fft               = np.fft.rfft(array, target_length, axis=axis)
     return fft
-
-def create_time_domain_array1(array_fourier : xr.DataArray,array_original):
-    time_data =np.real(np.fft.irfft(array_fourier.data, axis=-1)).astype(np.float64)
-    array_new      = array_original.copy()
-    array_new.data = time_data[:,:,:array_original.shape[-1]]
-    return array_new
 
 
 def _get_deltaf(time_window_length,delta):

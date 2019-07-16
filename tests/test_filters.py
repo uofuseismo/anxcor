@@ -1,0 +1,71 @@
+import unittest
+from anxcor.xarray_routines import XArrayConverter
+# for travis build
+import tests.synthetic_trace_factory as synthfactory
+# for local build
+#import synthetic_trace_factory as synthfactory
+import pytest
+import xarray as xr
+import anxcor.filters as filt_ops
+
+import numpy as np
+
+convert = XArrayConverter()
+
+class TestImpulseDecays(unittest.TestCase):
+
+    def test_lowpass_farfield_impulse(self):
+        stream   = synthfactory.create_impulse_stream(sampling_rate=40.0, duration = 1000.0)
+        xarray    = convert(stream)
+        filtered_array = xr.apply_ufunc(filt_ops.lowpass_filter, xarray,
+                                       input_core_dims=[['time']],
+                                       output_core_dims=[['time']],
+                                       kwargs={'sample_rate': 40.0,
+                                               'upper_frequency': 5.0},
+                                       keep_attrs=True)
+        assert filtered_array.data[0, 0, -1] == pytest.approx(0, abs=1e-18)
+
+    def test_bandpass_farfield_impulse(self):
+        stream = synthfactory.create_impulse_stream(sampling_rate=40.0, duration=1000.0)
+        xarray = convert(stream)
+        filtered_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain, xarray,
+                                        input_core_dims=[['time']],
+                                        output_core_dims=[['time']],
+                                        kwargs={'sample_rate': 40.0,
+                                                'upper_frequency': 5.0,
+                                                'lower_frequency':0.01},
+                                        keep_attrs=True)
+        assert filtered_array.data[0, 0, -1] == pytest.approx(0, abs=1e-18)
+
+
+    def test_taper_farfield_impulse(self):
+        stream = synthfactory.create_impulse_stream(sampling_rate=40.0, duration=1000.0)
+        xarray = convert(stream)
+        filtered_array = xr.apply_ufunc(filt_ops.taper, xarray,
+                                        input_core_dims=[['time']],
+                                        output_core_dims=[['time']],
+                                        kwargs={'taper': 0.1},
+                                        keep_attrs=True)
+        assert filtered_array.data[0, 0, -1] == pytest.approx(0, abs=1e-18)
+
+    def test_into_freq_and_back(self):
+        stream = synthfactory.create_impulse_stream(sampling_rate=40.0, duration=1000.0)
+        xarray = convert(stream)
+        xarray_freq = filt_ops.xarray_time_2_freq(xarray)
+        xarray_time = filt_ops.xarray_freq_2_time(xarray_freq,xarray)
+
+        assert np.allclose(xarray_time.data,xarray.data)
+
+
+    def test_crosscorrelate_farfield_impulse(self):
+        stream1 = synthfactory.create_impulse_stream(sampling_rate=40.0, duration=1000.0)
+        stream2 = synthfactory.create_impulse_stream(sampling_rate=40.0, duration=1000.0)
+        xarray_src = convert(stream1)
+        xarray_rec = convert(stream2)
+        xarray_corr = filt_ops.xarray_crosscorrelate(xarray_src,xarray_rec)
+
+        assert xarray_corr.data.shape[-1]==xarray_src.data.shape[-1]*2 -1
+
+
+if __name__ == '__main__':
+    unittest.main()

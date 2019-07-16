@@ -1,10 +1,22 @@
-from obspy.core import Trace, UTCDateTime
+from obspy.core import Trace, UTCDateTime, Stream
 import numpy as np
 from scipy import  signal
 from scipy import fftpack
 import pandas as pd
 
-
+def create_impulse_stream(sampling_rate=40.0, duration = 5.0, **header_kwargs):
+    header={
+        'sampling_rate' : sampling_rate,
+        'starttime'     : UTCDateTime(0),
+        'channel': 'Z',
+        'station': 'test'
+    }
+    header = {**header, **header_kwargs}
+    data  = np.zeros(int(duration*sampling_rate))
+    data[0]=1
+    trace = Trace(data=data, header=header)
+    trace.stats.data_type = 'test'
+    return Stream(traces=[trace])
 
 def linear_ramp_trend(sampling_rate=40.0, duration = 5.0,height=1.0,mean=0.5):
     header={

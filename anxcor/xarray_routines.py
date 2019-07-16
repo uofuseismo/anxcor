@@ -135,7 +135,7 @@ class XArrayBandpass(ab.XArrayProcessor):
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**self._kwargs})
-        filtered_array = xr.apply_ufunc(filt_ops.butter_bandpass_filter, filtered_array,
+        filtered_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain, filtered_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**ufunc_kwargs,**{
@@ -431,7 +431,7 @@ class XArrayTemporalNorm(XArrayRolling):
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**self._kwargs})
-        filtered_array = xr.apply_ufunc(filt_ops.butter_bandpass_filter, filtered_array,
+        filtered_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain, filtered_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**self._kwargs, **{
@@ -490,13 +490,13 @@ class XArrayWhiten(XArrayRolling):
                                        input_core_dims=[['time']],
                                        output_core_dims=[['time']],
                                        kwargs={**self._kwargs}, keep_attrs=True)
-        fourier_array = filt_ops.create_fourier_xarray(tapered_array)
+        fourier_array = filt_ops.xarray_time_2_freq(tapered_array)
         return fourier_array
 
     def _postprocess(self,normed_array, xarray):
         bp_freq_domain_array = filt_ops.bandpass_in_frequency_domain(normed_array,
                                                                      delta=xarray.attrs['delta'],**self._kwargs)
-        return filt_ops.create_time_domain_array1(bp_freq_domain_array, xarray)
+        return filt_ops.xarray_freq_2_time(bp_freq_domain_array, xarray)
 
     def _get_rolling_samples(self,processed_xarray, xarray):
         return int(self._kwargs['window'] * xarray.data.shape[-1])
