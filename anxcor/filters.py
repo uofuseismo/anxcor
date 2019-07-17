@@ -1,4 +1,4 @@
-from scipy.signal import butter, sosfiltfilt, sosfreqz, get_window
+from scipy.signal import butter, sosfiltfilt, sosfreqz, get_window, detrend
 import scipy.fftpack as fftpack
 import xarray as xr
 from obspy.core import UTCDateTime
@@ -56,7 +56,7 @@ def bandpass_in_frequency_domain(xarray,**kwargs):
     return xarray
 
 def taper(data, taper=0.1,axis=-1,window_type='hanning',one_taper=False,**kwargs):
-    taper_length = int(taper*data.shape[-1])
+    taper_length = int(taper*data.shape[axis])
     if (taper_length % 2) == 0:
         taper_length+=1
 
