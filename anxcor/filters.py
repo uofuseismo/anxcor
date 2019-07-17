@@ -20,7 +20,7 @@ helper methods contained in this module:
 
 """
 #################################################### filters ###########################################################
-def lowpass_filter(data, upper_frequency=0.5, sample_rate=1, order=2, axis=-1):
+def lowpass_filter(data, upper_frequency=0.5, sample_rate=1, order=2, axis=-1,padtype='odd',**kwargs):
     """
      lowpass filter for n-dimensional arrays
     Parameters
@@ -41,12 +41,13 @@ def lowpass_filter(data, upper_frequency=0.5, sample_rate=1, order=2, axis=-1):
         a filtered nd array of same dimensions as the input data
     """
     sos = _butter_lowpass(upper_frequency, sample_rate, order=order)
-    y = sosfiltfilt(sos, data,axis=axis)
+    y = sosfiltfilt(sos, data,axis=axis,padtype=padtype)
     return y
 
-def bandpass_in_time_domain(data, lower_frequency=0.01, upper_frequency=1.0, sample_rate=0.5, order=2,axis=-1, **kwargs):
+def bandpass_in_time_domain(data, lower_frequency=0.01, upper_frequency=1.0, sample_rate=0.5,
+                            order=2,axis=-1,padtype='odd', **kwargs):
     sos = _butter_bandpass(lower_frequency, upper_frequency, sample_rate, order=order)
-    y = sosfiltfilt(sos, data,axis=axis)
+    y = sosfiltfilt(sos, data,axis=axis,padtype=padtype)
     return y
 
 def bandpass_in_frequency_domain(xarray,**kwargs):
