@@ -2,9 +2,9 @@ import unittest
 from anxcor.xarray_routines import XArrayWhiten, XArrayConverter, \
     XArrayTemporalNorm, XArrayResample, XArrayXCorrelate, XArrayRolling
 # travis import
-from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace
+#from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace
 # relative import
-#from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace
+from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace
 from obspy.core import read
 from scipy.signal import correlate
 from anxcor.xarray_routines import XArrayRemoveMeanTrend
@@ -176,3 +176,39 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         recovered_time_shift = dt[xcorr.argmax()]
 
         assert recovered_time_shift==0
+
+    def test_symmetric_output(self):
+        import matplotlib.pyplot as plt
+        converter = XArrayConverter()
+        symmetry={}
+        for signal_length in [500,1000,5000,10000,15000]:
+            center = signal_length * 6
+            for taper in np.logspace(-3,0,num=100):
+                stream = create_sinsoidal_trace(sampling_rate=40.0, duration=0.3 * signal_length,
+                                            period=0.3)
+                stream[0].data += create_random_trace(sampling_rate=40, duration=0.3 * signal_length,
+                                                  period=0.1)[0].data
+                xarray = converter(stream)
+                t_norm_op = XArrayTemporalNorm(t_norm_type='reduce_metric',taper=taper,
+                                             lower_frequency=0.001, upper_frequency=4,
+                                             time_window=2.0, rolling_procedure='mean',
+                                             reduce_metric='max')
+                t_normed_array = t_norm_op(xarray)
+                xarray_squeezed= t_normed_array[0, 0, :].data.squeeze()
+                difference     = xarray_squeezed[:center] -xarray_squeezed[center:]
+                if signal_length not in symmetry.keys():
+                    symmetry[signal_length]=[]
+                symmetry[signal_length].append(np.abs(np.cumsum(difference)[-1])/xarray_squeezed.shape[-1])
+
+        fig, ax = plt.subplots()
+        for key, vals in symmetry.items():
+            ax.semilogy(np.logspace(-3,0,num=100),vals,label='{} duration (s)'.format(key*0.3))
+
+        ax.set_xlabel('taper')
+        ax.set_ylim([0.000001, 0.03])
+        ax.legend()
+        ax.set_ylabel('cumulative normalized assymetry')
+        plt.title('t-bp-t taper')
+        plt.show()
+
+        assert np.cumsum(difference)[-1]==0

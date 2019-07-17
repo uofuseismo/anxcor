@@ -131,7 +131,7 @@ class XArrayBandpass(ab.XArrayProcessor):
         if self._kwargs['upper_frequency'] > sampling_rate / 2:
             ufunc_kwargs['upper_frequency'] = sampling_rate / 2
 
-        filtered_array = xr.apply_ufunc(filt_ops.taper, xarray,
+        filtered_array = xr.apply_ufunc(filt_ops.taper_func, xarray,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**self._kwargs})
@@ -167,7 +167,7 @@ class XArrayTaper(ab.XArrayProcessor):
         self._kwargs = {'taper':taper}
 
     def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
-        filtered_array = xr.apply_ufunc(filt_ops.taper, xarray,
+        filtered_array = xr.apply_ufunc(filt_ops.taper_func, xarray,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**self._kwargs})
@@ -204,10 +204,10 @@ class XArrayResample(ab.XArrayProcessor):
                                         input_core_dims=[['time']],
                                         output_core_dims = [['time']],
                                         kwargs={'type':'linear'})
-        tapered_array = xr.apply_ufunc(filt_ops.taper, detrend_array,
-                                        input_core_dims=[['time']],
-                                        output_core_dims=[['time']],
-                                        kwargs={**self._kwargs})
+        tapered_array = xr.apply_ufunc(filt_ops.taper_func, detrend_array,
+                                       input_core_dims=[['time']],
+                                       output_core_dims=[['time']],
+                                       kwargs={**self._kwargs})
         filtered_array = xr.apply_ufunc(filt_ops.lowpass_filter,tapered_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
@@ -257,11 +257,11 @@ class XArrayXCorrelate(ab.XArrayProcessor):
         if xarray_2 is None or xarray_1 is None:
             return None
 
-        xarray_1 = xr.apply_ufunc(filt_ops.taper, xarray_1,
+        xarray_1 = xr.apply_ufunc(filt_ops.taper_func, xarray_1,
                                   input_core_dims=[['time']],
                                   output_core_dims=[['time']],
                                   kwargs={**self._kwargs})
-        xarray_2 = xr.apply_ufunc(filt_ops.taper, xarray_2,
+        xarray_2 = xr.apply_ufunc(filt_ops.taper_func, xarray_2,
                                   input_core_dims=[['time']],
                                   output_core_dims=[['time']],
                                   kwargs={**self._kwargs})
@@ -429,7 +429,7 @@ class XArrayTemporalNorm(XArrayRolling):
     def _pre_rolling_process(self,processed_array : xr.DataArray, xarray : xr.DataArray):
         sampling_rate = 1.0 / xarray.attrs['delta']
 
-        filtered_array = xr.apply_ufunc(filt_ops.taper, processed_array,
+        filtered_array = xr.apply_ufunc(filt_ops.taper_func, processed_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**self._kwargs}, keep_attrs=True)
@@ -440,14 +440,18 @@ class XArrayTemporalNorm(XArrayRolling):
                                   kwargs={**self._kwargs, **{
                                       'sample_rate': sampling_rate}}, keep_attrs=True)
 
-        filtered_array = xr.apply_ufunc(filt_ops.taper, bp_array,
+        filtered_array = xr.apply_ufunc(filt_ops.taper_func, processed_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
-                                        kwargs={**self._kwargs, 'ones_window': True}, keep_attrs=True)
+                                        kwargs={**self._kwargs,**{'one_taper':False}}, keep_attrs=True)
+
+        mean_array=bp_array.mean(dim=['time'])
+
+        filtered_array = filt_ops.xarray_const_taper(abs(bp_array), mean_array, **self._kwargs)
         return filtered_array
 
     def _postprocess(self, normed_array, xarray):
-        filtered_array = xr.apply_ufunc(filt_ops.taper, normed_array,
+        filtered_array = xr.apply_ufunc(filt_ops.taper_func, normed_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**self._kwargs})
@@ -502,7 +506,7 @@ class XArrayWhiten(XArrayRolling):
 
 
     def _preprocess(self,xarray):
-        tapered_array = xr.apply_ufunc(filt_ops.taper, xarray,
+        tapered_array = xr.apply_ufunc(filt_ops.taper_func, xarray,
                                        input_core_dims=[['time']],
                                        output_core_dims=[['time']],
                                        kwargs={**self._kwargs}, keep_attrs=True)

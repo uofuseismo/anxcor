@@ -11,6 +11,20 @@ import anxcor.filters as filt_ops
 import numpy as np
 
 convert = XArrayConverter()
+class TestSimpleRelations(unittest.TestCase):
+
+    def test_zero_ended_taper(self):
+        data = np.random.uniform(0,1,1000)
+        result = filt_ops.taper_func(data, taper=0.1)
+        assert result[0]==0
+        assert result[-1]==0
+
+    def test_zero_ended_taper_odd(self):
+        data = np.random.uniform(0,1,1000)
+        result = filt_ops.taper_func(data, taper=0.1)
+        assert result[0]==0
+        assert result[-1]==0
+
 
 class TestImpulseDecays(unittest.TestCase):
 
@@ -41,7 +55,7 @@ class TestImpulseDecays(unittest.TestCase):
     def test_taper_farfield_impulse(self):
         stream = synthfactory.create_impulse_stream(sampling_rate=40.0, duration=1000.0)
         xarray = convert(stream)
-        filtered_array = xr.apply_ufunc(filt_ops.taper, xarray,
+        filtered_array = xr.apply_ufunc(filt_ops.taper_func, xarray,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={'taper': 0.1},
@@ -94,7 +108,7 @@ class TestZeroPhaseFilter(unittest.TestCase):
         stream = synthfactory.create_sinsoidal_trace(sampling_rate=40.0, duration=1000.0,
                                                              period=0.3)
         xarray = convert(stream)
-        filtered_array = xr.apply_ufunc(filt_ops.taper,xarray,
+        filtered_array = xr.apply_ufunc(filt_ops.taper_func, xarray,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={'taper':0.01},
@@ -127,7 +141,7 @@ class TestZeroPhaseFilter(unittest.TestCase):
         stream = synthfactory.create_sinsoidal_trace_w_decay(sampling_rate=40.0, duration=1000.0,
                                                              period=0.5)
         xarray = convert(stream)
-        filtered_array = xr.apply_ufunc(filt_ops.taper, xarray,
+        filtered_array = xr.apply_ufunc(filt_ops.taper_func, xarray,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={'taper': 0.1},

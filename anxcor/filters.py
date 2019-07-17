@@ -55,10 +55,12 @@ def bandpass_in_frequency_domain(xarray,**kwargs):
     xarray*=bandpass_response
     return xarray
 
-def taper(data, taper=0.1,axis=-1,window_type='hanning',one_taper=False,**kwargs):
+def taper_func(data, taper=0.1, axis=-1, window_type='hanning', taper_objective='zeros', constant=0.0, **kwargs):
+    assert taper <= 1.0, 'taper is too big. Must be less than 1.0:{}'.format(taper)
+    assert taper >= 0 , 'taper is too small. Must be bigger than 0.0:{}'.format(taper)
     taper_length = int(taper*data.shape[axis])
     if (taper_length % 2) == 0:
-        taper_length+=1
+        taper_length-=1
 
     center = (taper_length-1) // 2
     full_window    = get_window(window_type,taper_length,fftbins=False)
@@ -72,10 +74,34 @@ def taper(data, taper=0.1,axis=-1,window_type='hanning',one_taper=False,**kwargs
 
     result = data * ones
 
-    if one_taper:
-        ones_window = 1 - ones
-        result+= ones_window
+    if taper_objective=='constant':
+        new_window = (1 - ones)*constant
+        result+= new_window
     return result
+
+def xarray_const_taper(array1, array2, window_type='hanning', axis=-1, taper=1.0, **kwargs):
+    filtered_array = xr.apply_ufunc(taper_func, array1,
+                                    input_core_dims=[['time']],
+                                    output_core_dims=[['time']],
+                                    kwargs={**dict(window_type=window_type,axis=axis,taper=taper),**kwargs}, keep_attrs=True)
+
+    taper_length = int(taper*array1.data.shape[axis])
+    if (taper_length % 2) == 0:
+        taper_length -= 1
+    center = (taper_length - 1) // 2
+    full_window    = get_window(window_type,taper_length,fftbins=False)
+    full_window[0] = 0
+    full_window[-1]= 0
+    ones        = np.ones(array1.data.shape)
+
+    ones[:,:,:center+1]  *=full_window[:center+1]
+    ones[:,:,-1-center:]*=full_window[center:]
+
+    xarray_copy = array1.copy()
+    xarray_copy.data = 1-ones
+    xarray_copy *= array2
+    filtered_array += xarray_copy
+    return filtered_array
 
 
 def xarray_crosscorrelate(source_xarray, receiver_xarray,
