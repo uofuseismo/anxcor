@@ -1,4 +1,4 @@
-from scipy.signal import butter, sosfiltfilt, sosfreqz, detrend, convolve, get_window
+from scipy.signal import butter, sosfiltfilt, sosfreqz, get_window
 import scipy.fftpack as fftpack
 import xarray as xr
 from obspy.core import UTCDateTime

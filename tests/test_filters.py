@@ -1,10 +1,9 @@
 import unittest
 from anxcor.xarray_routines import XArrayConverter
 # for travis build
-#import tests.synthetic_trace_factory as synthfactory
-# for local build
+import tests.synthetic_trace_factory as synthfactory
+
 from scipy.signal import correlate
-import synthetic_trace_factory as synthfactory
 import pytest
 import xarray as xr
 import anxcor.filters as filt_ops

@@ -373,7 +373,8 @@ class XArrayRolling(ab.XArrayProcessor):
         rolling_procedure = self._kwargs['rolling_metric']
         dim = self._get_longest_dim_name(processed_xarray)
         rolling_dict = {dim: rolling_samples,
-                        'center': self._kwargs['center']
+                        'center': self._kwargs['center'],
+                        'min_periods':rolling_samples
                         }
         if rolling_procedure == 'mean':
             xarray = abs(processed_xarray).rolling(**rolling_dict).mean()

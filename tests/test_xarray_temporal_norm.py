@@ -2,9 +2,9 @@ import unittest
 from anxcor.xarray_routines import XArrayWhiten, XArrayConverter, \
     XArrayTemporalNorm, XArrayResample, XArrayXCorrelate, XArrayRolling
 # travis import
-#from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace
+from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace
 # relative import
-from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace
+#from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace
 from obspy.core import read
 from scipy.signal import correlate
 from anxcor.xarray_routines import XArrayRemoveMeanTrend

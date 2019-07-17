@@ -1,9 +1,9 @@
 import unittest
 from anxcor.xarray_routines import XArrayWhiten, XArrayConverter, XArrayResample, XArrayRemoveMeanTrend
 # for travis build
-#from tests.synthetic_trace_factory import  create_sinsoidal_trace
+from tests.synthetic_trace_factory import  create_sinsoidal_trace
 # for local build
-from synthetic_trace_factory import  create_sinsoidal_trace
+#from synthetic_trace_factory import  create_sinsoidal_trace
 from scipy.signal import correlate
 import scipy.fftpack as fft
 from obspy.clients.fdsn import Client
