@@ -333,19 +333,19 @@ class XArrayRolling(ab.XArrayProcessor):
             'reduce_metric' : reduce_metric,
             'rolling_metric': rolling_metric}
 
-    def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
+    def _single_thread_execute(self, xarray: xr.DataArray, *args, **kwargs):
 
-        processed_array   = self._preprocess(xarray)
-        pre_rolling       = self._pre_rolling_process(processed_array, xarray)
-        rolling_array     = self._apply_rolling_method(pre_rolling, xarray)
+        processed_array = self._preprocess(xarray)
+        pre_rolling = self._pre_rolling_process(processed_array, xarray)
+        rolling_array = self._apply_rolling_method(pre_rolling, xarray)
+        dim = self._get_longest_dim_name(rolling_array)
+        rolling_array = rolling_array.ffill(dim).bfill(dim)
 
-        dim               = self._get_longest_dim_name(rolling_array)
-
-        rolling_array     = rolling_array.ffill(dim).bfill(dim)
-        post_rolling      = self._post_rolling_process(rolling_array,xarray)
+        post_rolling = self._post_rolling_process(rolling_array, xarray)
         rolling_processed = self._reduce_by_channel(post_rolling)
-        normalized_array  = processed_array / rolling_processed
-        final_processed   = self._postprocess(normalized_array,xarray)
+        normalized_array = processed_array / rolling_processed
+        final_processed = self._postprocess(normalized_array, xarray)
+
         return final_processed
 
     def _get_longest_dim_name(self,xarray):
@@ -368,15 +368,13 @@ class XArrayRolling(ab.XArrayProcessor):
     def _get_rolling_samples(self,processed_xarray : xr.DataArray, xarray: xr.DataArray)-> int:
         return int(self._kwargs['window'] / xarray.attrs['delta'])
 
-
     def _apply_rolling_method(self, processed_xarray, original_xarray):
         rolling_samples = self._get_rolling_samples(processed_xarray, original_xarray)
         rolling_procedure = self._kwargs['rolling_metric']
         dim = self._get_longest_dim_name(processed_xarray)
-        rolling_dict = {  dim : rolling_samples,
-                         'min_periods':1,
-                         'center': self._kwargs['center']
-                          }
+        rolling_dict = {dim: rolling_samples,
+                        'center': self._kwargs['center']
+                        }
         if rolling_procedure == 'mean':
             xarray = abs(processed_xarray).rolling(**rolling_dict).mean()
         elif rolling_procedure == 'median':
@@ -387,6 +385,8 @@ class XArrayRolling(ab.XArrayProcessor):
             xarray = abs(processed_xarray).rolling(**rolling_dict).max()
         else:
             xarray = abs(processed_xarray)
+
+        xarray.attrs = processed_xarray.attrs
         return xarray
 
     def _reduce_by_channel(self, xarray):
@@ -426,16 +426,31 @@ class XArrayTemporalNorm(XArrayRolling):
 
 
     def _pre_rolling_process(self,processed_array : xr.DataArray, xarray : xr.DataArray):
-        sampling_rate = 1.0 /xarray.attrs['delta']
+        sampling_rate = 1.0 / xarray.attrs['delta']
+
         filtered_array = xr.apply_ufunc(filt_ops.taper, processed_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
-                                        kwargs={**self._kwargs})
-        filtered_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain, filtered_array,
+                                        kwargs={**self._kwargs}, keep_attrs=True)
+
+        bp_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain, filtered_array,
+                                  input_core_dims=[['time']],
+                                  output_core_dims=[['time']],
+                                  kwargs={**self._kwargs, **{
+                                      'sample_rate': sampling_rate}}, keep_attrs=True)
+
+        filtered_array = xr.apply_ufunc(filt_ops.taper, bp_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
-                                        kwargs={**self._kwargs, **{
-                                            'sample_rate': sampling_rate}})
+                                        kwargs={**self._kwargs, 'ones_window': True}, keep_attrs=True)
+        return filtered_array
+
+    def _postprocess(self, normed_array, xarray):
+        filtered_array = xr.apply_ufunc(filt_ops.taper, normed_array,
+                                        input_core_dims=[['time']],
+                                        output_core_dims=[['time']],
+                                        kwargs={**self._kwargs})
+
         return filtered_array
 
     def _get_process(self):
@@ -494,12 +509,16 @@ class XArrayWhiten(XArrayRolling):
         return fourier_array
 
     def _postprocess(self,normed_array, xarray):
-        bp_freq_domain_array = filt_ops.bandpass_in_frequency_domain(normed_array,
-                                                                     delta=xarray.attrs['delta'],**self._kwargs)
-        return filt_ops.xarray_freq_2_time(bp_freq_domain_array, xarray)
+        sample_rate = 1.0/xarray.attrs['delta']
+        time_domain_array = filt_ops.xarray_freq_2_time(normed_array, xarray)
+        bp_time_domain    =  xr.apply_ufunc(filt_ops.bandpass_in_time_domain, time_domain_array,
+                                       input_core_dims=[['time']],
+                                       output_core_dims=[['time']],
+                                       kwargs={**self._kwargs,'sample_rate':sample_rate}, keep_attrs=True)
+        return bp_time_domain
 
     def _get_rolling_samples(self,processed_xarray, xarray):
-        return int(self._kwargs['window'] * xarray.data.shape[-1])
+        return int(self._kwargs['window'] * xarray.data.shape[-1]/2)
 
     def _get_process(self):
         return 'whiten'

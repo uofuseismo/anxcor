@@ -92,10 +92,15 @@ class TestZeroPhaseFilter(unittest.TestCase):
         assert recovered_time_shift==0
 
     def test_bandpass_zero_phase(self):
-        stream = synthfactory.create_sinsoidal_trace_w_decay(sampling_rate=40.0, duration=1000.0,
-                                                             period=0.5)
+        stream = synthfactory.create_sinsoidal_trace(sampling_rate=40.0, duration=1000.0,
+                                                             period=0.3)
         xarray = convert(stream)
-        filtered_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain, xarray,
+        filtered_array = xr.apply_ufunc(filt_ops.taper,xarray,
+                                        input_core_dims=[['time']],
+                                        output_core_dims=[['time']],
+                                        kwargs={'taper':0.01},
+                                        keep_attrs=True)
+        filtered_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain, filtered_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={'sample_rate': 40.0,
@@ -104,6 +109,11 @@ class TestZeroPhaseFilter(unittest.TestCase):
                                         keep_attrs=True)
         a = xarray.data[0, 0, :]
         b = filtered_array.data[0, 0, :]
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.plot(a)
+        plt.plot(b)
+        plt.show()
         xcorr = correlate(a, b)
 
         # delta time array to match xcorr

@@ -10,7 +10,7 @@ from obspy.clients.fdsn import Client
 import pytest
 from obspy.core import UTCDateTime, Stream
 import numpy as np
-whiten = XArrayWhiten(smoothing_window_ratio=0.25, upper_frequency=25.0, lower_frequency=0.001,
+whiten = XArrayWhiten(smoothing_window_ratio=0.25, upper_frequency=20.0, lower_frequency=0.001,
                       order=2,rolling_metric='mean')
 convert = XArrayConverter()
 
@@ -89,23 +89,17 @@ class TestSpectralWhitening(unittest.TestCase):
                                                                period=100)
         converter = XArrayConverter()
         xarray = converter(stream)
-        taper=0.5
+        taper=0.1
         center=True
         ratio = 0.01
         whitening_op = XArrayWhiten(taper=0.5, whiten_type='cross_component', upper_frequency=20.0,
-                                    lower_frequency=0.01, smoothing_window_ratio=ratio,center=center)
+                                    lower_frequency=0.01, smoothing_window_ratio=ratio,center=center,order=2)
 
         whitened_array = whitening_op(xarray)
         a = whitened_array.data[0,0,:].squeeze()
         b = xarray.data[0,0,:].squeeze()
         xcorr = correlate(a, b)
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.plot(a,label='final')
-        plt.plot(b,label='original')
-        plt.legend()
-        plt.title('taper:{} center: {} ratio: {}'.format(taper,center, ratio))
-        plt.show()
+
         # delta time array to match xcorr
         dt = np.arange(1 - a.shape[-1], a.shape[-1])
 

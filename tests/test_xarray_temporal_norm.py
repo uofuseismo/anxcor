@@ -1,10 +1,12 @@
 import unittest
-from anxcor.xarray_routines import XArrayWhiten, XArrayConverter, XArrayTemporalNorm, XArrayResample, XArrayXCorrelate
+from anxcor.xarray_routines import XArrayWhiten, XArrayConverter, \
+    XArrayTemporalNorm, XArrayResample, XArrayXCorrelate, XArrayRolling
 # travis import
-from tests.synthetic_trace_factory import create_random_trace
+#from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace
 # relative import
-#from synthetic_trace_factory import create_random_trace
+from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace
 from obspy.core import read
+from scipy.signal import correlate
 from anxcor.xarray_routines import XArrayRemoveMeanTrend
 from obspy.clients.fdsn import Client
 from obspy.core import UTCDateTime
@@ -12,8 +14,9 @@ import numpy as np
 import xarray as xr
 whiten    = XArrayWhiten(smoothing_window_ratio=0.025, upper_frequency=25.0, lower_frequency=0.001, order=2)
 convert   = XArrayConverter()
-correlate = XArrayXCorrelate(max_tau_shift=40)
+xarraycorrelate = XArrayXCorrelate(max_tau_shift=40)
 source_file = 'tests/test_data/test_teleseism/test_teleseism.BHE.SAC'
+
 
 def source_earthquake():
     earthquake_trace       = read(source_file, format='sac')[0]
@@ -46,8 +49,8 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         duration = 400
         shift = 3
         noise_loc_1 = create_random_trace(sampling_rate=40, duration=duration)
-        noise_loc_1.data+= create_random_trace(sampling_rate=40, duration=duration).data
-        noise_loc_1 = convert([noise_loc_1],starttime=0,station=0)
+        noise_loc_1[0].data+= create_random_trace(sampling_rate=40, duration=duration)[0].data
+        noise_loc_1 = convert(noise_loc_1,starttime=0,station=0)
         noise_loc_2 = xr.apply_ufunc(shift_trace, noise_loc_1, input_core_dims=[['time']],
                                      output_core_dims=[['time']],
                                      kwargs={'time': shift, 'delta': noise_loc_1.attrs['delta']}, keep_attrs=True)
@@ -94,8 +97,8 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         duration = 400
         shift = 30
         noise_loc_1 = create_random_trace(sampling_rate=40, duration=duration)
-        noise_loc_1.data+= create_random_trace(sampling_rate=40, duration=duration).data
-        noise_loc_1 = convert([noise_loc_1],starttime=0,station=0)
+        noise_loc_1[0].data+= create_random_trace(sampling_rate=40, duration=duration)[0].data
+        noise_loc_1 = convert(noise_loc_1)
         noise_loc_2 = xr.apply_ufunc(shift_trace, noise_loc_1, input_core_dims=[['time']],
                                      output_core_dims=[['time']],
                                      kwargs={'time': shift, 'delta': noise_loc_1.attrs['delta']}, keep_attrs=True)
@@ -125,7 +128,7 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         return idx/sampling_rate
 
     def max_corr_norm(self, one, two):
-        corr_func= correlate(one,two)
+        corr_func= xarraycorrelate(one, two)
         corr_func=corr_func.data.ravel()
         corr_func/=np.max(abs(corr_func))
         return corr_func
@@ -153,3 +156,23 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         rmm_array = rmmean_trend(resampled_array)
         t_normed_array = temp_normalizer(rmm_array)
         assert True
+
+    def test_phase_shift(self):
+        stream   = create_sinsoidal_trace(sampling_rate=40.0, duration = 2000.0,
+                                                               period=0.3)
+        converter = XArrayConverter()
+        xarray = converter(stream)
+        t_norm_op = XArrayTemporalNorm(t_norm_type='reduce_metric',
+                                             lower_frequency=0.001, upper_frequency=4,
+                                             time_window=2.0, rolling_procedure='mean',
+                                             reduce_metric='max')
+
+        whitened_array = t_norm_op(xarray)
+        a = whitened_array.data[0,0,:].squeeze()
+        b = xarray.data[0,0,:].squeeze()
+        xcorr = correlate(a, b)
+        dt = np.arange(1 - a.shape[-1], a.shape[-1])
+
+        recovered_time_shift = dt[xcorr.argmax()]
+
+        assert recovered_time_shift==0

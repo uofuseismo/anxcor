@@ -44,9 +44,9 @@ def lowpass_filter(data, upper_frequency=0.5, sample_rate=1, order=2, axis=-1):
     y = sosfiltfilt(sos, data,axis=axis)
     return y
 
-def bandpass_in_time_domain(data, lower_frequency=0.01, upper_frequency=1.0, sample_rate=0.5, order=2, **kwargs):
+def bandpass_in_time_domain(data, lower_frequency=0.01, upper_frequency=1.0, sample_rate=0.5, order=2,axis=-1, **kwargs):
     sos = _butter_bandpass(lower_frequency, upper_frequency, sample_rate, order=order)
-    y = sosfiltfilt(sos, data)
+    y = sosfiltfilt(sos, data,axis=axis)
     return y
 
 def bandpass_in_frequency_domain(xarray,**kwargs):
@@ -54,7 +54,7 @@ def bandpass_in_frequency_domain(xarray,**kwargs):
     xarray*=bandpass_response
     return xarray
 
-def taper(data, taper=0.1,axis=-1,window_type='hanning',**kwargs):
+def taper(data, taper=0.1,axis=-1,window_type='hanning',one_taper=False,**kwargs):
     taper_length = int(taper*data.shape[-1])
     if (taper_length % 2) == 0:
         taper_length+=1
@@ -64,11 +64,16 @@ def taper(data, taper=0.1,axis=-1,window_type='hanning',**kwargs):
     full_window[0] = 0
     full_window[-1]= 0
     ones        = np.ones(data.shape[-1])
-    ones[:center+1]*=full_window[:center+1]
+
+    ones[:center+1] *=full_window[:center+1]
     ones[-1-center:]*=full_window[center:]
+
 
     result = data * ones
 
+    if one_taper:
+        ones_window = 1 - ones
+        result+= ones_window
     return result
 
 
@@ -119,7 +124,7 @@ def xarray_time_2_freq(xarray : xr.DataArray,minimum_size=None):
 
 
 def xarray_freq_2_time(array_fourier : xr.DataArray, array_original):
-    time_data =np.real(np.fft.irfft(_shift_inverse(array_fourier.data),array_original.shape[-1], axis=-1)).astype(np.float64)
+    time_data =np.real(np.fft.irfft(array_fourier.data,array_original.shape[-1], axis=-1)).astype(np.float64)
     array_new      = array_original.copy()
     array_new.data = time_data[:,:,:array_original.shape[-1]]
     return array_new
@@ -127,7 +132,7 @@ def xarray_freq_2_time(array_fourier : xr.DataArray, array_original):
 
 def xarray_freq_2_time_xcorr(array_fourier : np.ndarray, array_original):
     corr_length = array_original.data.shape[-1]*2-1
-    time_data = np.real(np.fft.irfft(_shift_inverse(array_fourier.data), axis=-1)).astype(np.float64)[:,:,:corr_length].astype(np.float64)
+    time_data = np.real(np.fft.irfft(array_fourier.data, axis=-1)).astype(np.float64)[:,:,:corr_length].astype(np.float64)
     array_new      = array_original.copy()
     array_new.data = time_data[:,:,:array_original.shape[-1]]
     return array_new
@@ -135,16 +140,11 @@ def xarray_freq_2_time_xcorr(array_fourier : np.ndarray, array_original):
 ################################################# helper methods #######################################################
 
 def _butter_lowpass(cutoff, fs, order=5,**kwargs):
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    sos = butter(order, normal_cutoff, btype='low', output='sos')
+    sos = butter(order, cutoff, btype='lowpass',output='sos',analog=False,fs=fs*1.00000001)
     return sos
 
 def _butter_bandpass(lowcut, highcut, fs, order=5):
-    nyq = 0.500000000001 * fs
-    low = lowcut / nyq
-    high = highcut / nyq
-    sos = butter(order, [low, high], btype='band',output='sos')
+    sos = butter(order, [lowcut, highcut], btype='bandpass',output='sos',analog=False,fs=fs*1.00000001)
     return sos
 
 
@@ -158,7 +158,7 @@ def _create_bandpass_frequency_multiplier(xarray,upper_frequency,
 
     normalized_freqs = np.asarray(list(xarray.coords['frequency'].values)) * delta *2* np.pi
 
-    w, resp = sosfreqz(sos, worN=normalized_freqs,fs=1/delta)
+    w, resp = sosfreqz(sos, worN=normalized_freqs)
     resp    = np.power(resp,filter_power)
     return resp
 
@@ -269,13 +269,13 @@ def _into_frequency_domain(array,axis=-1,minimum_size=None):
     else:
         target_length = fftpack.next_fast_len(minimum_size)
     fft               = np.fft.rfft(array, target_length, axis=axis)
-    return _shift_zero_freq(fft)
+    return fft
 
 
 def _get_deltaf(time_window_length,delta):
     target_length = fftpack.next_fast_len(time_window_length)
-    frequencies   =np.fft.rfftfreq(target_length, d=delta)
-    return _shift_zero_freq(frequencies)
+    frequencies   = np.fft.rfftfreq(target_length, d=delta)
+    return frequencies
 
 def _dummy_correlate(source_array,
                      receiver_array):
@@ -285,9 +285,3 @@ def _dummy_correlate(source_array,
     mat = np.real(_multiply_in_mat(source_array.data.reshape((src_len,time)),receiver_array.data.reshape(rec_len,time)))
 
     return mat
-
-def _shift_zero_freq(arr):
-    return np.fft.fftshift(arr,axes=-1)
-
-def _shift_inverse(arr):
-    return np.fft.ifftshift(arr,axes=-1)
