@@ -69,7 +69,7 @@ def create_sinsoidal_trace(sampling_rate=40.0, period=0.5, duration = 5.0,**head
         'station'       : 'test'
             }
     header = {**header, **header_kwargs}
-    x     = np.linspace(0, duration,num=int(duration*sampling_rate))
+    x     = np.linspace(0, duration,num=int(duration*sampling_rate)+1)
     data  = np.sin( x * 2 * np.pi / period )
 
     trace = Trace(data=data, header=header)

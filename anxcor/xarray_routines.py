@@ -135,7 +135,7 @@ class XArrayBandpass(ab.XArrayProcessor):
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**self._kwargs})
-        filtered_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain, filtered_array,
+        filtered_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain_sos, filtered_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**ufunc_kwargs,**{
@@ -434,16 +434,17 @@ class XArrayTemporalNorm(XArrayRolling):
                                         output_core_dims=[['time']],
                                         kwargs={**self._kwargs}, keep_attrs=True)
 
-        bp_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain, filtered_array,
+        bp_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain_filtfilt, filtered_array,
                                   input_core_dims=[['time']],
                                   output_core_dims=[['time']],
                                   kwargs={**self._kwargs, **{
                                       'sample_rate': sampling_rate}}, keep_attrs=True)
 
-        filtered_array = xr.apply_ufunc(filt_ops.taper_func, processed_array,
+        filtered_array = xr.apply_ufunc(filt_ops.taper_func, bp_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
-                                        kwargs={**self._kwargs,**{'one_taper':False}}, keep_attrs=True)
+                                        kwargs={**self._kwargs,**{'taper_objective':'constant',
+                                                                  'constant':1.0}}, keep_attrs=True)
 
         mean_array=bp_array.mean(dim=['time'])
 
@@ -516,10 +517,10 @@ class XArrayWhiten(XArrayRolling):
     def _postprocess(self,normed_array, xarray):
         sample_rate = 1.0/xarray.attrs['delta']
         time_domain_array = filt_ops.xarray_freq_2_time(normed_array, xarray)
-        bp_time_domain    =  xr.apply_ufunc(filt_ops.bandpass_in_time_domain, time_domain_array,
-                                       input_core_dims=[['time']],
-                                       output_core_dims=[['time']],
-                                       kwargs={**self._kwargs,'sample_rate':sample_rate}, keep_attrs=True)
+        bp_time_domain    =  xr.apply_ufunc(filt_ops.bandpass_in_time_domain_sos, time_domain_array,
+                                            input_core_dims=[['time']],
+                                            output_core_dims=[['time']],
+                                            kwargs={**self._kwargs,'sample_rate':sample_rate}, keep_attrs=True)
         return bp_time_domain
 
     def _get_rolling_samples(self,processed_xarray, xarray):

@@ -42,7 +42,7 @@ class TestImpulseDecays(unittest.TestCase):
     def test_bandpass_farfield_impulse(self):
         stream = synthfactory.create_impulse_stream(sampling_rate=40.0, duration=1000.0)
         xarray = convert(stream)
-        filtered_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain, xarray,
+        filtered_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain_sos, xarray,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={'sample_rate': 40.0,
@@ -113,7 +113,7 @@ class TestZeroPhaseFilter(unittest.TestCase):
                                         output_core_dims=[['time']],
                                         kwargs={'taper':0.01},
                                         keep_attrs=True)
-        filtered_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain, filtered_array,
+        filtered_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain_sos, filtered_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={'sample_rate': 40.0,

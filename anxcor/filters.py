@@ -1,4 +1,4 @@
-from scipy.signal import butter, sosfiltfilt, sosfreqz, get_window, detrend
+from scipy.signal import butter, sosfiltfilt, sosfreqz, get_window, detrend,filtfilt
 import scipy.fftpack as fftpack
 import xarray as xr
 from obspy.core import UTCDateTime
@@ -44,11 +44,18 @@ def lowpass_filter(data, upper_frequency=0.5, sample_rate=1, order=2, axis=-1,pa
     y = sosfiltfilt(sos, data,axis=axis,padtype=padtype)
     return y
 
-def bandpass_in_time_domain(data, lower_frequency=0.01, upper_frequency=1.0, sample_rate=0.5,
-                            order=2,axis=-1,padtype='odd', **kwargs):
+def bandpass_in_time_domain_sos(data, lower_frequency=0.01, upper_frequency=1.0, sample_rate=0.5,
+                                order=2, axis=-1, padtype='odd', **kwargs):
     sos = _butter_bandpass(lower_frequency, upper_frequency, sample_rate, order=order)
     y = sosfiltfilt(sos, data,axis=axis,padtype=padtype)
     return y
+
+def bandpass_in_time_domain_filtfilt(data, lower_frequency=0.01, upper_frequency=1.0, sample_rate=0.5,
+                                order=2, axis=-1, padtype='odd', **kwargs):
+    b,a = _butter_bandpass_filtfilt(lower_frequency, upper_frequency, sample_rate, order=order)
+    y = filtfilt(b,a, data,axis=axis,padtype=padtype)
+    return y
+
 
 def bandpass_in_frequency_domain(xarray,**kwargs):
     bandpass_response= _create_bandpass_frequency_multiplier(xarray,**kwargs)
@@ -173,6 +180,10 @@ def _butter_lowpass(cutoff, fs, order=5,**kwargs):
 def _butter_bandpass(lowcut, highcut, fs, order=5):
     sos = butter(order, [lowcut, highcut], btype='bandpass',output='sos',analog=False,fs=fs*1.00000001)
     return sos
+
+def _butter_bandpass_filtfilt(lowcut, highcut, fs, order=5):
+    b,a = butter(order, [lowcut, highcut], btype='bandpass',analog=False,fs=fs*1.00000001)
+    return b,a
 
 
 def _create_bandpass_frequency_multiplier(xarray,upper_frequency,
