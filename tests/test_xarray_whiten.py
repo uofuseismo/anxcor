@@ -10,7 +10,7 @@ from obspy.clients.fdsn import Client
 import pytest
 from obspy.core import UTCDateTime, Stream
 import numpy as np
-whiten = XArrayWhiten(smoothing_window_ratio=0.25, upper_frequency=20.0, lower_frequency=0.001,
+whiten = XArrayWhiten(smoothing_window_ratio=0.01, upper_frequency=20.0, lower_frequency=0.001,
                       order=2,rolling_metric='mean')
 convert = XArrayConverter()
 
@@ -25,7 +25,7 @@ class TestSpectralWhitening(unittest.TestCase):
         pow_period_original = self.get_power_at_freq(10.0,trace)
         trace   = whiten(trace,starttime=0,station=0)
         pow_period_final   = self.get_power_at_freq(10.0, trace)
-        assert pow_period_original > pow_period_final,"whitening failed"
+        assert pow_period_original < pow_period_final,"whitening failed"
 
     def test_array_is_real(self):
         tr_1 = create_sinsoidal_trace(sampling_rate=100, period=0.5, duration=3)
@@ -86,18 +86,24 @@ class TestSpectralWhitening(unittest.TestCase):
 
     def test_phase_shift(self):
         stream   = create_sinsoidal_trace(sampling_rate=40.0, duration = 1000.0,
-                                                               period=100)
+                                                               period=20)
+
+        stream[0].data+=np.random.uniform(-0.01,0.01,stream[0].data.shape)
         converter = XArrayConverter()
         xarray = converter(stream)
         taper=0.1
-        center=True
+        center=False
         ratio = 0.01
-        whitening_op = XArrayWhiten(taper=0.5, whiten_type='cross_component', upper_frequency=20.0,
-                                    lower_frequency=0.01, smoothing_window_ratio=ratio,center=center,order=2)
-
+        whitening_op = XArrayWhiten(taper=0.1,window=0.05, whiten_type='cross_component', upper_frequency=20.0,
+                                    lower_frequency=0.01, center=center,order=2)
+        import matplotlib.pyplot as plt
+        plt.plot(xarray.data[0, 0, :])
         whitened_array = whitening_op(xarray)
         a = whitened_array.data[0,0,:].squeeze()
         b = xarray.data[0,0,:].squeeze()
+        plt.plot( whitened_array.data[0,0,:] * 50.0)
+        plt.ylim([-5, 5])
+        plt.show()
         xcorr = correlate(a, b)
 
         # delta time array to match xcorr
@@ -106,6 +112,29 @@ class TestSpectralWhitening(unittest.TestCase):
         recovered_time_shift = dt[xcorr.argmax()]
 
         assert recovered_time_shift==0
+
+    def test_symmetric_output(self):
+        converter = XArrayConverter()
+        signal_length = 1000
+        sampling_rate = 20.0
+        center_index = int(signal_length * sampling_rate) // 2
+        stream = create_sinsoidal_trace(sampling_rate=sampling_rate, duration=signal_length,
+                                        period=2)
+        stream1 = create_sinsoidal_trace(sampling_rate=sampling_rate, duration=signal_length,
+                                         period=0.5)
+        stream[0].data += stream1[0].data
+
+        stream[0].data += np.random.uniform(-0.01, 0.01, stream[0].data.shape)
+        converter = XArrayConverter()
+        xarray = converter(stream)
+        center = True
+        whitening_op = XArrayWhiten(taper=0.1, window=0.05, whiten_type='cross_component', upper_frequency=20.0,
+                                    lower_frequency=0.01, center=center, order=2)
+        whitened_array = whitening_op(xarray)
+        xarray_squeezed = whitened_array[0, 0, :].data.squeeze()
+        difference  = xarray_squeezed[:center_index]- xarray_squeezed[-center_index:]
+        cumdiff     = abs(np.cumsum(difference)[-1]/(signal_length*sampling_rate))
+        assert pytest.approx(0,abs=1e-5)==cumdiff
 
 if __name__ == '__main__':
     unittest.main()

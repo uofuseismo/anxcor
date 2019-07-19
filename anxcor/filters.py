@@ -158,8 +158,8 @@ def xarray_time_2_freq(xarray : xr.DataArray,minimum_size=None):
     return xarray_freq
 
 
-def xarray_freq_2_time(array_fourier : xr.DataArray, array_original):
-    time_data =np.real(np.fft.irfft(array_fourier.data,array_original.shape[-1], axis=-1)).astype(np.float64)
+def xarray_freq_2_time(freq_array : xr.DataArray, array_original):
+    time_data =np.real(np.fft.irfft(freq_array.data, axis=-1)).astype(np.float64)
     array_new      = array_original.copy()
     array_new.data = time_data[:,:,:array_original.shape[-1]]
     return array_new
@@ -202,14 +202,6 @@ def xarray_center_third_time(larger_xarray : xr.DataArray, original_xarray : xr.
 
 ################################################# pure numpy funcs #####################################################
 
-##TODO: need to implement time series xarray with padding. can't get aroudn it
-def np_sig_reflect(data : np.ndarray,padpercent=1.0):
-    time_axis_len = data.shape[-1]
-    slice_length  = int(padpercent*time_axis_len)
-    positive_time = np.flip(data.take(indices=range(0,slice_length), axis=-1),axis=-1)
-    negative_time = np.flip(data.take(indices=range(time_axis_len-slice_length,time_axis_len),axis=-1),axis=-1)
-    return np.concatenate((positive_time,data,negative_time), axis=-1)
-
 def original_slice_extract(padded_data,original_data):
     pad_length    = (padded_data.shape[-1] - original_data.shape[-1])//2
     return padded_data.take(indices=range(pad_length,pad_length+original_data.shape[-1]),axis=-1)
@@ -229,20 +221,6 @@ def _butter_bandpass_filtfilt(lowcut, highcut, fs, order=5):
     b,a = butter(order, [lowcut, highcut], btype='bandpass',analog=False,fs=fs*1.00000001)
     return b,a
 
-
-def _create_bandpass_frequency_multiplier(xarray,upper_frequency,
-                                          lower_frequency,order=4,
-                                          filter_power=3,delta=0.01,**kwargs):
-    nyquist = 0.5 / delta
-    if upper_frequency > nyquist:
-        upper_frequency = nyquist
-    sos = _butter_bandpass(lower_frequency, upper_frequency, 1 / delta,order=order)
-
-    normalized_freqs = np.asarray(list(xarray.coords['frequency'].values)) * delta *2* np.pi
-
-    w, resp = sosfreqz(sos, worN=normalized_freqs)
-    resp    = np.power(resp,filter_power)
-    return resp
 
 def _check_if_inputs_make_sense(source_array,  max_tau_shift):
     time = source_array.attrs['delta'] * (source_array.data.shape[2]-1)
@@ -313,7 +291,7 @@ def _cross_correlate_xarray_data(source_xarray, receiver_xarray,gpu_enable=False
 
         result = _multiply_in_mat(fft_src,fft_rec)
 
-        xcorr_mat = np.fft.fftshift(np.real(np.fft.irfft(result,corr_length, axis=-1)).astype(np.float64))
+        xcorr_mat = np.real(np.fft.irfft(result,corr_length, axis=-1)).astype(np.float64)
 
     else:
 

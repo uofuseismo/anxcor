@@ -169,7 +169,8 @@ class _XDaskTask:
             result = None
         else:
             result = self._single_thread_execute(*args, **kwargs)
-        self._assign_metadata(persist_name, persisted_metadata, result)
+        if result is not None:
+            self._assign_metadata(persist_name, persisted_metadata, result)
         return result
 
     def _assign_metadata(self, persist_name, persisted_metadata, result):

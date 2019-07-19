@@ -377,15 +377,15 @@ class XArrayRolling(ab.XArrayProcessor):
                         'min_periods':rolling_samples
                         }
         if rolling_procedure == 'mean':
-            xarray = abs(processed_xarray).rolling(**rolling_dict).mean()
+            xarray = processed_xarray.rolling(**rolling_dict).mean()
         elif rolling_procedure == 'median':
-            xarray = abs(processed_xarray).rolling(**rolling_dict).median()
+            xarray = processed_xarray.rolling(**rolling_dict).median()
         elif rolling_procedure == 'min':
-            xarray = abs(processed_xarray).rolling(**rolling_dict).min()
+            xarray = processed_xarray.rolling(**rolling_dict).min()
         elif rolling_procedure == 'max':
-            xarray = abs(processed_xarray).rolling(**rolling_dict).max()
+            xarray = processed_xarray.rolling(**rolling_dict).max()
         else:
-            xarray = abs(processed_xarray)
+            xarray = processed_xarray
 
         xarray.attrs = processed_xarray.attrs
         return xarray
@@ -395,13 +395,13 @@ class XArrayRolling(ab.XArrayProcessor):
         if approach == 'src':
             reduction_procedure = self._kwargs['reduce_metric']
             if reduction_procedure == 'mean' or reduction_procedure is None:
-                xarray = abs(xarray).mean(dim='channel')
+                xarray = xarray.mean(dim='channel')
             elif reduction_procedure == 'median':
-                xarray = abs(xarray).median(dim='channel')
+                xarray = xarray.median(dim='channel')
             elif reduction_procedure == 'min':
-                xarray = abs(xarray).min(dim='channel')
+                xarray = xarray.min(dim='channel')
             elif reduction_procedure == 'max':
-                xarray = abs(xarray).max(dim='channel')
+                xarray = xarray.max(dim='channel')
             elif 'z' in reduction_procedure.lower() or 'n' in reduction_procedure.lower() \
                     or 'e' in reduction_procedure.lower():
                 for coordinate in list(xarray.coords['channel'].values):
@@ -440,11 +440,14 @@ class XArrayTemporalNorm(XArrayRolling):
                                        output_core_dims=[['time']],
                                        kwargs={**{'sample_rate':sample_rate},**self.get_kwargs()},
                                        keep_attrs=True)
-        return bp_data
+        return abs(bp_data)
+
+
 
     def _post_rolling_process(self,rolled_array : xr.DataArray, xarray : xr.DataArray)-> xr.DataArray:
         original_dims = filt_ops.xarray_center_third_time(rolled_array,xarray)
         return original_dims
+
 
     def _postprocess(self, normed_array, xarray):
         filtered_array = xr.apply_ufunc(filt_ops.taper_func, normed_array,
@@ -502,21 +505,24 @@ class XArrayWhiten(XArrayRolling):
 
 
     def _preprocess(self,xarray):
-        tapered_array = xr.apply_ufunc(filt_ops.taper_func, xarray,
-                                       input_core_dims=[['time']],
-                                       output_core_dims=[['time']],
-                                       kwargs={**self._kwargs}, keep_attrs=True)
-        fourier_array = filt_ops.xarray_time_2_freq(tapered_array)
+        fourier_array = filt_ops.xarray_time_2_freq(xarray)
         return fourier_array
+
+    def _pre_rolling_process(self,processed_array : xr.DataArray, xarray : xr.DataArray):
+        return abs(processed_array)
 
     def _postprocess(self,normed_array, xarray):
         sample_rate = 1.0/xarray.attrs['delta']
         time_domain_array = filt_ops.xarray_freq_2_time(normed_array, xarray)
-        bp_time_domain    =  xr.apply_ufunc(filt_ops.bandpass_in_time_domain_sos, time_domain_array,
+        tapered_array     = xr.apply_ufunc(filt_ops.taper_func, time_domain_array,
                                             input_core_dims=[['time']],
                                             output_core_dims=[['time']],
                                             kwargs={**self._kwargs,'sample_rate':sample_rate}, keep_attrs=True)
-        return bp_time_domain
+
+        return tapered_array
+
+    def _post_rolling_process(self,rolled_array : xr.DataArray, xarray : xr.DataArray)-> xr.DataArray:
+        return rolled_array
 
     def _get_rolling_samples(self,processed_xarray, xarray):
         return int(self._kwargs['window'] * xarray.data.shape[-1]/2)
