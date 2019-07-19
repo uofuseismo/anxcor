@@ -4,6 +4,7 @@ import xarray as xr
 from obspy.core import UTCDateTime
 import numpy as np
 import pandas as pd
+from datetime import datetime
 STARTTIME_NS_PRECISION = 100.0
 DELTA_MS_PRECISION     = 100.0/1
 """
@@ -170,6 +171,34 @@ def xarray_freq_2_time_xcorr(array_fourier : np.ndarray, array_original):
     array_new      = array_original.copy()
     array_new.data = time_data[:,:,:array_original.shape[-1]]
     return array_new
+
+def xarray_triple_by_reflection(xarray: xr.DataArray):
+    time_span = (pd.to_datetime(min(list(xarray.coords['time'].values))),
+                 pd.to_datetime(max(list(xarray.coords['time'].values))))
+    time_delta= time_span[1]-time_span[0]
+    new_start = time_span[0]-time_delta
+    new_end   = time_span[1]+time_delta
+    negative_time_series = pd.date_range(new_start,    time_span[0],periods=xarray.data.shape[-1])
+    positive_time_series = pd.date_range(time_span[1], new_end,  periods=xarray.data.shape[-1])
+
+    negative_xarray = xarray.copy()
+    negative_xarray.data = np.flip(xarray.data,axis=-1)
+    negative_xarray.coords['time']=negative_time_series
+
+    positive_xarray = xarray.copy()
+    positive_xarray.data = np.flip(xarray.data,axis=-1)
+    positive_xarray.coords['time']=positive_time_series
+
+    negative_xarray=negative_xarray.combine_first(xarray)
+    negative_xarray=negative_xarray.combine_first(positive_xarray)
+
+    return negative_xarray
+
+def xarray_center_third_time(larger_xarray : xr.DataArray, original_xarray : xr.DataArray):
+    new_data  = original_slice_extract(larger_xarray.data, original_xarray.data)
+    orig_copy = original_xarray.copy()
+    orig_copy.data=new_data
+    return orig_copy
 
 ################################################# pure numpy funcs #####################################################
 

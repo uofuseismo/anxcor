@@ -429,31 +429,22 @@ class XArrayTemporalNorm(XArrayRolling):
     def _pre_rolling_process(self,processed_array : xr.DataArray, xarray : xr.DataArray):
         sample_rate = 1.0 / xarray.attrs['delta']
 
-        data        = processed_array.data
-        padded_data = filt_ops.np_sig_reflect(data)
-        tapered     = filt_ops.taper_func(padded_data,**self.get_kwargs())
-        bp_data     = filt_ops.bandpass_in_time_domain_sos(tapered,
-                                                                sample_rate=sample_rate,
-                                                                **self.get_kwargs())
-        sliced_bp_data = filt_ops.original_slice_extract(bp_data,data)
+        tripled_xarray = filt_ops.xarray_triple_by_reflection(processed_array)
+        tapered        = xr.apply_ufunc(filt_ops.taper_func, tripled_xarray,
+                                       input_core_dims=[['time']],
+                                       output_core_dims=[['time']],
+                                       kwargs={**self.get_kwargs()},
+                                       keep_attrs=True)
+        bp_data        = xr.apply_ufunc(filt_ops.bandpass_in_time_domain_sos,tapered,
+                                       input_core_dims=[['time']],
+                                       output_core_dims=[['time']],
+                                       kwargs={**{'sample_rate':sample_rate},**self.get_kwargs()},
+                                       keep_attrs=True)
+        return bp_data
 
-        og_copy     = processed_array.copy()
-        og_copy.data= sliced_bp_data
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.plot(bp_data[0, 0, :])
-        plt.show()
-        plt.figure()
-        plt.plot(sliced_bp_data[0,0,:])
-        plt.show()
-
-        return og_copy
     def _post_rolling_process(self,rolled_array : xr.DataArray, xarray : xr.DataArray)-> xr.DataArray:
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.plot(rolled_array.data[0, 0, :])
-        plt.show()
-        return rolled_array
+        original_dims = filt_ops.xarray_center_third_time(rolled_array,xarray)
+        return original_dims
 
     def _postprocess(self, normed_array, xarray):
         filtered_array = xr.apply_ufunc(filt_ops.taper_func, normed_array,
