@@ -427,29 +427,33 @@ class XArrayTemporalNorm(XArrayRolling):
 
 
     def _pre_rolling_process(self,processed_array : xr.DataArray, xarray : xr.DataArray):
-        sampling_rate = 1.0 / xarray.attrs['delta']
+        sample_rate = 1.0 / xarray.attrs['delta']
 
-        filtered_array = xr.apply_ufunc(filt_ops.taper_func, processed_array,
-                                        input_core_dims=[['time']],
-                                        output_core_dims=[['time']],
-                                        kwargs={**self._kwargs}, keep_attrs=True)
+        data        = processed_array.data
+        padded_data = filt_ops.np_sig_reflect(data)
+        tapered     = filt_ops.taper_func(padded_data,**self.get_kwargs())
+        bp_data     = filt_ops.bandpass_in_time_domain_sos(tapered,
+                                                                sample_rate=sample_rate,
+                                                                **self.get_kwargs())
+        sliced_bp_data = filt_ops.original_slice_extract(bp_data,data)
 
-        bp_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain_filtfilt, filtered_array,
-                                  input_core_dims=[['time']],
-                                  output_core_dims=[['time']],
-                                  kwargs={**self._kwargs, **{
-                                      'sample_rate': sampling_rate}}, keep_attrs=True)
+        og_copy     = processed_array.copy()
+        og_copy.data= sliced_bp_data
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.plot(bp_data[0, 0, :])
+        plt.show()
+        plt.figure()
+        plt.plot(sliced_bp_data[0,0,:])
+        plt.show()
 
-        filtered_array = xr.apply_ufunc(filt_ops.taper_func, bp_array,
-                                        input_core_dims=[['time']],
-                                        output_core_dims=[['time']],
-                                        kwargs={**self._kwargs,**{'taper_objective':'constant',
-                                                                  'constant':1.0}}, keep_attrs=True)
-
-        mean_array=bp_array.mean(dim=['time'])
-
-        filtered_array = filt_ops.xarray_const_taper(abs(bp_array), mean_array, **self._kwargs)
-        return filtered_array
+        return og_copy
+    def _post_rolling_process(self,rolled_array : xr.DataArray, xarray : xr.DataArray)-> xr.DataArray:
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.plot(rolled_array.data[0, 0, :])
+        plt.show()
+        return rolled_array
 
     def _postprocess(self, normed_array, xarray):
         filtered_array = xr.apply_ufunc(filt_ops.taper_func, normed_array,

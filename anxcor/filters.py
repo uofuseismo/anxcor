@@ -171,7 +171,22 @@ def xarray_freq_2_time_xcorr(array_fourier : np.ndarray, array_original):
     array_new.data = time_data[:,:,:array_original.shape[-1]]
     return array_new
 
+################################################# pure numpy funcs #####################################################
+
+##TODO: need to implement time series xarray with padding. can't get aroudn it
+def np_sig_reflect(data : np.ndarray,padpercent=1.0):
+    time_axis_len = data.shape[-1]
+    slice_length  = int(padpercent*time_axis_len)
+    positive_time = np.flip(data.take(indices=range(0,slice_length), axis=-1),axis=-1)
+    negative_time = np.flip(data.take(indices=range(time_axis_len-slice_length,time_axis_len),axis=-1),axis=-1)
+    return np.concatenate((positive_time,data,negative_time), axis=-1)
+
+def original_slice_extract(padded_data,original_data):
+    pad_length    = (padded_data.shape[-1] - original_data.shape[-1])//2
+    return padded_data.take(indices=range(pad_length,pad_length+original_data.shape[-1]),axis=-1)
+
 ################################################# helper methods #######################################################
+
 
 def _butter_lowpass(cutoff, fs, order=5,**kwargs):
     sos = butter(order, cutoff, btype='lowpass',output='sos',analog=False,fs=fs*1.00000001)

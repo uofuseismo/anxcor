@@ -213,34 +213,34 @@ class TestBasicTemporalNormalization(unittest.TestCase):
 
 
     def test_rolling_effects(self):
-        import matplotlib.pyplot as plt
         converter = XArrayConverter()
+        signal_length = 150
         symmetry={}
-        for signal_length in [500,1000,5000,10000,15000]:
-            stream = create_sinsoidal_trace(sampling_rate=20.0, duration=signal_length,
-                                            period=0.5)
-            center = stream[0].data.shape[-1] // 2
-            for taper in np.logspace(-3,0,num=100):
-                xarray = converter(stream)
-                t_norm_op = XArrayTemporalNorm(t_norm_type='reduce_metric',taper=taper,
-                                             lower_frequency=0.001, upper_frequency=4,
-                                             time_window=2.0, rolling_procedure='mean',
-                                             reduce_metric='max')
-                t_normed_array = t_norm_op(xarray)
-                xarray_squeezed= t_normed_array[0, 0, :].data.squeeze()
-                difference     = xarray_squeezed[:center+1] + np.flip(xarray_squeezed[center:])
-                if signal_length not in symmetry.keys():
-                    symmetry[signal_length]=[]
-                symmetry[signal_length].append(np.cumsum(difference)[-1]/xarray_squeezed.shape[-1])
+        import matplotlib.pyplot as plt
+        stream = create_sinsoidal_trace(sampling_rate=20.0, duration=signal_length,
+                                            period=2)
+        stream1 = create_sinsoidal_trace(sampling_rate=20.0, duration=signal_length,
+                                        period=0.5)
+        stream[0].data += stream1[0].data + np.random.uniform(-0.1,0.1,signal_length*20+1)
+        fig, ax = plt.subplots()
+        ax.plot(stream[0].data)
+        plt.show()
 
+        xarray = converter(stream)
+        t_norm_op = XArrayTemporalNorm(t_norm_type='reduce_metric',taper=0.1,
+                                             lower_frequency=0.02, upper_frequency=3.0,
+                                             window=5.0, rolling_procedure='mean',
+                                             reduce_metric='max')
+        t_normed_array = t_norm_op(xarray)
+        xarray_squeezed= t_normed_array[0, 0, :].data.squeeze()
         fig, ax = plt.subplots()
         ax.plot(xarray_squeezed)
-        ax.set_xlabel('taper')
+        ax.set_xlabel('samples')
         #ax.set_ylim([-1,1])
         #ax.set_ylim([1e-11, .1])
         ax.legend()
-        ax.set_ylabel('cumulative normalized asymmetry')
+        ax.set_ylabel('amplitude')
         plt.title('taper-bp-taper(mean) roll taper: filtfilt')
         plt.show()
 
-        assert np.cumsum(difference)[-1]==0
+        assert False
