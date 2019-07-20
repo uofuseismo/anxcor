@@ -83,7 +83,7 @@ class AnxcorDatabase:
         raise NotImplementedError('Method: \'get_waveforms()\' is not implemented!')
 
 
-class DataLoader(ab.XDatasetProcessor):
+class DataLoader(ab.AnxcorDataTask):
 
     def __init__(self, window_length):
         super().__init__()
@@ -221,7 +221,7 @@ class DataLoader(ab.XDatasetProcessor):
 
 
 
-class XArrayCombine(ab.XDatasetProcessor):
+class XArrayCombine(ab.AnxcorDataTask):
 
     def __init__(self,**kwargs):
         super().__init__(**kwargs)

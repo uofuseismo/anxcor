@@ -7,11 +7,11 @@ import numpy as np
 import xarray as xr
 import anxcor.filters as filt_ops
 import pandas as pd
-import  anxcor.abstractions as ab
+from anxcor.abstractions import XArrayRolling, XArrayProcessor, _XArrayRead, _XArrayWrite
 
 
 
-class XArrayConverter(ab.XArrayProcessor):
+class XArrayConverter(XArrayProcessor):
     """
     converts an obspy stream into an xarray
 
@@ -19,8 +19,8 @@ class XArrayConverter(ab.XArrayProcessor):
 
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
-        self.writer = ab._XArrayWrite(None)
-        self.reader = ab._XArrayRead(None)
+        self.writer = _XArrayWrite(None)
+        self.reader = _XArrayRead(None)
 
     def _create_xarray_dataset(self, trace_list):
         return None
@@ -109,7 +109,7 @@ class XArrayConverter(ab.XArrayProcessor):
         return None
 
 
-class XArrayBandpass(ab.XArrayProcessor):
+class XArrayBandpass(XArrayProcessor):
     """
     applies a bandpass filter to a provided xarray
     """
@@ -151,7 +151,7 @@ class XArrayBandpass(ab.XArrayProcessor):
         return 'bandpass'
 
 
-class XArrayTaper(ab.XArrayProcessor):
+class XArrayTaper(XArrayProcessor):
     """
     tapers signals on an xarray timeseries
 
@@ -181,7 +181,7 @@ class XArrayTaper(ab.XArrayProcessor):
         return 'taper'
 
 
-class XArrayResample(ab.XArrayProcessor):
+class XArrayResample(XArrayProcessor):
     """
     resamples the provided xarray to a lower frequency
     """
@@ -229,7 +229,7 @@ class XArrayResample(ab.XArrayProcessor):
 
 
 
-class XArrayXCorrelate(ab.XArrayProcessor):
+class XArrayXCorrelate(XArrayProcessor):
     """
     correlates two xarrays channel-wise in the frequency domain.
 
@@ -289,7 +289,7 @@ class XArrayXCorrelate(ab.XArrayProcessor):
         else:
             return None
 
-class XArrayRemoveMeanTrend(ab.XArrayProcessor):
+class XArrayRemoveMeanTrend(XArrayProcessor):
     """
     removes the mean and trend of an xarray timeseries
     """
@@ -317,101 +317,6 @@ class XArrayRemoveMeanTrend(ab.XArrayProcessor):
 
     def _get_process(self):
         return 'remove_mean_trend'
-
-
-class XArrayRolling(ab.XArrayProcessor):
-    """
-    whitens the frequency spectrum of a given xarray
-    """
-    def __init__(self, window=1.0,approach='rcc',center=True,
-                 rolling_metric='mean',reduce_metric='mean',**kwargs):
-        super().__init__(**kwargs)
-        self._kwargs = {
-            'window' : window,
-            'approach' : approach,
-            'center' : center,
-            'reduce_metric' : reduce_metric,
-            'rolling_metric': rolling_metric}
-
-    def _single_thread_execute(self, xarray: xr.DataArray, *args, **kwargs):
-
-        processed_array = self._preprocess(xarray)
-        pre_rolling = self._pre_rolling_process(processed_array, xarray)
-        rolling_array = self._apply_rolling_method(pre_rolling, xarray)
-        dim = self._get_longest_dim_name(rolling_array)
-        rolling_array = rolling_array.ffill(dim).bfill(dim)
-
-        post_rolling = self._post_rolling_process(rolling_array, xarray)
-        rolling_processed = self._reduce_by_channel(post_rolling)
-        normalized_array = processed_array / rolling_processed
-        final_processed = self._postprocess(normalized_array, xarray)
-
-        return final_processed
-
-    def _get_longest_dim_name(self,xarray):
-        coords  = xarray.dims
-        index = np.argmax(xarray.data.shape)
-        return coords[index]
-
-    def _preprocess(self, xarray : xr.DataArray) -> xr.DataArray:
-        return xarray
-
-    def _pre_rolling_process(self,processed_array : xr.DataArray, xarray : xr.DataArray)-> xr.DataArray:
-        return processed_array
-
-    def _post_rolling_process(self,rolled_array : xr.DataArray, xarray : xr.DataArray)-> xr.DataArray:
-        return rolled_array
-
-    def _postprocess(self,normed_array : xr.DataArray, xarray : xr.DataArray)-> xr.DataArray:
-        return normed_array
-
-    def _get_rolling_samples(self,processed_xarray : xr.DataArray, xarray: xr.DataArray)-> int:
-        return int(self._kwargs['window'] / xarray.attrs['delta'])
-
-    def _apply_rolling_method(self, processed_xarray, original_xarray):
-        rolling_samples = self._get_rolling_samples(processed_xarray, original_xarray)
-        rolling_procedure = self._kwargs['rolling_metric']
-        dim = self._get_longest_dim_name(processed_xarray)
-        rolling_dict = {dim: rolling_samples,
-                        'center': self._kwargs['center'],
-                        'min_periods':rolling_samples
-                        }
-        if rolling_procedure == 'mean':
-            xarray = processed_xarray.rolling(**rolling_dict).mean()
-        elif rolling_procedure == 'median':
-            xarray = processed_xarray.rolling(**rolling_dict).median()
-        elif rolling_procedure == 'min':
-            xarray = processed_xarray.rolling(**rolling_dict).min()
-        elif rolling_procedure == 'max':
-            xarray = processed_xarray.rolling(**rolling_dict).max()
-        else:
-            xarray = processed_xarray
-
-        xarray.attrs = processed_xarray.attrs
-        return xarray
-
-    def _reduce_by_channel(self, xarray):
-        approach = self._kwargs['approach']
-        if approach == 'src':
-            reduction_procedure = self._kwargs['reduce_metric']
-            if reduction_procedure == 'mean' or reduction_procedure is None:
-                xarray = xarray.mean(dim='channel')
-            elif reduction_procedure == 'median':
-                xarray = xarray.median(dim='channel')
-            elif reduction_procedure == 'min':
-                xarray = xarray.min(dim='channel')
-            elif reduction_procedure == 'max':
-                xarray = xarray.max(dim='channel')
-            elif 'z' in reduction_procedure.lower() or 'n' in reduction_procedure.lower() \
-                    or 'e' in reduction_procedure.lower():
-                for coordinate in list(xarray.coords['channel'].values):
-                    if reduction_procedure in coordinate.lower():
-                        return xarray[dict(channel=coordinate)]
-        return xarray
-
-    def _get_process(self):
-        return 'rolling operation'
-
 
 
 class XArrayTemporalNorm(XArrayRolling):
