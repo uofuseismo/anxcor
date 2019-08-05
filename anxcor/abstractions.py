@@ -2,6 +2,7 @@ import  anxcor.utils as utils
 from obspy.core import UTCDateTime
 import xarray as xr
 import sys
+import numpy as np
 import json
 
 def write(xarray, path, extension):
@@ -179,43 +180,46 @@ class AnxcorTask:
         if persisted_metadata is not None:
             result.attrs = persisted_metadata
         if persist_name is not None:
-            result.name = persist_name
+            result.name  = persist_name
 
-    def _io_operations(self, *args, dask_client=None, result=None, starttime=0, station=0,**kwargs):
-        key = self._get_operation_key(starttime,station)
+    def _io_operations(self, *args, result=None, **kwargs):
+        key = self._get_operation_key(**kwargs)
+        file, folder, process = self._get_io_string_vars(**kwargs)
         if self.read.is_enabled():
-            file, folder, process = self._get_io_string_vars(starttime, station)
-            if dask_client is None:
-                result = self._read_execute(result, process, folder, file)
-            else:
-                result = dask_client.submit(self._read_execute,*args, process, folder, file,key=key)
+            result = self._dask_read_execute(*args, result=result, process=process,folder=folder,file=file,key=key,**kwargs)
         elif self.write.is_enabled():
-            file, folder, process = self._get_io_string_vars(starttime, station)
-            if dask_client is None:
-                self.write(result, process, folder, file)
-            else:
-                if 'dask' not in sys.modules:
-                    from dask.distributed import fire_and_forget
-                end = dask_client.submit(self.write, result,  process, folder, file, key='writing: '+ key)
-                fire_and_forget(end)
+            self._dask_write_execute(process=process, result=result, folder=folder,file=file,key=key,**kwargs)
         return result
 
-    def _get_io_string_vars(self, starttime, station):
+    def _get_io_string_vars(self, starttime=None, station=None,**kwargs):
         process = self._get_process()
-        folder = self._window_key_convert(starttime)
-        file = station
+        folder  = self._window_key_convert(starttime)
+        file    = station
         return file, folder, process
 
     def _read_execute(self, result, process, folder, file):
         result = self.read(result, process,folder,file)
-        result = self._addition_read_processing(result)
+        result = self._additional_read_processing(result)
         return result
 
     def _single_thread_execute(self,*args,**kwargs):
         pass
 
-    def _dask_task_execute(self,*args,**kwargs):
-        pass
+    def _dask_read_execute(self,*args,dask_client=None,result=None,process=None,folder=None,file=None,key=None,**kwargs):
+        if dask_client is None:
+            result = self._read_execute(result, process, folder, file)
+        else:
+            result = dask_client.submit(self._read_execute, *args, process, folder, file, key=key)
+        return result
+
+    def _dask_write_execute(self,dask_client=None,result=None,process=None,folder=None,file=None,key=None,**kwargs):
+        if dask_client is None:
+            self.write(result, process, folder, file)
+        else:
+            if 'dask' not in sys.modules:
+                from dask.distributed import fire_and_forget
+            end = dask_client.submit(self.write, result, process, folder, file, key='writing: ' + key)
+            fire_and_forget(end)
 
     def __metadata_to_persist(self,*param,**kwargs):
         if param is None or (len(param)==1 and param[0] is None):
@@ -266,7 +270,7 @@ class AnxcorTask:
     def _get_process(self):
         return 'process'
 
-    def _addition_read_processing(self, result):
+    def _additional_read_processing(self, result):
         return result
 
     def _window_key_convert(self,window):
@@ -285,7 +289,7 @@ class XArrayProcessor(AnxcorTask):
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
 
-    def _addition_read_processing(self, result):
+    def _additional_read_processing(self, result):
         if result is not None:
             name   = list(result.data_vars)[0]
             xarray       = result[name].copy()
@@ -306,7 +310,7 @@ class AnxcorDataTask(AnxcorTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def _addition_read_processing(self, result):
+    def _additional_read_processing(self, result):
         return result
 
 

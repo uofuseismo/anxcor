@@ -150,7 +150,7 @@ class DataLoader(ab.AnxcorDataTask):
             traces = self._combine(traces, stream, name)
         return Stream(traces=traces)
 
-    def _io_result(self, result, starttime, source, format='mseed', **kwargs):
+    def _io_result(self, result, source, format='mseed', **kwargs):
         type_dict = {}
         path      = None
         for trace in result:
@@ -212,7 +212,7 @@ class DataLoader(ab.AnxcorDataTask):
     def _window_key_convert(self,window):
         return UTCDateTime(int(window*100)/100).isoformat()
 
-    def _addition_read_processing(self, result):
+    def _additional_read_processing(self, result):
         name   = list(result.data_vars)[0]
         xarray       = result[name].copy()
         xarray.attrs = result.attrs.copy()
