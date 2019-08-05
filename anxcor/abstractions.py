@@ -273,8 +273,8 @@ class AnxcorTask:
     def _additional_read_processing(self, result):
         return result
 
-    def _window_key_convert(self,window):
-        return window
+    def _window_key_convert(self,starttime=0):
+        return starttime
 
     def _get_operation_key(self,starttime=0,station=0,**kwargs):
         window_key = self._window_key_convert(starttime)

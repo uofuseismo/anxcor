@@ -22,12 +22,6 @@ class XArrayConverter(XArrayProcessor):
         self.writer = _XArrayWrite(None)
         self.reader = _XArrayRead(None)
 
-    def _create_xarray_dataset(self, trace_list):
-        return None
-
-    def _attach_metadata(stream, xarr):
-        return None
-
     def _get_station_id(self,trace):
         network = trace.stats.network
         station = trace.stats.station
@@ -114,10 +108,10 @@ class XArrayBandpass(XArrayProcessor):
     applies a bandpass filter to a provided xarray
     """
 
-    def __init__(self,upper_frequency=c.UPPER_CUTOFF_FREQ,
-                    lower_frequency=c.LOWER_CUTOFF_FREQ,
-                    order=c.FILTER_ORDER_BANDPASS,
-                    taper=c.TAPER_DEFAULT,**kwargs):
+    def __init__(self,upper_frequency=10.0,
+                    lower_frequency=0.001,
+                    order=2,
+                    taper=0.01,**kwargs):
         super().__init__(**kwargs)
         self._kwargs = {'upper_frequency':upper_frequency,
                         'lower_frequency':lower_frequency,
