@@ -209,8 +209,8 @@ class DataLoader(ab.AnxcorDataTask):
     def _should_process(self, *args):
         return True
 
-    def _window_key_convert(self,window):
-        return UTCDateTime(int(window*100)/100).isoformat()
+    def _window_key_convert(self,starttime=0):
+        return UTCDateTime(int(starttime*100)/100).isoformat()
 
     def _additional_read_processing(self, result):
         name   = list(result.data_vars)[0]
