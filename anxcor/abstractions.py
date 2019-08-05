@@ -191,9 +191,9 @@ class AnxcorTask:
             self._dask_write_execute(process=process, result=result, folder=folder,file=file,key=key,**kwargs)
         return result
 
-    def _get_io_string_vars(self, starttime=None, station=None,**kwargs):
+    def _get_io_string_vars(self, starttime=0, station=0,**kwargs):
         process = self._get_process()
-        folder  = self._window_key_convert(starttime)
+        folder  = self._window_key_convert(starttime=starttime)
         file    = station
         return file, folder, process
 
@@ -277,7 +277,7 @@ class AnxcorTask:
         return starttime
 
     def _get_operation_key(self,starttime=0,station=0,**kwargs):
-        window_key = self._window_key_convert(starttime)
+        window_key = self._window_key_convert(starttime=starttime)
         return '{}-{}-{}'.format(self._get_process(),station,window_key)
 
     def _should_process(self, *args):
@@ -301,8 +301,8 @@ class XArrayProcessor(AnxcorTask):
     def  _should_process(self,xarray, *args):
         return xarray is not None
 
-    def _window_key_convert(self,window):
-        return UTCDateTime(int(window*100)/100).isoformat()
+    def _window_key_convert(self,starttime=0):
+        return UTCDateTime(int(starttime*100)/100).isoformat()
 
 
 class AnxcorDataTask(AnxcorTask):
