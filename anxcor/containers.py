@@ -299,9 +299,6 @@ class XArrayCombine(ab.AnxcorDataTask):
     def _get_process(self):
         return 'combine'
 
-    def _window_key_convert(self,window):
-        return window
-
 
     def starttime_parser(self,first,second):
         return 'depth:{}branch:{}'.format(first, second)
@@ -366,12 +363,11 @@ class XArrayStack(ab.XArrayProcessor):
     def _should_process(self,xarray1,xarray2, *args):
         return xarray1 is not None or xarray2 is not None
 
-
-    def _window_key_convert(self,window):
-        return window
-
     def starttime_parser(self,first,second):
         return 'depth:{}branch:{}'.format(first, second)
+
+    def _window_key_convert(self,starttime=0):
+        return starttime
 
 
 

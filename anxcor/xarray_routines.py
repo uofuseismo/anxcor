@@ -254,7 +254,7 @@ class XArrayXCorrelate(XArrayProcessor):
         xarray_1 = xr.apply_ufunc(filt_ops.taper_func, xarray_1,
                                   input_core_dims=[['time']],
                                   output_core_dims=[['time']],
-                                  kwargs={**self._kwargs})
+                                  kwargs={**self._kwargs},keep_attrs=True)
         xarray_2 = xr.apply_ufunc(filt_ops.taper_func, xarray_2,
                                   input_core_dims=[['time']],
                                   output_core_dims=[['time']],
