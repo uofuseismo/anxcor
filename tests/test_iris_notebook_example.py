@@ -12,7 +12,7 @@ class IRISWrapper(AnxcorDatabase):
     def __init__(self):
         super().__init__()
         self.client    =  Client("IRIS")
-        self.station_list = ['S01','S02','S03','S04','S05']
+        self.station_list = ['S01','S02']#,'S03','S04','S05']
         self.pre_filter = (0.003, 0.005, 40.0, 45.0)
 
     def get_waveforms(self,starttime=0,endtime=0,station=0,network=0, **kwargs):
@@ -54,8 +54,8 @@ class XArrayOneBit(XArrayProcessor):
         return 'one-bit-norm'
 
 converter = XArrayConverter()
-class TestCorrelation(unittest.TestCase):
-    def test_convert_is_accurate(self):
+class TestNotebookUsageExample(unittest.TestCase):
+    def test_expected_pair_amount(self):
         anxcor_main = Anxcor(60 * 10.0)
         anxcor_main.add_dataset(IRISWrapper(), 'IMUSH_ST_HELLENS_DATA')
         resample_kwargs  = dict(taper=0.05, target_rate=20.0)
@@ -69,8 +69,4 @@ class TestCorrelation(unittest.TestCase):
         for window_number in range(0, 4):
             starttimes.append(starttime + 60 * 10.0 * window_number)
         xarray_dataset = anxcor_main.process(starttimes)
-        assert xarray_dataset is not None
-
-    def test_nonetype_in_out(self):
-        result = converter(None,starttime=0,station=0)
-        assert True
+        assert len(list(xarray_dataset.coords['pair'].values))==3

@@ -88,6 +88,7 @@ class DataLoader(ab.AnxcorDataTask):
     def __init__(self, window_length):
         super().__init__()
         self._window_length = window_length
+        self._seconds_buffer = 1.0
         self._datasets = {}
 
     def add_dataset(self, dataset: AnxcorDatabase, name: str, **kwargs):
@@ -139,14 +140,16 @@ class DataLoader(ab.AnxcorDataTask):
         kwarg_execute    = {
             'network' : network,
             'station' : station,
-            'starttime':starttime,
-            'endtime':  starttime + self._window_length
+            'starttime':starttime - self._seconds_buffer,
+            'endtime':  starttime + self._seconds_buffer + self._window_length
             }
 
         traces = []
         for name, dataset in self._datasets.items():
             stream = dataset.get_waveforms(**kwarg_execute)
-            stream = self._curate(stream,starttime)
+            for trace in stream:
+                rate =1.0/trace.stats.delta
+                trace.interpolate(rate,starttime=starttime,npts=int(rate*self._window_length)+1)
             traces = self._combine(traces, stream, name)
         return Stream(traces=traces)
 

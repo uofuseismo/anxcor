@@ -7,6 +7,7 @@ import pandas as pd
 from datetime import datetime
 STARTTIME_NS_PRECISION = 100.0
 DELTA_MS_PRECISION     = 100.0/1
+ZERO                   = np.datetime64(UTCDateTime(0.0).datetime)
 """
 filters contained in this module:
 - lowpass
@@ -57,11 +58,6 @@ def bandpass_in_time_domain_filtfilt(data, lower_frequency=0.01, upper_frequency
     y = filtfilt(b,a, data,axis=axis,padtype=padtype)
     return y
 
-
-def bandpass_in_frequency_domain(xarray,**kwargs):
-    bandpass_response= _create_bandpass_frequency_multiplier(xarray,**kwargs)
-    xarray*=bandpass_response
-    return xarray
 
 def taper_func(data, taper=0.1, axis=-1, window_type='hanning', taper_objective='zeros', constant=0.0, **kwargs):
     assert taper <= 1.0, 'taper is too big. Must be less than 1.0:{}'.format(taper)
@@ -116,32 +112,43 @@ def xarray_crosscorrelate(source_xarray, receiver_xarray,
                           taper=0.1, max_tau_shift=None, dummy_task=False,**kwargs):
     try:
         _check_xcorrelate_assumptions(source_xarray,receiver_xarray,taper,max_tau_shift,dummy_task,**kwargs)
-    except Exception:
+    except Exception as exp:
+        print(exp)
         _will_not_correlate_message(source_xarray,receiver_xarray)
-        dummy_task=True
+        return None
     src_channels   = list(source_xarray['channel'].values)
     rec_channels   = list(receiver_xarray['channel'].values)
     pair = ['src:' + list(source_xarray.coords['station_id'].values)[0] + \
             'rec:' + list(receiver_xarray.coords['station_id'].values)[0]]
 
-    if not dummy_task:
-        xcorr_np_mat = _cross_correlate_xarray_data(source_xarray,receiver_xarray,**kwargs)
-    else:
-        xcorr_np_mat = _dummy_correlate(source_xarray, receiver_xarray)
+    xcorr_np_mat = _cross_correlate_xarray_data(source_xarray,receiver_xarray,**kwargs)
 
-    xcorr_np_mat = _extract_center_of_ndarray(xcorr_np_mat, max_tau_shift, source_xarray)
+    tau_array    = _get_new_time_array(source_xarray)
 
     xcorr_np_mat = xcorr_np_mat.reshape((len(src_channels),len(rec_channels),1,xcorr_np_mat.shape[-1]))
-
-    tau_array    = _get_new_time_array(source_xarray, max_tau_shift, xcorr_np_mat.shape[-1])
-
 
     xarray = xr.DataArray(xcorr_np_mat, coords=(('src_chan', src_channels),
                                                 ('rec_chan', rec_channels),
                                                 ('pair', pair),
                                                 ('time',tau_array)))
-
+    if max_tau_shift is not None:
+        xarray = _slice_xarray_tau(xarray,max_tau_shift)
     return xarray
+
+
+def _get_new_time_array(source_xarray):
+    delta       = source_xarray.attrs['delta']
+    timedelta   = pd.Timedelta(delta, 's').to_timedelta64()
+    data_length = source_xarray.shape[-1]
+    min_time    = ZERO - data_length * timedelta + timedelta
+    max_time    = ZERO + data_length * timedelta
+    tau_array   = np.arange(min_time,max_time, timedelta)
+    return tau_array
+
+def _slice_xarray_tau(xarray,max_tau_shift):
+    delta=pd.Timedelta(max_tau_shift * 1e9, unit='N').to_timedelta64()
+    return xarray.sel(time=slice(ZERO - delta, ZERO + delta))
+
 
 ################################################# converters ###########################################################
 
@@ -159,17 +166,17 @@ def xarray_time_2_freq(xarray : xr.DataArray,minimum_size=None):
 
 
 def xarray_freq_2_time(freq_array : xr.DataArray, array_original):
-    time_data =np.real(np.fft.irfft(freq_array.data, axis=-1)).astype(np.float64)
-    array_new      = array_original.copy()
-    array_new.data = time_data[:,:,:array_original.shape[-1]]
+    time_data = np.fft.fftshift(np.real(np.fft.irfft(freq_array.data, array_original.data.shape[-1], axis=-1),axes=-1).astype(np.float64))
+    array_new = array_original.copy()
+    array_new.data = time_data
     return array_new
 
 
 def xarray_freq_2_time_xcorr(array_fourier : np.ndarray, array_original):
     corr_length = array_original.data.shape[-1]*2-1
-    time_data = np.real(np.fft.irfft(array_fourier.data, axis=-1)).astype(np.float64)[:,:,:corr_length].astype(np.float64)
+    time_data   = np.fft.fftshift(np.real(np.fft.irfft(array_fourier.data,corr_length, axis=-1),axes=-1).astype(np.float64))
     array_new      = array_original.copy()
-    array_new.data = time_data[:,:,:array_original.shape[-1]]
+    array_new.data = time_data
     return array_new
 
 def xarray_triple_by_reflection(xarray: xr.DataArray):
@@ -239,6 +246,10 @@ def _check_xcorrelate_assumptions(source_xarray, receiver_xarray, taper, max_tau
                                              ' will not correlate'
     assert source_xarray.data.shape[-1]==receiver_xarray.data.shape[-1], \
         'xarray shapes are different! will not proceed'
+    if max_tau_shift is not None:
+        timedelta = 2*(source_xarray.coords['time'].values.max() - source_xarray.coords['time'].values.min())
+        max_delta = pd.Timedelta(max_tau_shift*2*1e9,unit='N').to_timedelta64()
+        assert timedelta >= max_delta, 'target tau shift delta is too long. aborting'
 
 def _will_not_correlate_message(source_xarray,receiver_xarray):
     start1 = UTCDateTime(source_xarray.attrs['starttime'])
@@ -251,29 +262,6 @@ def _will_not_correlate_message(source_xarray,receiver_xarray):
     print('*'*10)
 
 
-def _extract_center_of_ndarray(corr_mat, tau_shift,xarray):
-    if tau_shift is not None:
-        center = (corr_mat.shape[-1] - 1 )//2
-        shift_npts = int(tau_shift / xarray.attrs['delta'])
-        corr_mat = corr_mat[:,:, center - shift_npts: center + shift_npts + 1]
-    return corr_mat
-
-
-def _get_new_time_array(xarray, max_tau_shift, max_samples):
-    delta           = xarray.attrs['delta']
-    zero            = np.datetime64(UTCDateTime(0.0).datetime)
-    timedelta       = pd.Timedelta(delta, 's').to_timedelta64()
-    if max_tau_shift is None:
-        max_delta_shift = pd.Timedelta((max_samples-2) * delta/2 , 's').to_timedelta64()
-    else:
-        max_delta_shift = pd.Timedelta(max_tau_shift, 's').to_timedelta64()
-    positive_tau    = np.arange(zero, zero + max_delta_shift + timedelta, timedelta)
-    negative_tau    = np.arange(zero - max_delta_shift, zero,  timedelta)
-    tau_array       = np.concatenate((negative_tau, positive_tau))
-    return tau_array
-
-
-
 def _cross_correlate_xarray_data(source_xarray, receiver_xarray,gpu_enable=False,torch=None,**kwargs):
     src_chan_size = source_xarray.data.shape[0]
     rec_chan_size = receiver_xarray.data.shape[0]
@@ -284,28 +272,13 @@ def _cross_correlate_xarray_data(source_xarray, receiver_xarray,gpu_enable=False
 
     corr_length     = time_size * 2 - 1
     target_length = fftpack.next_fast_len(corr_length)
-    if not gpu_enable:
 
-        fft_src = np.conj(np.fft.rfft(src_data, target_length, axis=-1))
-        fft_rec = np.fft.rfft(receiver_data, target_length, axis=-1)
+    fft_src = np.conj(np.fft.rfft(src_data, target_length, axis=-1))
+    fft_rec = np.fft.rfft(receiver_data, target_length, axis=-1)
 
-        result = _multiply_in_mat(fft_src,fft_rec)
+    result = _multiply_in_mat(fft_src,fft_rec)
 
-        xcorr_mat = np.real(np.fft.irfft(result,corr_length, axis=-1)).astype(np.float64)
-
-    else:
-
-        zero_tensor_src = torch.zeros([target_length, src_chan_size], dtype=torch.float32, device=torch.device('cuda'))
-        zero_tensor_rec = torch.zeros([target_length, rec_chan_size], dtype=torch.float32, device=torch.device('cuda'))
-        zero_tensor_result= torch.zeros([target_length,src_chan_size,rec_chan_size],
-                                        dtype=torch.float32, device=torch.device('cuda'))
-        zero_tensor_src[:target_length,:] = np.swapaxes(src_data,1,0)
-        zero_tensor_rec[:target_length,:] = np.swapaxes(receiver_data,1,0)
-
-        fft_src  = torch.rfft(zero_tensor_src, 1)
-        fft_rec  = torch.rfft(zero_tensor_src, 1)
-        return None
-
+    xcorr_mat = np.fft.fftshift(np.real(np.fft.irfft(result,corr_length, axis=-1)).astype(np.float64),axes=-1)
 
     return xcorr_mat / corr_length
 
@@ -324,12 +297,17 @@ def _multiply_in_mat(one,two,dtype=np.complex64):
 
 
 def _into_frequency_domain(array,axis=-1,minimum_size=None):
+    target_length = _get_minimum_fft_freq_size(array, axis, minimum_size)
+    fft           = np.fft.rfft(array, target_length, axis=axis)
+    return fft
+
+
+def _get_minimum_fft_freq_size(array, axis, minimum_size):
     if minimum_size is None:
         target_length = fftpack.next_fast_len(array.shape[axis])
     else:
         target_length = fftpack.next_fast_len(minimum_size)
-    fft               = np.fft.rfft(array, target_length, axis=axis)
-    return fft
+    return target_length
 
 
 def _get_deltaf(time_window_length,delta):
@@ -337,11 +315,3 @@ def _get_deltaf(time_window_length,delta):
     frequencies   = np.fft.rfftfreq(target_length, d=delta)
     return frequencies
 
-def _dummy_correlate(source_array,
-                     receiver_array):
-    src_len = source_array.data.shape[0]
-    rec_len = receiver_array.data.shape[0]
-    time    = source_array.data.shape[-1]
-    mat = np.real(_multiply_in_mat(source_array.data.reshape((src_len,time)),receiver_array.data.reshape(rec_len,time)))
-
-    return mat
