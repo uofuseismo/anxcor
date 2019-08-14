@@ -6,6 +6,7 @@ import anxcor.constants as c
 import numpy as np
 import xarray as xr
 import anxcor.filters as filt_ops
+import anxcor.numpyfftfilter as npfilt_ops
 import pandas as pd
 from anxcor.abstractions import XArrayRolling, XArrayProcessor, _XArrayRead, _XArrayWrite
 
@@ -36,7 +37,7 @@ class XArrayConverter(XArrayProcessor):
         channels = []
         stations = []
 
-        delta = None
+        delta      = None
         time_array = None
         data_type  = 'default'
         starttime  = None
@@ -52,23 +53,15 @@ class XArrayConverter(XArrayProcessor):
             if channel not in channels:
                 channels.append(channel)
             if time_array is None:
-                starttime = np.datetime64(trace.stats.starttime.datetime)
-                endtime = np.datetime64(trace.stats.endtime.datetime)
-
-                delta = trace.stats.delta
-                timedelta = pd.Timedelta(delta, 's').to_timedelta64()
-
-                time_array = np.arange(starttime, endtime + timedelta, timedelta)
+                time_array = self._assign_time_coordinate(trace)
+                delta     = trace.stats.delta
                 starttime = trace.stats.starttime.timestamp
                 if hasattr(trace.stats,'data_type'):
                     data_type = trace.stats.data_type
                 stats_keys = trace.stats.keys()
-                if 'latitude' in stats_keys:
-                    latitude = trace.stats.latitude
-                if 'longitude' in stats_keys:
-                    longitude = trace.stats.longitude
-                if 'elevation' in stats_keys:
-                    elevation = trace.stats.elevation
+                if 'coordinates' in stats_keys:
+                    elevation, latitude, longitude = self._assign_coordinates(trace)
+
         empty_array = np.zeros((len(channels), len(stations), len(time_array)))
         for trace in stream:
             chan = channels.index(trace.stats.channel)
@@ -77,6 +70,25 @@ class XArrayConverter(XArrayProcessor):
             empty_array[chan, station_id, :] = trace.data
         return self._create_xarray(channels, data_type, delta, elevation, empty_array, latitude, longitude, starttime,
                                    stations, time_array)
+
+    def _assign_time_coordinate(self, trace):
+        starttime = np.datetime64(trace.stats.starttime.datetime)
+        endtime   = np.datetime64(trace.stats.endtime.datetime)
+        delta     = trace.stats.delta
+        timedelta = pd.Timedelta(delta, 's').to_timedelta64()
+        time_array = np.arange(starttime, endtime + timedelta, timedelta)
+        return time_array
+
+    def _assign_coordinates(self, trace):
+        coordinate_dict = trace.stats.coordinates
+        latitude=None; longitude=None; elevation=None
+        if 'latitude' in coordinate_dict.keys():
+            latitude = coordinate_dict['latitude']
+        if 'longitude' in coordinate_dict.keys():
+            longitude = coordinate_dict['longitude']
+        if 'elevation' in coordinate_dict.keys():
+            elevation = coordinate_dict['elevation']
+        return elevation, latitude, longitude
 
     def _create_xarray(self, channels, data_type, delta, elevation, empty_array, latitude, longitude, starttime,
                        stations, time_array):
@@ -237,7 +249,7 @@ class XArrayXCorrelate(XArrayProcessor):
 
     def _single_thread_execute(self, source_xarray: xr.DataArray, receiver_xarray: xr.DataArray,*args, **kwargs):
         if source_xarray is not None and receiver_xarray is not None:
-            correlation = filt_ops.xarray_crosscorrelate(source_xarray,
+            correlation = npfilt_ops.xarray_crosscorrelate(source_xarray,
                                              receiver_xarray,
                                                      **self._kwargs)
             return correlation
@@ -258,7 +270,7 @@ class XArrayXCorrelate(XArrayProcessor):
         xarray_2 = xr.apply_ufunc(filt_ops.taper_func, xarray_2,
                                   input_core_dims=[['time']],
                                   output_core_dims=[['time']],
-                                  kwargs={**self._kwargs})
+                                  kwargs={**self._kwargs},keep_attrs=True)
 
         attrs = {'delta'    : xarray_1.attrs['delta'],
                  'starttime': xarray_1.attrs['starttime'],
@@ -318,7 +330,7 @@ class XArrayTemporalNorm(XArrayRolling):
     applies a temporal norm operation to an xarray timeseries
     """
 
-    def __init__(self,lower_frequency=0.01,upper_frequency=5.0,order=3,taper=0.1, **kwargs):
+    def __init__(self,lower_frequency=0.01,upper_frequency=5.0,taper=0.1, **kwargs):
         super().__init__(**kwargs)
         self._kwargs['lower_frequency']     = lower_frequency
         self._kwargs['upper_frequency']     = upper_frequency

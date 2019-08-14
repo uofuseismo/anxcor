@@ -14,10 +14,8 @@ class TestDownsample(unittest.TestCase):
     def test_phase_shift_not_introduced(self):
         target_rate     = 20
         process         = XArrayResample(target_rate=target_rate)
-        trace           = create_sinsoidal_trace(sampling_rate=100, period=0.5,    duration=0.5)
-        starttime       = trace.stats.starttime.timestamp
-        trace_initial   = converter([create_sinsoidal_trace(sampling_rate=100, period=0.5,    duration=0.5)])
-        trace_processed = converter([create_sinsoidal_trace(sampling_rate=100, period=0.5, duration=0.5)])
+        trace_initial   = converter(create_sinsoidal_trace(sampling_rate=100, period=0.5,    duration=0.5))
+        trace_processed = converter(create_sinsoidal_trace(sampling_rate=100, period=0.5, duration=0.5))
         trace_processed = process(trace_processed)
         target        = np.argmax(trace_initial.data.ravel())   * trace_initial.attrs['delta']
         source        = np.argmax(trace_processed.data.ravel()) * trace_processed.attrs['delta']
@@ -25,7 +23,7 @@ class TestDownsample(unittest.TestCase):
         assert round(abs(target-source), int(np.log10(1/target_rate))) == 0,"filter introduced phase shift"
 
     def test_nonetype_in_out(self):
-        result = converter(None, starttime=0, station=0)
+        result = converter(None)
         assert result == None
 
     def test_not_null(self):

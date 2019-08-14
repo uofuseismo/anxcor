@@ -1,7 +1,8 @@
 import unittest
 from obsplus.bank import WaveBank
 from obspy.core import Stream, Trace, read
-from anxcor.core import Anxcor, AnxcorDatabase
+from anxcor.core import Anxcor
+from anxcor.containers import  AnxcorDatabase
 from anxcor.xarray_routines import XArrayConverter
 import numpy as np
 

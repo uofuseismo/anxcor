@@ -85,9 +85,9 @@ class AnxcorDatabase:
 
 class DataLoader(ab.AnxcorDataTask):
 
-    def __init__(self, window_length):
+    def __init__(self):
         super().__init__()
-        self._window_length = window_length
+        self._kwargs['window_length'] =3600.0
         self._seconds_buffer = 1.0
         self._datasets = {}
 
@@ -141,15 +141,21 @@ class DataLoader(ab.AnxcorDataTask):
             'network' : network,
             'station' : station,
             'starttime':starttime - self._seconds_buffer,
-            'endtime':  starttime + self._seconds_buffer + self._window_length
+            'endtime':  starttime + self._seconds_buffer + self._kwargs['window_length']
             }
 
         traces = []
         for name, dataset in self._datasets.items():
             stream = dataset.get_waveforms(**kwarg_execute)
             for trace in stream:
-                rate =1.0/trace.stats.delta
-                trace.interpolate(rate,starttime=starttime,npts=int(rate*self._window_length)+1)
+                rate = 1.0/trace.stats.delta
+                npts = int(rate*self._kwargs['window_length'])+1
+                end_time = UTCDateTime(starttime+npts*trace.stats.delta)
+                if starttime >= trace.stats.starttime.timestamp and \
+                   end_time  <  trace.stats.endtime:
+                    trace.interpolate(rate,starttime=starttime,npts=npts)
+                else:
+                    stream.remove(trace)
             traces = self._combine(traces, stream, name)
         return Stream(traces=traces)
 

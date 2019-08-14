@@ -7,7 +7,7 @@ from anxcor.xarray_routines import XArrayTemporalNorm
 import json
 
 save_dir = 'tests/test_data/test_anxcor_database/test_save_config'
-if not utils.folder_exists(save_dir) or not utils.file_exists(save_dir):
+if not utils.folder_exists(save_dir):
     os.mkdir(save_dir)
 
 class TestConfig(unittest.TestCase):
@@ -46,15 +46,17 @@ class TestConfig(unittest.TestCase):
 
     def test_load_config_with_routine(self):
         time_mean_target = 15
-        anxcor = Anxcor(window_length=120.0)
-        anxcor.add_process(XArrayTemporalNorm(time_window=time_mean_target, rolling_metric='max'))
+        anxcor = Anxcor()
+        anxcor.set_window_length(120.0)
+        anxcor.add_process(XArrayTemporalNorm(window=time_mean_target, rolling_metric='max'))
         anxcor.save_config(save_dir + os.sep + 'config.ini')
 
-        anxcor2 = Anxcor(window_length=120.0)
+        anxcor2 = Anxcor()
+        anxcor.set_window_length(120.0)
         anxcor2.add_process(XArrayTemporalNorm())
         anxcor2.load_config(save_dir + os.sep + 'config.ini')
-        tnorm=anxcor2.get_task('process')['temp_norm']
-        time_mean_src = tnorm._kwargs['time_window']
+        tnorm=anxcor2._get_task('process')['temp_norm']
+        time_mean_src = tnorm._kwargs['window']
         assert time_mean_target == time_mean_src
 
 

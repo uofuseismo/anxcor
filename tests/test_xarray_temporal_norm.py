@@ -29,7 +29,7 @@ def source_earthquake():
     earthquake_trace.stats.network = ''
 
 
-    return  convert([earthquake_trace],starttime=0,station=0)
+    return  convert([earthquake_trace])
 
 
 def shift_trace(data,time=1.0,delta=0.1):

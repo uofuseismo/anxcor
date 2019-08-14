@@ -7,15 +7,15 @@ converter = XArrayConverter()
 class TestDemean(unittest.TestCase):
 
     def test_demean(self):
-        trace = converter([linear_ramp_trend()],starttime=0,station=0)
-        trace = process(trace,starttime=0,station=0)
+        trace = converter(linear_ramp_trend())
+        trace = process(trace)
         mean  = np.sum(trace.data)
         assert round(abs(mean-0), 5) == 0,"mean not removed"
 
 
     def test_detrend(self):
-        trace = converter([linear_ramp_trend()],starttime=0,station=0)
-        trace = process(trace,starttime=0,station=0)
+        trace = converter(linear_ramp_trend())
+        trace = process(trace)
         coeffs= np.polyfit(np.linspace(0,1,num=len(trace.data.ravel())),trace.data.ravel(), 1)
         assert round(abs(coeffs[0]-0), 5) == 0,"trend not removed"
 

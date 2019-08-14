@@ -1,14 +1,15 @@
 import unittest
 from obsplus.bank import WaveBank
 from obspy.core import Stream, Trace
-from anxcor.core import Anxcor, AnxcorDatabase
+from anxcor.core import Anxcor
+from anxcor.containers import  AnxcorDatabase
 import numpy as np
 
 source_dir = 'tests/test_data/test_anxcor_database/test_waveforms_multi_station'
 target_dir = 'test_data/test_anxcor_database/test_save_output'
 
-starttime_stamp = 0
-endtime_stamp   = 5*2*60
+starttime_stamp = 0+1
+endtime_stamp   = 5*2*60+1
 
 def get_ancor_set():
     bank = WaveBank(source_dir)
@@ -65,10 +66,11 @@ class WavebankWrapperWLatLons(AnxcorDatabase):
                       'station': trace.stats.station,
                       'starttime':trace.stats.starttime,
                       'channel': trace.stats.channel,
-                      'network': trace.stats.network,
-                      'latitude': 38.0,
-                      'longitude': -117,}
-            traces.append(Trace(data,header=header))
+                      'network': trace.stats.network
+                      }
+            trace = Trace(data,header=header)
+            trace.stats.coordinates={'longitude': -117, 'latitude': 35}
+            traces.append(trace)
         return Stream(traces=traces)
 
     def get_stations(self):
@@ -89,27 +91,28 @@ class TestMetadataInCombine(unittest.TestCase):
 
     def test_stacking_preserves_pair_key(self):
 
-        anxcor = Anxcor(120)
-        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 120, 0.5)
+        anxcor = Anxcor()
+        anxcor.set_window_length(100)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 100, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         result = anxcor.process(times)
-        #
         assert 'src:AX.1rec:AX.2' in result.attrs.keys()
 
     def test_metadata_with_latlons(self):
-        anxcor = Anxcor(120)
-        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 120, 0.5)
+        anxcor = Anxcor()
+        anxcor.set_window_length(100)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 100, 0.5)
         bank = WavebankWrapperWLatLons(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         result = anxcor.process(times)
-
-        #
-        assert 'location' in result.attrs['src:AX.1rec:AX.1'].keys()
+        pair_dict = result.attrs['src:AX.1rec:AX.1']
+        assert 'location' in pair_dict.keys()
 
     def test_output_dataset_format(self):
-        anxcor = Anxcor(120)
-        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 120, 0.5)
+        anxcor = Anxcor()
+        anxcor.set_window_length(100)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 100, 0.5)
         bank = WavebankWrapperWLatLons(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         result = anxcor.process(times)
@@ -118,8 +121,9 @@ class TestMetadataInCombine(unittest.TestCase):
         assert len_variables == 1,'too many variables added to dataset'
 
     def test_output_dimension_lengths(self):
-        anxcor = Anxcor(120)
-        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 120, 0.5)
+        anxcor = Anxcor()
+        anxcor.set_window_length(100)
+        times = anxcor.get_starttimes(starttime_stamp, starttime_stamp + 2 * 100, 0.5)
         bank = WavebankWrapperWLatLons(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         result = anxcor.process(times)

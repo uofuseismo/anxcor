@@ -96,14 +96,10 @@ class TestSpectralWhitening(unittest.TestCase):
         ratio = 0.01
         whitening_op = XArrayWhiten(taper=0.1,window=0.05, whiten_type='cross_component', upper_frequency=20.0,
                                     lower_frequency=0.01, center=center,order=2)
-        import matplotlib.pyplot as plt
-        plt.plot(xarray.data[0, 0, :])
+
         whitened_array = whitening_op(xarray)
         a = whitened_array.data[0,0,:].squeeze()
         b = xarray.data[0,0,:].squeeze()
-        plt.plot( whitened_array.data[0,0,:] * 50.0)
-        plt.ylim([-5, 5])
-        plt.show()
         xcorr = correlate(a, b)
 
         # delta time array to match xcorr

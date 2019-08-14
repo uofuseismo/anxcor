@@ -7,6 +7,7 @@ from scipy.signal import correlate
 import pytest
 import xarray as xr
 import anxcor.filters as filt_ops
+import anxcor.numpyfftfilter as npfilt_ops
 
 import numpy as np
 
@@ -63,11 +64,10 @@ class TestImpulseDecays(unittest.TestCase):
         assert filtered_array.data[0, 0, -1] == pytest.approx(0, abs=1e-18)
 
     def test_into_freq_and_back(self):
-        stream = synthfactory.create_impulse_stream(sampling_rate=40.0, duration=1000.0)
+        stream = synthfactory.create_sinsoidal_trace(duration=3)
         xarray = convert(stream)
         xarray_freq = filt_ops.xarray_time_2_freq(xarray)
         xarray_time = filt_ops.xarray_freq_2_time(xarray_freq,xarray)
-
         assert np.allclose(xarray_time.data,xarray.data)
 
 
@@ -76,7 +76,7 @@ class TestImpulseDecays(unittest.TestCase):
         stream2 = synthfactory.create_impulse_stream(sampling_rate=40.0, duration=1000.0)
         xarray_src = convert(stream1)
         xarray_rec = convert(stream2)
-        xarray_corr = filt_ops.xarray_crosscorrelate(xarray_src,xarray_rec)
+        xarray_corr = npfilt_ops.xarray_crosscorrelate(xarray_src,xarray_rec)
 
         assert xarray_corr.data.shape[-1]==xarray_src.data.shape[-1]*2 -1
 
@@ -122,11 +122,6 @@ class TestZeroPhaseFilter(unittest.TestCase):
                                         keep_attrs=True)
         a = xarray.data[0, 0, :]
         b = filtered_array.data[0, 0, :]
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.plot(a)
-        plt.plot(b)
-        plt.show()
         xcorr = correlate(a, b)
 
         # delta time array to match xcorr
@@ -179,18 +174,14 @@ class TestZeroPhaseFilter(unittest.TestCase):
     def test_crosscorrelate_phase_shift(self):
         stream1 = synthfactory.create_sinsoidal_trace(sampling_rate=10.0, duration=60.1,
                                                              period=15)
-        stream2 = synthfactory.create_sinsoidal_trace(sampling_rate=10.0, duration=60.1,
-                                                             period=15)
         xarray_src = convert(stream1)
-        xarray_rec = convert(stream2)
-        xarray_corr = filt_ops.xarray_crosscorrelate(xarray_src,xarray_rec)
-        xcorr_data = xarray_corr.data[0,0,:].squeeze()
-        dt = np.arange(1 -  xarray_src.data.shape[-1],  xarray_rec.data.shape[-1])
+        xarray_rec = convert(stream1)
+        xarray_corr= npfilt_ops.xarray_crosscorrelate(xarray_src,xarray_rec)
+        xcorr_data = xarray_corr.data.squeeze()
+        dt1 = np.arange(-xcorr_data.shape[-1] //2+1,xcorr_data.shape[-1] //2)
 
-        recovered_time_shift = dt[xcorr_data.argmax()]
+        assert dt1[xcorr_data.argmax()]==0
 
-
-        assert recovered_time_shift == 0
 
 
 if __name__ == '__main__':

@@ -1,7 +1,5 @@
-from  anxcor.containers import DataLoader, XArrayCombine, XArrayStack, AnxcorDatabase
+from  anxcor.containers import DataLoader, XArrayCombine, XArrayStack
 from  anxcor.xarray_routines import XArrayConverter, XArrayResample, XArrayXCorrelate
-from anxcor.abstractions import XArrayProcessor
-from typing import List
 import xarray as xr
 import numpy as np
 import itertools
@@ -9,293 +7,20 @@ from obspy.core import UTCDateTime, Stream, Trace
 import json
 import anxcor.utils as utils
 
-
-class Anxcor:
-
-
-
-    def __init__(self, window_length: float,**kwargs):
-        """
-
-        Parameters
-        ----------
-        window_length: float
-            the window length in seconds
-        """
-        self._data      = _AnxcorData(window_length=window_length, **kwargs)
-        self._processor = _AnxcorProcessor(self._data)
-        self._converter = _AnxcorConverter(self._data)
-
-
-    def add_dataset(self, database: AnxcorDatabase, name: str, **kwargs) -> None:
-        """
-        Adds a new dataset implementing the AnxorDatabase Interface to the crosscorrelation.
-        If desired, you may provide an additional callable function used to remove the instrument
-        response at every step.
-
-        Parameters
-        ----------
-        database : AnxcorDatabase
-            a database to add which implements the AnxorDatabase interface
-        name : str
-            a name describing the type of the resultant data
-        trace_prep : Callable[[Trace],Trace], Optional
-            an optional callable function to remove the instrument response.
-
-
-        """
-        self._data.add_dataset(database, name, **kwargs)
-
-
-    def add_process(self, process: XArrayProcessor) -> None:
-        """
-        Add an XArrayProcessor to the processing steps. Functions are performed in the order they are added
-
-        Parameters
-        ----------
-        process : XArrayProcessor
-            an XArrayProcessor object
-
-        """
-        self._data.add_process(process)
-
-    def set_task_kwargs(self, task: str, kwargs: dict):
-        """
-        sets keyword-arguments into the given task.
-
-        Parameters
-        ----------
-        task : str
-            the task key
-        kwargs : dict
-            the keyword-arguments to set
-
-        """
-        self._data.set_task_kwargs(task,kwargs)
-
-    def set_process_kwargs(self, process: str, kwargs: dict):
-        """
-        sets keyword-arguments into the given process
-
-        Parameters
-        ----------
-        process : str
-            the process key
-        kwargs : dict
-            the keyword-arguments to set
-
-        """
-        self._data.set_process_kwargs(process,kwargs)
-
-    def get_task(self,key: str) -> XArrayProcessor:
-        """
-        Returns an XArrayProcessor task based on its key
-
-        Parameters
-        ----------
-        key : str
-            the key to the processor object
-
-        Returns
-        -------
-        XArrayProcessor, List[XArrayProcessor]
-            either the processor or the list of processes defined by the task key
-
-        """
-        return self._data.get_task(key)
-
-    def get_starttimes(self,starttime: float, endtime: float, overlap: float) -> List[float]:
-        """
-        Get a list of starttimes based on a given starttime, endtime, and percent overlap of windows
-
-        Parameters
-        ----------
-        starttime : float
-            the starttime (as a UTCDateTime timestamp)
-        endtime : float
-            the endtime (as a UTCDateTime timestamp)
-        overlap : float
-            percent overlap of windows as a decimal (100% = 1.0). Must be between 0 - 1.
-
-        Returns
-        -------
-        List[float]
-            a list of UTCDateTime timestamps representing window starttimes
-
-        """
-        return self._converter.get_starttimes(starttime, endtime, overlap)
-
-    def save_at_task(self, folder: str,task,**kwargs) -> None:
-        """
-        Save result of method to file at a given task step
-
-        Parameters
-        ----------
-        folder : str
-            the folder to save the step result to.
-        task : str
-            one of:
-            'data'
-            'resample'
-            'xconvert'
-            'correlate'
-            'stack'
-            'combine'
-        representing the process key at which to save.
-
-        Note
-        ----
-        see save_at_process() for saving after a specific processing step
-
-        """
-        self._data.save_at_task(folder,task)
-
-    def load_at_task(self, folder: str,task,**kwargs)-> None:
-        """
-        load result of method from file at a given task step.
-        will disable all routines behind it in the compute graph
-
-        Parameters
-        ----------
-        folder : str
-            the folder to save the step result to.
-        task : str
-            one of:
-            'data'
-            'resample'
-            'xconvert'
-            'correlate'
-            'stack'
-            'combine'
-        representing the process key at which to save.
-
-        Note
-        ----
-        see load_at_process() for saving after a specific processing step
-
-        """
-        self._data.load_at_task(folder, task)
-
-    def save_at_process(self, folder: str,process : str,**kwargs) -> None:
-        """
-        save result of method to file at a given task step
-
-        Parameters
-        ----------
-        folder : str
-            the folder to save the step result to.
-        process : str
-            a string returned by the get_name()/get_process() method of an XArrayProcessor
-            object assigned to an Anxcor object
-
-        Note
-        ----
-        the object must have already been added via the add_process() routine
-
-        """
-        self._data.save_at_process(folder,process)
-
-    def load_at_process(self, folder: str,process: str,**kwargs)-> None:
-        """
-        load result of method from file at a given task step
-        will disable all routines behind it in the compute graph
-
-        Parameters
-        ----------
-        folder : str
-            the folder to save the step result to.
-        process : str
-            a string returned by the get_name()/get_process() method of an XArrayProcessor
-            object assigned to an Anxcor object
-
-        Note
-        ----
-        the object must have already been added via the add_process() routine
-
-        """
-        self._data.load_at_process(folder, process)
-
-    def process(self, starttimes: List[float], dask_client=None) -> xr.Dataset:
-        """
-        Perform the crosscorrelation routines. By default this processes, stacks, and combines
-        all crosscorrelations during the given starttimes. See documentation for finer control
-
-        Parameters
-        ----------
-        starttimes : List[float]
-            a list of UTCDateTime timestamps representing window starttimes
-        dask_client : Optional
-            an optional dask_client instance for parallel processing using dask
-
-        Returns
-        -------
-        Dataset, Future,
-
-            if single threaded, will return a single XArray Dataset object containing the
-        stacked crosscorrelations. If a dask client is provided it will return a future instance.
-        See Dask Documentation for further details
-        """
-        if self._data.has_data():
-            return self._processor.process(starttimes, dask_client=dask_client)
-        else:
-            print('no data banks added. will not execute.')
-
-    def xarray_to_obspy(self, xdataset: xr.Dataset):
-        """
-        convert the output of a anxcor correlation into an obspy stream
-
-        Parameters
-        ----------
-        xdataset : Dataset
-            an xarray Dataset object produced by AnXcor
-
-        Returns
-        -------
-        Stream
-            obspy trace stream of cross correlations
-
-        """
-        return self._converter.xarray_to_obspy(xdataset)
-
-    def save_config(self,file):
-        """
-        saves the parameters for each processing step as a .ini file
-        Parameters
-        ----------
-        file : str
-            the config file to save
-        """
-        self._data.save_config(file)
-
-    def load_config(self,file):
-        """
-        loads a previously built .ini file, assigning the results to the current process stack
-        will present a warning if config file parameters are not present
-        Parameters
-        ----------
-        file : str
-            the config file to load
-
-
-        """
-        self._data.load_config(file)
-
-
-
 class _AnxcorProcessor:
 
     time_format = '%d-%m-%Y %H:%M:%S'
     CORR_FORMAT = 'src:{} rec:{}'
-    def __init__(self,data):
-        self.data =data
+    def __init__(self):
+        pass
 
     def _station_window_operations(self, channels, dask_client=None, starttime=None, station=None):
-        xarray      = self.data.get_task('xconvert')(channels, starttime=starttime, station=station, dask_client=dask_client )
-        downsampled = self.data.get_task('resample')(xarray, starttime=starttime, station=station, dask_client=dask_client )
+        xarray      = self._get_task('xconvert')(channels, starttime=starttime, station=station, dask_client=dask_client )
+        downsampled = self._get_task('resample')(xarray, starttime=starttime, station=station, dask_client=dask_client )
         tasks = [downsampled]
-        process_list = self.data.get_process_order()
+        process_list = self._get_process_order()
         for process_key in process_list:
-            process = self.data.get_process(process_key)
+            process = self._get_process(process_key)
             task   = tasks.pop()
             result = process(task,starttime=starttime, station=station, dask_client=dask_client )
             tasks.append(result)
@@ -304,21 +29,21 @@ class _AnxcorProcessor:
 
     def process(self,starttimes, dask_client=None,**kwargs):
 
-        station_pairs = self.data.get_station_combinations()
+        station_pairs = self.get_station_combinations()
         futures = []
         for pair in station_pairs:
 
             correlation_list  = self._iterate_starttimes(pair,  starttimes,dask_client=dask_client)
             correlation_stack = self._reduce(correlation_list,
                                              station=str(pair),
-                                             reducing_func=self.data.get_task('stack'),
+                                             reducing_func=self._get_task('stack'),
                                              dask_client=dask_client)
 
             futures.append(correlation_stack)
 
         combined_crosscorrelations = self._reduce(futures,
                                                   station='combine',
-                                                  reducing_func=self.data.get_task('combine'),
+                                                  reducing_func=self._get_task('combine'),
                                                   dask_client=dask_client)
 
         return combined_crosscorrelations
@@ -329,7 +54,7 @@ class _AnxcorProcessor:
         receiver = pair[1]
         correlation_stack = []
         for starttime in starttimes:
-            source_channels = self.data.get_task('data')(
+            source_channels = self._get_task('data')(
                                                   starttime=starttime,
                                                   station=source,
                                                   dask_client=dask_client)
@@ -338,9 +63,9 @@ class _AnxcorProcessor:
                                                             station=source,
                                                             dask_client=dask_client)
             if source==receiver:
-                receiver_ch_ops = source_ch_ops
+                receiver_ch_ops   = source_ch_ops
             else:
-                receiver_channels = self.data.get_task('data')(
+                receiver_channels = self._get_task('data')(
                                                       starttime=starttime,
                                                       station=receiver,
                                                       dask_client=dask_client)
@@ -349,7 +74,7 @@ class _AnxcorProcessor:
                                                                 station=receiver,
                                                                 dask_client=dask_client)
 
-            correlation = self.data.get_task('crosscorrelate')(source_ch_ops,
+            correlation = self._get_task('crosscorrelate')(source_ch_ops,
                                                    receiver_ch_ops,
                                                    station=self.CORR_FORMAT.format(source,receiver),
                                                    starttime=starttime,
@@ -401,10 +126,10 @@ class _AnxcorProcessor:
 
 class _AnxcorData:
     TASKS = ['data', 'xconvert', 'resample', 'process', 'crosscorrelate', 'stack', 'combine']
-    def __init__(self,window_length: float =3600.0):
-        self._window_length=window_length
+    def __init__(self):
+        self._window_length=60*60.0
         self._tasks = {
-            'data': DataLoader(window_length),
+            'data': DataLoader(),
             'xconvert': XArrayConverter(),
             'resample': XArrayResample(),
             'process' : {},
@@ -414,14 +139,24 @@ class _AnxcorData:
             }
         self._process_order = []
 
-    def get_process_order(self):
+    def _get_task_keys(self):
+        return self._tasks.keys()
+
+    def _get_process_keys(self):
+        return self._tasks['process'].keys()
+
+    def set_window_length(self,window_length: float):
+        self._window_length=window_length
+        self._tasks['data'].set_kwargs(dict(window_length=window_length))
+
+    def _get_process_order(self):
         return self._process_order.copy()
 
-    def get_process(self,process_key):
+    def _get_process(self,process_key):
         return self._tasks['process'][process_key]
 
     def get_window_length(self):
-        return self._window_length
+        return self._tasks['data'].get_kwargs()['window_length']
 
     def get_station_combinations(self):
         stations = self._tasks['data'].get_stations()
@@ -499,22 +234,28 @@ class _AnxcorData:
         else:
             print('{}: is not a valid process. ignoring'.format(process))
 
-    def get_task(self,key):
+    def _get_task(self,key):
         if key in self._tasks.keys():
             return self._tasks[key]
         else:
             raise KeyError('key does not exist in tasks')
 
+
+class _AnxcorConfig:
+
+    def __init__(self):
+        pass
+
     def save_config(self, file):
         config = {}
         for task in self.TASKS:
             if task!='process':
-                config[task] = self._tasks[task].get_kwargs()
+                config[task] = self._get_task(task).get_kwargs()
             else:
                 config[task] = {
                     'processing order' : self._process_order,
                 }
-                for key, process in self._tasks[task].items():
+                for key, process in self._get_task(task).items():
                     config[task][key]=process.get_kwargs()
 
         folder = utils.get_folderpath(file)
@@ -534,27 +275,26 @@ class _AnxcorData:
             config = json.load(p_file)
         for task in self.TASKS:
             if task!='process':
-                self._tasks[task].set_kwargs(config[task])
+                self._get_task(task).set_kwargs(config[task])
             else:
                 self._process_order = config[task]['processing order']
                 for key, process_kwargs in config[task].items():
                     if key!='processing order':
-                        if key not in self._tasks[task].keys():
+                        if key not in self._get_process_keys():
                             print('{} does not exist inside current Anxcor Object\n'.format(key)+\
                                   'Skipping for now..')
                         else:
-                            self._tasks[task][key].set_kwargs(process_kwargs)
-
+                            self._get_task(task)[key].set_kwargs(process_kwargs)
 
 class _AnxcorConverter:
 
 
-    def __init__(self,data):
-        self.data = data
+    def __init__(self):
+        pass
 
     def get_starttimes(self, starttime, endtime, overlap):
         starttimes = []
-        delta      = self.data.get_window_length() * (1 - overlap)
+        delta      = self.get_window_length() * (1 - overlap)
         time = starttime
         while time < endtime:
             starttimes.append(time)
@@ -623,3 +363,13 @@ class _AnxcorConverter:
         print(attrs.keys())
         for name in xdataset.data_vars:
             xarray = xdataset[name]
+
+
+
+
+class Anxcor(_AnxcorData, _AnxcorProcessor, _AnxcorConverter, _AnxcorConfig):
+
+
+
+    def __init__(self,*args,**kwargs):
+        super().__init__()
