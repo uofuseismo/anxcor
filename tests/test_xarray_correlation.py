@@ -169,14 +169,14 @@ class TestCorrelation(unittest.TestCase):
     def test_shift_trace(self):
         max_tau_shift = 19.9
         correlator  = XArrayXCorrelate(max_tau_shift=max_tau_shift)
-        time_shift  = 2
-        synth_trace2 = converter(create_sinsoidal_trace_w_decay(decay=0.6,station='h',network='v',channel='z',duration=20))
-        synth_trace1 = converter(create_sinsoidal_trace_w_decay(decay=0.4,station='h',network='w',channel='z',duration=20))
+        time_shift  = 4
+        synth_trace1 = converter(create_sinsoidal_trace_w_decay(decay=0.6,station='h',network='v',channel='z',duration=20))
+        synth_trace2 = converter(create_sinsoidal_trace_w_decay(decay=0.4,station='h',network='w',channel='z',duration=20))
         synth_trace2 = xr.apply_ufunc(shift_trace,synth_trace2,input_core_dims=[['time']],
                                                              output_core_dims=[['time']],
-                                                             kwargs={'time': time_shift,'delta':synth_trace2.attrs['delta']},keep_attrs=True)
-        synth_trace1.plot()
-        synth_trace2.plot()
+                                                             kwargs={'time': time_shift,
+                                                                     'delta':synth_trace2.attrs['delta']},
+                                                             keep_attrs=True)
         correlation = correlator(synth_trace1,synth_trace2)
         correlation/= correlation.max()
         time_array  = correlation.coords['time'].values

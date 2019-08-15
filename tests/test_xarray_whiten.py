@@ -10,9 +10,18 @@ from obspy.clients.fdsn import Client
 import pytest
 from obspy.core import UTCDateTime, Stream
 import numpy as np
-whiten = XArrayWhiten(smoothing_window_ratio=0.01, upper_frequency=20.0, lower_frequency=0.001,
+import anxcor.filters as filts
+whiten = XArrayWhiten(window=0.1, upper_frequency=20.0, lower_frequency=0.001,
                       order=2,rolling_metric='mean')
 convert = XArrayConverter()
+
+def plot_spectrum(xarray):
+    import matplotlib.pyplot as plt
+    freq_array = filts.xarray_time_2_freq(xarray)
+    plt.figure()
+    abs(freq_array.squeeze()).plot.line(x='frequency',xscale='log',
+                                        yscale='log')
+    plt.show()
 
 class TestSpectralWhitening(unittest.TestCase):
 
@@ -20,12 +29,12 @@ class TestSpectralWhitening(unittest.TestCase):
 
         trace    = convert(create_sinsoidal_trace(sampling_rate=100,period=0.5,    duration=3))
         freq_2   = convert(create_sinsoidal_trace(sampling_rate=100, period=0.1,   duration=3))
-        trace     = trace +  freq_2
-        trace.attrs = freq_2.attrs
-        pow_period_original = self.get_power_at_freq(10.0,trace)
-        trace   = whiten(trace,starttime=0,station=0)
-        pow_period_final   = self.get_power_at_freq(10.0, trace)
-        assert pow_period_original < pow_period_final,"whitening failed"
+        target_trace       = trace +  freq_2
+        target_trace.attrs = freq_2.attrs
+        target             = self.get_power_at_freq(6.0,target_trace)
+        source_trace       = whiten(target_trace,starttime=0,station=0)
+        source             = self.get_power_at_freq(6.0, source_trace)
+        assert target < source,"whitening failed"
 
     def test_array_is_real(self):
         tr_1 = create_sinsoidal_trace(sampling_rate=100, period=0.5, duration=3)
@@ -44,12 +53,12 @@ class TestSpectralWhitening(unittest.TestCase):
     def get_power_at_freq(self, frequency, xarray):
         data         = xarray.data.ravel()
         delta        = xarray.attrs['delta']
-        target_width = fft.next_fast_len(data.shape[0])
-        spectrum     = fft.fftshift(fft.fft(data, target_width))
-        frequencies  = fft.fftshift(fft.fftfreq(target_width, d=delta))
+        fft_spec     = filts._into_frequency_domain(data)
+        fft_spec    /= max(abs(fft_spec))
+        frequencies  = filts._get_deltaf(data.shape[-1], delta)
         index_val    = self.find_nearest(frequencies,frequency)
 
-        value_at_freq = spectrum[index_val]
+        value_at_freq = fft_spec[index_val]
 
         power_at_freq = np.abs(value_at_freq * np.conjugate(value_at_freq))
 
@@ -130,7 +139,7 @@ class TestSpectralWhitening(unittest.TestCase):
         xarray_squeezed = whitened_array[0, 0, :].data.squeeze()
         difference  = xarray_squeezed[:center_index]- xarray_squeezed[-center_index:]
         cumdiff     = abs(np.cumsum(difference)[-1]/(signal_length*sampling_rate))
-        assert pytest.approx(0,abs=1e-5)==cumdiff
+        assert pytest.approx(0,abs=1e-4)==cumdiff
 
 if __name__ == '__main__':
     unittest.main()

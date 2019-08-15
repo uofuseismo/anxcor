@@ -22,27 +22,25 @@ class WavebankWrapper(AnxcorDatabase):
 
     def __init__(self, directory):
         super().__init__()
-        self.bank = WaveBank(directory)
-        import warnings
-        warnings.filterwarnings("ignore")
+        self.bank = WaveBank(directory,name_structure='{network}.{station}.{channel}.{time}')
+        self.bank.update_index()
 
     def get_waveforms(self, **kwargs):
         stream =  self.bank.get_waveforms(**kwargs)
         traces = []
         for trace in stream:
             data = trace.data[:-1]
-            header = {'delta':np.floor(trace.stats.delta*1000)/1000.0,
+            header = {'delta':   trace.stats.delta,
                       'station': trace.stats.station,
                       'starttime':trace.stats.starttime,
                       'channel': trace.stats.channel,
-                      'network': trace.stats.network,
-                      'latitude': 38.0,
-                      'longitude': -117,}
+                      'network': trace.stats.network}
             traces.append(Trace(data,header=header))
         return Stream(traces=traces)
 
     def get_stations(self):
         df = self.bank.get_availability_df()
+        uptime = self.bank.get_uptime_df()
 
         def create_seed(row):
             network = row['network']
@@ -61,10 +59,11 @@ class TestObspyUtilFunction(unittest.TestCase):
         # stations 21, & 22
         # 3 windows say
         #
-        anxcor = Anxcor(120)
+        anxcor = Anxcor()
+        anxcor.set_window_length(120.0)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        result = anxcor.process([starttime_stamp])
+        result  = anxcor.process([starttime_stamp])
         streams = anxcor.xarray_to_obspy(result)
         assert len(streams) == 54,'not enough traces retained!'
 

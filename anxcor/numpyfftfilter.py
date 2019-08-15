@@ -47,7 +47,7 @@ def _slice_xarray_tau(xarray,max_tau_shift):
     delta=pd.Timedelta(max_tau_shift * 1e9, unit='N').to_timedelta64()
     return xarray.sel(time=slice(ZERO - delta, ZERO + delta))
 
-def _cross_correlate_xarray_data(source_xarray, receiver_xarray,gpu_enable=False,torch=None,**kwargs):
+def _cross_correlate_xarray_data(source_xarray, receiver_xarray,**kwargs):
     src_chan_size = source_xarray.data.shape[0]
     rec_chan_size = receiver_xarray.data.shape[0]
     time_size     = source_xarray.data.shape[-1]
