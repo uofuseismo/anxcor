@@ -68,8 +68,10 @@ class XArrayConverter(XArrayProcessor):
             station_id = stations.index(self._get_station_id(trace))
 
             empty_array[chan, station_id, :] = trace.data
-        return self._create_xarray(channels, data_type, delta, elevation, empty_array, latitude, longitude, starttime,
+
+        xarray = self._create_xarray(channels, data_type, delta, elevation, empty_array, latitude, longitude, starttime,
                                    stations, time_array)
+        return xarray
 
     def _assign_time_coordinate(self, trace):
         starttime = np.datetime64(trace.stats.starttime.datetime)

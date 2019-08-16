@@ -151,13 +151,16 @@ class DataLoader(ab.AnxcorDataTask):
                 rate = 1.0/trace.stats.delta
                 npts = int(rate*self._kwargs['window_length'])+1
                 end_time = UTCDateTime(starttime+npts*trace.stats.delta)
-                if starttime >= trace.stats.starttime.timestamp and \
-                   end_time  <  trace.stats.endtime:
+                if self._not_none_condition(trace,starttime,end_time):
                     trace.interpolate(rate,starttime=starttime,npts=npts)
                 else:
                     stream.remove(trace)
             traces = self._combine(traces, stream, name)
         return Stream(traces=traces)
+
+    def _not_none_condition(self,trace,starttime,end_time):
+        return starttime >= trace.stats.starttime.timestamp and \
+        end_time < trace.stats.endtime and not np.isnan(trace.data).any()
 
     def _io_result(self, result, source, format='mseed', **kwargs):
         type_dict = {}
@@ -197,23 +200,6 @@ class DataLoader(ab.AnxcorDataTask):
 
     def _get_process(self):
         return 'load'
-
-    def _curate(self, stream, starttime):
-        endtime = starttime + self._window_length
-        valid_traces = []
-        for trace in stream:
-            st = trace.stats.starttime.timestamp
-            end= trace.stats.endtime.timestamp
-            delta=trace.stats.delta
-
-            cond1 = abs(st  - starttime)  <= delta + FLOAT_PRECISION
-            cond2 = abs(end - endtime)    <= delta + FLOAT_PRECISION
-            if hasattr(trace.data,'mask'):
-                trace.data = trace.data.data
-            if cond1 and cond2 and not np.any(np.isnan(trace.data)):
-                valid_traces.append(trace)
-
-        return Stream(traces=valid_traces)
 
     def _should_process(self, *args):
         return True

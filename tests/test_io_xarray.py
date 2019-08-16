@@ -8,6 +8,7 @@ from anxcor.containers import AnxcorDatabase
 from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
 import xarray as xr
 from os import path
+import numpy as np
 import pytest
 import os
 
@@ -46,7 +47,9 @@ class WavebankWrapper(AnxcorDatabase):
         stream =  self.bank.get_waveforms(**kwargs)
         traces = []
         for trace in stream:
-            data = trace.data[:-1]
+            data   = trace.data[:-1]
+            if isinstance(data,np.ma.MaskedArray):
+                data = np.ma.filled(data,fill_value=np.nan)
             header = {'delta':   trace.stats.delta,
                       'station': trace.stats.station,
                       'starttime':trace.stats.starttime,
@@ -88,6 +91,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         pairs = list(result.coords['pair'].values)
         assert len(pairs) == 6
 
+    @pytest.mark.skip('skipping dask')
     def test_dask_execution(self):
 
         from distributed import Client, LocalCluster
