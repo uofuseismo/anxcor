@@ -172,8 +172,8 @@ class AnxcorTask:
             else:
                 result = self._single_thread_execute(*args, **kwargs)
         except Exception as e:
-            printstr = '********error********* \n\n'+str(e)+' {} \n\n from function \n \n' +self._get_process() + \
-                    '\n\n returning \'None\' and continuing'
+            printstr = '********error********* \n' + str(kwargs) + '\n'+str(e)+' \nfrom function\n' +self._get_process() + \
+                    '\nreturning \'None\' and continuing'
             print(printstr)
             result = None
         if result is not None:
