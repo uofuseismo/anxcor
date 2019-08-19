@@ -152,6 +152,7 @@ class AnxcorTask:
 
     def __call__(self, *args, dask_client=None, **kwargs):
         key = self._get_operation_key(**kwargs)
+        self._fire_and_forget = None
 
         result = None
         if self._enabled and not self.read.is_enabled() and self._should_process(*args):
@@ -223,8 +224,10 @@ class AnxcorTask:
         else:
             if 'dask' not in sys.modules:
                 from dask.distributed import fire_and_forget
+                self._fire_and_forget = fire_and_forget
             end = dask_client.submit(self.write, result, process, folder, file, key='writing: ' + key)
-            fire_and_forget(end)
+            if self._fire_and_forget is not None:
+                self._fire_and_forget(end)
 
     def __metadata_to_persist(self,*param,**kwargs):
         if param is None or (len(param)==1 and param[0] is None):
