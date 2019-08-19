@@ -65,7 +65,8 @@ class XArrayConverter(XArrayProcessor):
         for trace in stream:
             chan       = channels.index(trace.stats.channel)
             station_id = stations.index(self._get_station_id(trace))
-            assert len(time_array)==len(trace.data), 'time and trace data are not same length!!'
+            if len(time_array)!=len(trace.data):
+                trace.interpolate(1.0/trace.stats.delta, starttime=trace.stats.starttime, npts=len(time_array))
             empty_array[chan, station_id, :] = trace.data
 
         xarray = self._create_xarray(channels, data_type, delta, elevation, empty_array, latitude, longitude, starttime,

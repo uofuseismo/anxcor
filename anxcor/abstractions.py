@@ -154,25 +154,27 @@ class AnxcorTask:
         key = self._get_operation_key(**kwargs)
 
         result = None
-        try:
-            if self._enabled and not self.read.is_enabled() and self._should_process(*args):
+        if self._enabled and not self.read.is_enabled() and self._should_process(*args):
                 if dask_client is None:
                     result = self._execute(*args,**kwargs)
                 else:
                     result = dask_client.submit(self._execute, *args, key=key,**kwargs)
-        except ValueError as e:
-            raise ValueError('********error********* \n\n {} \n\n from function \n \n {}'.format(str(e),self._get_process()))
-
         result = self._io_operations(*args, dask_client=dask_client, result=result,**kwargs)
         return result
 
     def _execute(self, *args, **kwargs):
-        persist_name       = self.__get_name(*args)
-        persisted_metadata = self.__metadata_to_persist(*args, **kwargs)
-        if args is None or len(args)==1 and args[0] is None:
+        try:
+            persist_name       = self.__get_name(*args)
+            persisted_metadata = self.__metadata_to_persist(*args, **kwargs)
+            if args is None or len(args)==1 and args[0] is None:
+                result = None
+            else:
+                result = self._single_thread_execute(*args, **kwargs)
+        except Exception as e:
+            print(
+            '********error********* \n\n {} \n\n from function \n \n {}' +\
+                    '\n\n returning \'None\' and continuing'.format(str(e), self._get_process()))
             result = None
-        else:
-            result = self._single_thread_execute(*args, **kwargs)
         if result is not None:
             self._assign_metadata(persist_name, persisted_metadata, result)
         return result
