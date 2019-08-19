@@ -154,11 +154,14 @@ class AnxcorTask:
         key = self._get_operation_key(**kwargs)
 
         result = None
-        if self._enabled and not self.read.is_enabled() and self._should_process(*args):
-            if dask_client is None:
-                result = self._execute(*args,**kwargs)
-            else:
-                result = dask_client.submit(self._execute, *args, key=key,**kwargs)
+        try:
+            if self._enabled and not self.read.is_enabled() and self._should_process(*args):
+                if dask_client is None:
+                    result = self._execute(*args,**kwargs)
+                else:
+                    result = dask_client.submit(self._execute, *args, key=key,**kwargs)
+        except ValueError as e:
+            raise ValueError('********error********* \n\n {} \n\n from function \n \n {}'.format(str(e),self._get_process()))
 
         result = self._io_operations(*args, dask_client=dask_client, result=result,**kwargs)
         return result
