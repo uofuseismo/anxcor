@@ -61,12 +61,11 @@ class XArrayConverter(XArrayProcessor):
                 stats_keys = trace.stats.keys()
                 if 'coordinates' in stats_keys:
                     elevation, latitude, longitude = self._assign_coordinates(trace)
-
         empty_array = np.zeros((len(channels), len(stations), len(time_array)))
         for trace in stream:
             chan = channels.index(trace.stats.channel)
             station_id = stations.index(self._get_station_id(trace))
-
+            assert len(time_array)==len(trace.data), 'time and trace data are not same length!!'
             empty_array[chan, station_id, :] = trace.data
 
         xarray = self._create_xarray(channels, data_type, delta, elevation, empty_array, latitude, longitude, starttime,
