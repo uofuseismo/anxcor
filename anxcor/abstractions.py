@@ -222,7 +222,7 @@ class AnxcorTask:
         if dask_client is None:
             self.write(result, process, folder, file)
         else:
-            if 'dask' not in sys.modules:
+            if self._fire_and_forget is None:
                 from dask.distributed import fire_and_forget
                 self._fire_and_forget = fire_and_forget
             end = dask_client.submit(self.write, result, process, folder, file, key='writing: ' + key)
