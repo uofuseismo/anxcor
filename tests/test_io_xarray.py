@@ -91,7 +91,6 @@ class TestIntegratedIOOps(unittest.TestCase):
         pairs = list(result.coords['pair'].values)
         assert len(pairs) == 6
 
-    @pytest.mark.skip('skipping dask')
     def test_dask_execution(self):
 
         from distributed import Client, LocalCluster
@@ -106,6 +105,33 @@ class TestIntegratedIOOps(unittest.TestCase):
         result = result.result()
         pairs  = list(result.coords['pair'].values)
         assert 6 ==len(pairs)
+
+    def test_dask_combine(self):
+
+        from distributed import Client, LocalCluster
+        from dask.distributed import wait
+        cluster = LocalCluster(n_workers=1, threads_per_worker=3)
+        c = Client(cluster)
+        anxcor = Anxcor()
+        anxcor.set_window_length(120.0)
+        times = anxcor.get_starttimes(starttime_stamp, endtime_stamp, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+
+        anxcor.save_at_task(target_dir, 'combine')
+        result = anxcor.process(times,dask_client=c)
+
+        wait(result)
+        anxcor = Anxcor()
+        anxcor.set_window_length(120.0)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.load_at_task(target_dir, 'combine')
+        result = anxcor.process(times,dask_client=c)
+        wait(result)
+        how_many_nc = _how_many_fmt(target_dir, format='.nc')
+        _clean_files_in_dir(target_dir)
+        assert 6 == how_many_nc
 
 
     def test_read_xconvert(self):
