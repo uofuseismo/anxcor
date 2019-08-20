@@ -24,6 +24,7 @@ class _AnxcorProcessor:
             task   = tasks.pop()
             result = process(task,starttime=starttime, station=station, dask_client=dask_client )
             tasks.append(result)
+
         return tasks[0]
 
 
@@ -226,7 +227,10 @@ class _AnxcorData:
         if task in self._tasks.keys():
             self._tasks[task].set_kwargs(kwargs)
         else:
-            print('{}: is not a valid task. ignoring'.format(task))
+            print('{}: is not a valid task. must be one of:'.format(task))
+            for acceptable_task in self._tasks.keys():
+                print(acceptable_task)
+            print('ignoring')
 
     def set_process_kwargs(self,process: str, kwargs: dict):
         if process in self._tasks['process'].keys():

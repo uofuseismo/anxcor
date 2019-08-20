@@ -1,13 +1,58 @@
 import unittest
-from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
-#from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
-from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter
-from anxcor.containers import XArrayStack
+#from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
+from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
+from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter, XArrayRemoveMeanTrend
+from anxcor.containers import XArrayStack, AnxcorDatabase
 from anxcor.numpyfftfilter import _multiply_in_mat, xarray_crosscorrelate
+from anxcor.core import Anxcor
 import numpy as np
 import xarray as xr
-from obspy.core import  UTCDateTime
+from obspy.core import  UTCDateTime, Trace, Stream, read
+from obsplus.bank import WaveBank
+import pytest
 
+
+class WavebankWrapper(AnxcorDatabase):
+
+    def __init__(self, directory):
+        super().__init__()
+        self.bank = WaveBank(directory)
+        self.bank.update_index()
+
+    def get_waveforms(self, **kwargs):
+        stream =  self.bank.get_waveforms(**kwargs)
+        traces = []
+        for trace in stream:
+            data   = trace.data[:-1]
+            if isinstance(data,np.ma.MaskedArray):
+                data = np.ma.filled(data,fill_value=np.nan)
+            header = {'delta':   trace.stats.delta,
+                      'station': trace.stats.station,
+                      'starttime':trace.stats.starttime,
+                      'channel': trace.stats.channel,
+                      'network': trace.stats.network}
+            traces.append(Trace(data,header=header))
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.title('after wavebank')
+        for trace in traces:
+            plt.plot(trace.data,label=trace.stats.channel)
+        plt.legend()
+        plt.show()
+        return Stream(traces=traces)
+
+    def get_stations(self):
+        df = self.bank.get_availability_df()
+        uptime = self.bank.get_uptime_df()
+
+        def create_seed(row):
+            network = row['network']
+            station = row['station']
+            return network + '.' + station
+
+        df['seed'] = df.apply(lambda row: create_seed(row), axis=1)
+        unique_stations = df['seed'].unique().tolist()
+        return unique_stations
 
 def shift_trace(data,time=1.0,delta=0.1):
     sampling_rate = int(1.0/delta)
@@ -184,6 +229,24 @@ class TestCorrelation(unittest.TestCase):
         tau_shift   = (time_array[max_index]- np.datetime64(UTCDateTime(0.0).datetime) ) / np.timedelta64(1, 's')
         assert tau_shift == time_shift,'failed to correctly identify tau shift'
 
+    def test_shift_trace_time_slice(self):
+        max_tau_shift = 10.0
+        correlator  = XArrayXCorrelate(max_tau_shift=max_tau_shift)
+        time_shift  = 4
+        synth_trace1 = converter(create_sinsoidal_trace_w_decay(decay=0.6,station='h',network='v',channel='z',duration=20))
+        synth_trace2 = converter(create_sinsoidal_trace_w_decay(decay=0.4,station='h',network='w',channel='z',duration=20))
+        synth_trace2 = xr.apply_ufunc(shift_trace,synth_trace2,input_core_dims=[['time']],
+                                                             output_core_dims=[['time']],
+                                                             kwargs={'time': time_shift,
+                                                                     'delta':synth_trace2.attrs['delta']},
+                                                             keep_attrs=True)
+        correlation = correlator(synth_trace1,synth_trace2)
+        correlation/= correlation.max()
+        time_array  = correlation.coords['time'].values
+        max_index   = np.argmax(correlation.data)
+        tau_shift   = (time_array[max_index]- np.datetime64(UTCDateTime(0.0).datetime) ) / np.timedelta64(1, 's')
+        assert tau_shift == -time_shift,'failed to correctly identify tau shift'
+
     def test_correct_pair_ee(self):
         max_tau_shift = 19
         correlator = XArrayXCorrelate(max_tau_shift=max_tau_shift)
@@ -277,6 +340,39 @@ class TestCorrelation(unittest.TestCase):
         correlator = XArrayXCorrelate()
         result = correlator(None,None, starttime=0, station=0)
         assert result == None
+
+    def test_autocorrelation_combined(self):
+        source_dir = 'tests/test_data/test_anxcor_database/test_auto_correlation/src_auto'
+        target_dir = 'tests/test_data/test_anxcor_database/test_auto_correlation/expected_result_corr/target_auto_corr.sac'
+        anxcor = Anxcor()
+        anxcor.set_window_length(60 * 9.9995)
+        anxcor.set_task_kwargs('crosscorrelate',{'max_tau_shift':None})
+        anxcor.set_task_kwargs('resample',{'target_rate':20})
+        anxcor.add_process(XArrayRemoveMeanTrend())
+        bank = WavebankWrapper(source_dir)
+        df = bank.bank.get_uptime_df()
+        starttime=df['starttime'].min()
+        anxcor.add_dataset(bank, 'nodals')
+        result      = anxcor.process([starttime])['src:nodals rec:nodals']
+        full_time   = result.coords['time'].values
+        result_data = result.data.ravel()
+        result_data/=max(result_data)
+
+        trace=read(target_dir)[0]
+        trace.filter('lowpass', freq=10.0, zerophase=True)
+        trace.resample(20.0)
+        trace.data/=max(trace.data)
+
+
+
+        anxcor.set_task_kwargs('crosscorrelate',{'max_tau_shift':20.0})
+        result_slice = anxcor.process([starttime])['src:nodals rec:nodals']
+        slice_time   = result_slice.coords['time'].values
+        slice_data = result_slice.data.ravel()
+        slice_data /= max(slice_data)
+        assert np.cumsum(trace.data - result_data.ravel())[-1]==pytest.approx(0,abs=1e-2)
+
+
 
 
 if __name__ == '__main__':

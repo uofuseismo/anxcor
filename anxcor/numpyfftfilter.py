@@ -50,17 +50,17 @@ def _slice_xarray_tau(xarray,max_tau_shift):
 def _cross_correlate_xarray_data(source_xarray, receiver_xarray,**kwargs):
     src_chan_size = source_xarray.data.shape[0]
     rec_chan_size = receiver_xarray.data.shape[0]
-    time_size     = source_xarray.data.shape[-1]
-    src_data      = source_xarray.data.reshape(  src_chan_size, time_size)
-    receiver_data = receiver_xarray.data.reshape(rec_chan_size, time_size)
+    t_1           = source_xarray.data.shape[-1]
+    t_2           = receiver_xarray.data.shape[-1]
+    src_data      = source_xarray.data.reshape(  src_chan_size, t_1)
+    receiver_data = receiver_xarray.data.reshape(rec_chan_size, t_2)
 
-
-    corr_length     = time_size * 2 - 1
+    corr_length     = t_1+t_2 - 1
     target_length   = fftpack.next_fast_len(corr_length)
 
     fft_src = np.fft.rfft(src_data,target_length)
     fft_rec = np.conj(np.fft.rfft(receiver_data,target_length))
-    result = _multiply_in_mat(fft_src,fft_rec)
+    result  = _multiply_in_mat(fft_src,fft_rec)
 
     xcorr_mat = np.fft.fftshift(np.real(np.fft.irfft(result,corr_length, axis=-1).astype(np.float64)),axes=-1)
 

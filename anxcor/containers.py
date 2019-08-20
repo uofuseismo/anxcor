@@ -314,6 +314,7 @@ class XArrayStack(ab.XArrayProcessor):
         elif first is None and second is None:
             return None
         else:
+
             result       = first + second
         return result
 

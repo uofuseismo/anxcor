@@ -259,6 +259,8 @@ class XArrayXCorrelate(XArrayProcessor):
             correlation = npfilt_ops.xarray_crosscorrelate(source_xarray,
                                              receiver_xarray,
                                                      **self._kwargs)
+
+            import matplotlib.pyplot as plt
             return correlation
         return None
 

@@ -83,7 +83,7 @@ class TestConfig(unittest.TestCase):
         times = [starttime]
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        result = anxcor.process(times, dask_client=c)
+        result = anxcor.process(times, dask_client=None)
         if isinstance(result,Future):
             result = result.result()
         rec_chan = list(result.coords['rec_chan'].values)

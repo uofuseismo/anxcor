@@ -22,14 +22,6 @@ if not path.exists(target_dir):
     print(os.getcwd())
     os.mkdir(target_dir)
 
-class TestProcess:
-
-    def __init__(self):
-        pass
-
-    def process(self, trace):
-        pass
-
 
 def get_ancor_set():
     bank = WaveBank(source_dir)

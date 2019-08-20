@@ -292,6 +292,7 @@ class AnxcorTask:
         return True
 
 
+
 class XArrayProcessor(AnxcorTask):
 
     def __init__(self,*args,**kwargs):
