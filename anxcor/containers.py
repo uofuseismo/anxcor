@@ -148,8 +148,8 @@ class DataLoader(ab.AnxcorDataTask):
         for name, dataset in self._datasets.items():
             stream = dataset.get_waveforms(**kwarg_execute)
             for trace in stream:
-                rate = 1.0/trace.stats.delta
-                npts = int(rate*self._kwargs['window_length'])+3
+                rate = trace.stats.sampling_rate
+                npts = int(rate*self._kwargs['window_length'])+1
                 end_time = UTCDateTime(starttime+npts*trace.stats.delta)
                 if self._not_none_condition(trace,starttime,end_time):
                     trace.interpolate(rate,starttime=starttime,npts=npts)

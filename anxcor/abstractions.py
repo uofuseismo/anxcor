@@ -125,6 +125,7 @@ class AnxcorTask:
         self.read  = _XArrayRead(None)
         self.write = _XArrayWrite(None)
         self._enabled = True
+        self._fire_and_forget = None
 
     def disable(self):
         self._enabled=False
@@ -152,7 +153,6 @@ class AnxcorTask:
 
     def __call__(self, *args, dask_client=None, **kwargs):
         key = self._get_operation_key(**kwargs)
-        self._fire_and_forget = None
 
         result = None
         if self._enabled and not self.read.is_enabled() and self._should_process(*args):

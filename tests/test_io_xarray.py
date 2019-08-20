@@ -91,6 +91,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         pairs = list(result.coords['pair'].values)
         assert len(pairs) == 6
 
+    @pytest.mark.skip('skipping dask debugging')
     def test_dask_execution(self):
 
         from distributed import Client, LocalCluster
@@ -106,6 +107,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         pairs  = list(result.coords['pair'].values)
         assert 6 ==len(pairs)
 
+    @pytest.mark.skip('skipping dask debugging')
     def test_dask_combine(self):
 
         from distributed import Client, LocalCluster

@@ -65,8 +65,6 @@ class XArrayConverter(XArrayProcessor):
         for trace in stream:
             chan       = channels.index(trace.stats.channel)
             station_id = stations.index(self._get_station_id(trace))
-            if len(time_array)!=len(trace.data):
-                trace.interpolate(1.0/trace.stats.delta, starttime=trace.stats.starttime, npts=len(time_array))
             empty_array[chan, station_id, :] = trace.data
 
         xarray = self._create_xarray(channels, data_type, delta, elevation, empty_array, latitude, longitude, starttime,
@@ -78,7 +76,14 @@ class XArrayConverter(XArrayProcessor):
         endtime   = np.datetime64(trace.stats.endtime.datetime)
         delta     = trace.stats.delta
         timedelta = pd.Timedelta(delta, 's').to_timedelta64()
-        time_array = np.arange(starttime, endtime + timedelta, timedelta)
+        time_array= np.arange(starttime, endtime, timedelta)
+        delta_num = 1
+        while len(trace.data)!=len(time_array):
+            if len(trace.data)>len(time_array):
+                time_array=np.append(time_array,endtime+delta_num*timedelta)
+                delta_num+=1
+            else:
+                time_array=time_array[:-1]
         return time_array
 
     def _assign_coordinates(self, trace):
