@@ -6,6 +6,7 @@ import itertools
 from obspy.core import UTCDateTime, Stream, Trace
 import json
 import anxcor.utils as utils
+import copy
 
 class _AnxcorProcessor:
 
@@ -55,7 +56,7 @@ class _AnxcorProcessor:
         receiver = pair[1]
         correlation_stack = []
         for starttime in starttimes:
-            source_channels = self._get_task('data')(
+            source_channels = self._get_task('data',dask_client=dask_client)(
                                                   starttime=starttime,
                                                   station=source,
                                                   dask_client=dask_client)
@@ -66,7 +67,7 @@ class _AnxcorProcessor:
             if source==receiver:
                 receiver_ch_ops   = source_ch_ops
             else:
-                receiver_channels = self._get_task('data')(
+                receiver_channels = self._get_task('data',dask_client=dask_client)(
                                                       starttime=starttime,
                                                       station=receiver,
                                                       dask_client=dask_client)
@@ -238,9 +239,13 @@ class _AnxcorData:
         else:
             print('{}: is not a valid process. ignoring'.format(process))
 
-    def _get_task(self,key):
+    def _get_task(self,key,dask_client=None):
         if key in self._tasks.keys():
-            return self._tasks[key]
+            task = self._tasks[key]
+            if dask_client is not None:
+                return copy.deepcopy(task)
+            else:
+                return task
         else:
             raise KeyError('key does not exist in tasks')
 
