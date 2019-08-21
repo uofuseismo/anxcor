@@ -72,6 +72,7 @@ class WavebankWrapper(AnxcorDatabase):
 
 class TestConfig(unittest.TestCase):
 
+    @pytest.mark.skip('not needed')
     def test_dask_execution(self):
         # created test after observing incorrect time array conversion. Will test again on cluster
         from distributed import Client, LocalCluster

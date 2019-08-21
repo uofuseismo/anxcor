@@ -164,18 +164,12 @@ class AnxcorTask:
         return result
 
     def _execute(self, *args, **kwargs):
-        try:
-            persist_name       = self.__get_name(*args)
-            persisted_metadata = self.__metadata_to_persist(*args, **kwargs)
-            if args is None or len(args)==1 and args[0] is None:
-                result = None
-            else:
-                result = self._single_thread_execute(*args, **kwargs)
-        except Exception as e:
-            printstr = '********error********* \n' + str(kwargs) + '\n'+str(e)+' \nfrom function\n' +self._get_process() + \
-                    '\nreturning \'None\' and continuing'
-            print(printstr)
+        persist_name       = self.__get_name(*args)
+        persisted_metadata = self.__metadata_to_persist(*args, **kwargs)
+        if args is None or len(args)==1 and args[0] is None:
             result = None
+        else:
+            result = self._single_thread_execute(*args, **kwargs)
         if result is not None:
             self._assign_metadata(persist_name, persisted_metadata, result)
         else:
