@@ -29,6 +29,7 @@ class XArrayConverter(XArrayProcessor):
         return network + '.' + station
 
     def _single_thread_execute(self, stream,*args, **kwargs):
+        print(stream)
         if stream is not None and len(stream)>0:
             return self._convert_trace_2_xarray(stream)
         return None
