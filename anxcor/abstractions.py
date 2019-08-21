@@ -179,9 +179,7 @@ class AnxcorTask:
         if result is not None:
             self._assign_metadata(persist_name, persisted_metadata, result)
         else:
-            printstr = '********error********* \n' + str(kwargs) + '\n' + str(e) +\
-                       ' \nfrom function\n' + self._get_process() + \
-                       '\nreturning \'None\' and continuing'
+            printstr = 'Nonetype returned at '+ str(kwargs) + ' in ' + self._get_process()
             print(printstr)
         return result
 
