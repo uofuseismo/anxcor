@@ -318,6 +318,8 @@ class XArrayStack(ab.XArrayProcessor):
             second/=np.max(np.abs(second.data))
 
             first_aligned, second_aligned = xr.align(first,second,join='outer')
+            first_aligned.data  = np.nan_to_num(first_aligned.data)
+            second_aligned.data = np.nan_to_num(second_aligned.data)
             result = first_aligned + second_aligned
         return result
 
