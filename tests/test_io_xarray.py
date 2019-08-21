@@ -100,7 +100,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         assert 6 ==len(pairs)
 
     #@pytest.mark.skip('skipping dask debugging')
-    def test_dask_combine(self):
+    def test_dask_write_combine(self):
 
         from distributed import Client, LocalCluster
         from dask.distributed import wait
@@ -115,14 +115,14 @@ class TestIntegratedIOOps(unittest.TestCase):
         anxcor.save_at_task(target_dir, 'combine')
         result = anxcor.process(times,dask_client=c)
 
-        wait(result)
+        result.result()
         anxcor = Anxcor()
         anxcor.set_window_length(120.0)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.load_at_task(target_dir, 'combine')
         result = anxcor.process(times,dask_client=c)
-        wait(result)
+        result.result()
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
         assert 6 == how_many_nc

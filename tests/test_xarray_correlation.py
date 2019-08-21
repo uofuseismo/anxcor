@@ -32,13 +32,6 @@ class WavebankWrapper(AnxcorDatabase):
                       'channel': trace.stats.channel,
                       'network': trace.stats.network}
             traces.append(Trace(data,header=header))
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.title('after wavebank')
-        for trace in traces:
-            plt.plot(trace.data,label=trace.stats.channel)
-        plt.legend()
-        plt.show()
         return Stream(traces=traces)
 
     def get_stations(self):
@@ -227,7 +220,7 @@ class TestCorrelation(unittest.TestCase):
         time_array  = correlation.coords['time'].values
         max_index   = np.argmax(correlation.data)
         tau_shift   = (time_array[max_index]- np.datetime64(UTCDateTime(0.0).datetime) ) / np.timedelta64(1, 's')
-        assert tau_shift == time_shift,'failed to correctly identify tau shift'
+        assert tau_shift == -time_shift,'failed to correctly identify tau shift'
 
     def test_shift_trace_time_slice(self):
         max_tau_shift = 10.0
