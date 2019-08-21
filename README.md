@@ -20,8 +20,7 @@ ANXCOR is designed with readability and explicit documentation in mind; all algo
 research, and written following most of the practices outlined in the [Clean Code Handbook by Robert C. Martin](https://www.amazon.com/Clean-Code-Handbook-Software-Craftsmanship/dp/0132350882).
 
 
-
-ANXCOR integrates seamlessly into the current python datascience stack, leverage common datascience packages 
+ANXCOR integrates seamlessly into the current python datascience stack by leveraging common datascience packages 
 like [pandas](http://pandas.pydata.org), [NumPy](http://www.numpy.org), and [SciPy](http://www.scipy.org), 
 as well as the popular seismology package [ObsPy](https://github.com/obspy/obspy/wiki). 
 Furthermore, it leverages both [xarray](http://xarray.pydata.org/en/stable/) and [dask](http://dask.org)
