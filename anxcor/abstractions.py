@@ -178,6 +178,11 @@ class AnxcorTask:
             result = None
         if result is not None:
             self._assign_metadata(persist_name, persisted_metadata, result)
+        else:
+            printstr = '********error********* \n' + str(kwargs) + '\n' + str(e) +\
+                       ' \nfrom function\n' + self._get_process() + \
+                       '\nreturning \'None\' and continuing'
+            print(printstr)
         return result
 
     def _assign_metadata(self, persist_name, persisted_metadata, result):
