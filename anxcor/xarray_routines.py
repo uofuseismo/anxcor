@@ -257,10 +257,9 @@ class XArrayXCorrelate(XArrayProcessor):
     def _single_thread_execute(self, source_xarray: xr.DataArray, receiver_xarray: xr.DataArray,*args, **kwargs):
         if source_xarray is not None and receiver_xarray is not None:
             correlation = npfilt_ops.xarray_crosscorrelate(source_xarray,
-                                             receiver_xarray,
-                                                     **self._kwargs)
+                                                           receiver_xarray,
+                                                           **self._kwargs)
 
-            import matplotlib.pyplot as plt
             return correlation
         return None
 

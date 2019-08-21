@@ -314,9 +314,12 @@ class XArrayStack(ab.XArrayProcessor):
         elif first is None and second is None:
             return None
         else:
+            print(first)
+            print(second)
             first /=np.max(np.abs(first.data))
             second/=np.max(np.abs(second.data))
             result       = first + second
+            print(result)
         return result
 
 
