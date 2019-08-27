@@ -14,15 +14,14 @@
 **ANXCOR** is a python library for performing seismic ambient noise crosscorrelations.
 
 ANXCOR's goal is to provide a framework for rapid workflow prototyping
-and small-batch production of seismic ambient noise correlation functions.
-ANXCOR is designed with readability and explicit documentation in mind; all algorithms are well documented, grounded in
+and small-batch production of seismic ambient noise cross-correlations. Designed with readability and explicit documentation in mind, all algorithms are well documented, grounded in
 research, and written following most of the practices outlined in the [Clean Code Handbook by Robert C. Martin](https://www.amazon.com/Clean-Code-Handbook-Software-Craftsmanship/dp/0132350882).
 
 
 ANXCOR integrates seamlessly into the current python datascience stack by leveraging common datascience packages 
 like [pandas](http://pandas.pydata.org), [NumPy](http://www.numpy.org), and [SciPy](http://www.scipy.org), 
 as well as the popular seismology package [ObsPy](https://github.com/obspy/obspy/wiki). 
-Furthermore, it leverages both [xarray](http://xarray.pydata.org/en/stable/) and [dask](http://dask.org)
+Furthermore, we leverage both [xarray](http://xarray.pydata.org/en/stable/) and [dask](http://dask.org)
 to achieve embarassingly parallel execution. Use of these popular packages makes working with ANXCOR intuitive,
 concise, and extensible without deep domain experience in compiled languages.
 
@@ -38,9 +37,7 @@ Kevin A. Mendoza served as chief architect and programmer of ANXCOR. Development
 
 ## Known Issues
 
-* Spectral whitening introduces hilbert transform phase shift when assigning result of rolling window to center of window. Temp fix: assign result to beginning of rolling window.
-
-* Sometimes dask will throw a tornado runtime error on a specific branch, causing the entire operation to restart. Deleting the dask workspace and restarting the python kernel will sometimes fix this. Short term patch might involve a caching of jobs completed under a 'write everything' scheme. 
+* Using obsplus Wavebank creates runtime race condition on hdf5 table reading, causing index corruption. Error not encountered if restricting workers to a single thread.
 
 * Returned DataSet requires some unravelling to properly plot. 
 ## Planned Enhancements
