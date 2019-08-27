@@ -13,8 +13,7 @@
 
 **ANXCOR** is a python library for performing seismic ambient noise crosscorrelations.
 
-ANXCOR is not intended to replace existing seismic ambient noise processing codes.
-Instead, our goal is to provide a framework for rapid prototyping of new processing routines,
+ANXCOR is not intended to replace existing seismic ambient noise processing codes. Our goal is to provide a framework for rapid prototyping of new processing routines,
 and small-batch production of seismic ambient noise correlation functions.
 ANXCOR is designed with readability and explicit documentation in mind; all algorithms are well documented, grounded in
 research, and written following most of the practices outlined in the [Clean Code Handbook by Robert C. Martin](https://www.amazon.com/Clean-Code-Handbook-Software-Craftsmanship/dp/0132350882).
