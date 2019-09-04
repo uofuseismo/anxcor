@@ -1,5 +1,6 @@
 from  anxcor.containers import DataLoader, XArrayCombine, XArrayStack
 from  anxcor.xarray_routines import XArrayConverter, XArrayResample, XArrayXCorrelate
+from anxcor.abstractions import NullTask
 import xarray as xr
 import numpy as np
 import itertools
@@ -10,7 +11,7 @@ import copy
 
 class _AnxcorProcessor:
 
-    time_format = '%d-%m-%Y %H:%M:%S'
+    time_format = '%d-%m-%Y_T%H:%M:%S'
     CORR_FORMAT = 'src:{} rec:{}'
     def __init__(self):
         pass
@@ -29,33 +30,38 @@ class _AnxcorProcessor:
         return tasks[0]
 
 
-    def process(self,starttimes, dask_client=None,**kwargs):
+    def process(self,starttimes, dask_client=None,stack_immediately=False,**kwargs):
 
         station_pairs = self.get_station_combinations()
         futures = []
-        for pair in station_pairs:
+        for starttime in starttimes:
 
-            correlation_list  = self._iterate_starttimes(pair,  starttimes,dask_client=dask_client)
-            correlation_stack = self._reduce(correlation_list,
-                                             station=str(pair),
-                                             reducing_func=self._get_task('stack'),
-                                             dask_client=dask_client)
-
-            futures.append(correlation_stack)
-
-        combined_crosscorrelations = self._reduce(futures,
-                                                  station='combine',
-                                                  reducing_func=self._get_task('combine'),
+            correlation_dataset  = self._iterate_over_pairs(starttime, station_pairs, dask_client=dask_client)
+            futures.append(correlation_dataset)
+            if stack_immediately and len(futures)==2:
+                station = 'stack_'+UTCDateTime(starttime).strftime(self.time_format)
+                stacked_result = self._reduce(futures,
+                                                  station=station,
+                                                  reducing_func=self._get_task('stack'),
                                                   dask_client=dask_client)
+                futures=[stacked_result]
+
+        if not stack_immediately:
+            combined_crosscorrelations = self._reduce(futures,
+                                                  station='stack',
+                                                  reducing_func=self._get_task('stack'),
+                                                  dask_client=dask_client)
+        else:
+            combined_crosscorrelations=futures[0]
 
         return combined_crosscorrelations
 
 
-    def _iterate_starttimes(self, pair, starttimes, dask_client=None):
-        source   = pair[0]
-        receiver = pair[1]
+    def _iterate_over_pairs(self, starttime, station_pairs, dask_client=None):
         correlation_stack = []
-        for starttime in starttimes:
+        for pair in station_pairs:
+            source   = pair[0]
+            receiver = pair[1]
             source_channels = self._get_task('data',dask_client=dask_client)(
                                                   starttime=starttime,
                                                   station=source,
@@ -75,16 +81,26 @@ class _AnxcorProcessor:
                                                                 starttime=starttime,
                                                                 station=receiver,
                                                                 dask_client=dask_client)
-
+            corr_station = self.CORR_FORMAT.format(source,receiver)
             correlation = self._get_task('crosscorrelate')(source_ch_ops,
                                                    receiver_ch_ops,
-                                                   station=self.CORR_FORMAT.format(source,receiver),
+                                                   station=corr_station,
                                                    starttime=starttime,
                                                    dask_client=dask_client)
 
+            correlation = self._get_task('postcorrelate')(correlation,station=corr_station,starttime=starttime)
+
             correlation_stack.append(correlation)
 
-        return correlation_stack
+        combined_crosscorrelations = self._reduce(correlation_stack,
+                                                  station=UTCDateTime(starttime).strftime(self.time_format),
+                                                  reducing_func=self._get_task('combine'),
+                                                  dask_client=dask_client)
+
+        if dask_client is not None:
+            combined_crosscorrelations = combined_crosscorrelations.result()
+        return combined_crosscorrelations
+
 
     def _reduce(self,
                 future_stack,
@@ -127,7 +143,7 @@ class _AnxcorProcessor:
 
 
 class _AnxcorData:
-    TASKS = ['data', 'xconvert', 'resample', 'process', 'crosscorrelate', 'stack', 'combine']
+    TASKS = ['data', 'xconvert', 'resample', 'process', 'crosscorrelate', 'combine', 'stack']
     def __init__(self):
         self._window_length=60*60.0
         self._tasks = {
@@ -136,10 +152,27 @@ class _AnxcorData:
             'resample': XArrayResample(),
             'process' : {},
             'crosscorrelate': XArrayXCorrelate(),
+            'postcorrelate': NullTask(),
             'combine': XArrayCombine(),
             'stack': XArrayStack()
             }
         self._process_order = []
+
+    def print_parameters(self):
+        for task in self._tasks.keys():
+            if task!='process':
+                print('task: {} with parameters:\n{}'.format(task,self._tasks[task].get_kwargs()))
+            else:
+                for process in self._tasks[task].keys():
+                    print('process: {} with parameters:\n{}'.format(process, self._tasks[task][process].get_kwargs()))
+
+    def set_task(self,key,obj):
+        if key not in self._tasks.keys():
+            print('Anxcor does not use task:{}\n please use one of the following tasks'.format(key))
+            for key in self._tasks.keys():
+                print(key)
+        else:
+            self._tasks[key]=obj
 
     def _get_task_keys(self):
         return self._tasks.keys()
@@ -323,7 +356,7 @@ class _AnxcorConverter:
         return new_ds
 
     def xarray_to_obspy(self,xdataset: xr.Dataset):
-        attrs = xdataset.attrs
+        df = xdataset.attrs['df']
         traces = []
         starttime = list(xdataset.coords['time'].values)[0]
         starttime = self._extract_timestamp(starttime)
@@ -335,17 +368,30 @@ class _AnxcorConverter:
 
                         record = xarray.loc[dict(pair=pair,src_chan=src_chan,rec_chan=rec_chan)]
 
-                        station_1, station_2, network_1, network_2 = self._extract_station_network_info(pair)
-                        header_dict = {
-                        'delta'    : record.attrs['delta'],
-                        'npts'     : record.data.shape[-1],
-                        'starttime': starttime,
-                        'station'  : '{}.{}'.format(station_1,station_2),
-                        'channel'  : '{}.{}'.format(src_chan,rec_chan),
-                        'network'  : '{}.{}'.format(network_1,network_2)
-                        }
-                        trace = Trace(data=record.data,header=header_dict)
-                        traces.append(trace)
+                        src, rec = pair.split('rec:')
+                        src = src.strip('src:')
+
+                        meta_record = df.loc[(df['src']==src)              & (df['rec']==rec) &
+                                             (df['src channel']==src_chan) & (df['rec channel']==rec_chan)]
+                        if not meta_record.empty:
+                            station_1, station_2, network_1, network_2 = self._extract_station_network_info(pair)
+                            header_dict = {
+                            'delta'    : meta_record['delta'].values[0],
+                            'npts'     : record.data.shape[-1],
+                            'starttime': starttime,
+                            'station'  : '{}.{}'.format(station_1,station_2),
+                            'channel'  : '{}.{}'.format(src_chan,rec_chan),
+                            'network'  : '{}.{}'.format(network_1,network_2)
+                            }
+                            trace = Trace(data=record.data,header=header_dict)
+                            if 'rec_latitude' in meta_record.columns:
+                                trace.stats.coordinates = {
+                                'src_latitude' :meta_record['src_latitude'].values[0],
+                                'src_longitude':meta_record['src_longitude'].values[0],
+                                'rec_latitude':meta_record['rec_latitude'].values[0],
+                                'rec_longitude':meta_record['rec_longitude'].values[0]
+                                }
+                            traces.append(trace)
 
         return Stream(traces=traces)
 

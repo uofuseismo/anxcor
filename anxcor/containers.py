@@ -3,6 +3,7 @@ import  anxcor.abstractions as ab
 import  anxcor.utils as os_utils
 from  obspy.core import read, Stream, UTCDateTime
 import xarray as xr
+import pandas as pd
 FLOAT_PRECISION = 1e-9
 import numpy as np
 
@@ -223,8 +224,10 @@ class XArrayCombine(ab.AnxcorDataTask):
 
     def _single_thread_execute(self,first_data, second_data,**kwargs):
         if isinstance(first_data,xr.DataArray):
+            first_data.attrs = {}
             first_data = first_data.to_dataset()
         if isinstance(second_data,xr.DataArray):
+            second_data.attrs = {}
             second_data = second_data.to_dataset()
         return execute_if_ok_else_pass_through(self._normal_combine,first_data,second_data)
 
@@ -244,6 +247,7 @@ class XArrayCombine(ab.AnxcorDataTask):
         if not isinstance(result, xr.Dataset):
             name   = result.name
             coords = result.coords
+            result.attrs = {}
             result = xr.Dataset(data_vars={name: result}, coords=coords)
         return result
 
@@ -260,30 +264,18 @@ class XArrayCombine(ab.AnxcorDataTask):
         if first_data is None and second_data is None:
             return None
         elif first_data is None and second_data is not None:
-            return {**self._extract_metadata_dict(second_data)}
+            return second_data.attrs
         elif first_data is not None and second_data is None:
-            return {**self._extract_metadata_dict(first_data)}
+            return first_data.attrs
         else:
-            persist1 = self._extract_metadata_dict(first_data)
-            persist2 = self._extract_metadata_dict(second_data)
-        result   = {**persist1,**persist2}
-        return result
-
-    def _extract_metadata_dict(self, data_array):
-        if isinstance(data_array, xr.DataArray) and len(list(data_array.coords['pair'].values))==1:
-            key = list(data_array.coords['pair'].values)[0]
-            dict1 = {key: {'stacks': data_array.attrs['stacks'],
-                           'starttime': data_array.attrs['starttime'],
-                           'endtime': data_array.attrs['endtime']},
-                           'delta': data_array.attrs['delta'],
-                           'operations': data_array.attrs['operations']}
-
-            if 'location' in data_array.attrs.keys():
-                dict1[key]['location']=data_array.attrs['location']
-        else:
-            dict1 = data_array.attrs
-
-        return dict1
+            attrs_1 = first_data.attrs
+            attrs_2 = second_data.attrs
+            df_1 = attrs_1['df']
+            df_2 = attrs_2['df']
+            attrs = {'df': pd.concat([df_1,df_2],ignore_index=True)}
+            if attrs['df'].isnull().values.any():
+                print('isnull')
+            return attrs
 
     def _io_result(self, result, *args, **kwargs):
         return result
@@ -294,7 +286,6 @@ class XArrayCombine(ab.AnxcorDataTask):
     def _get_process(self):
         return 'combine'
 
-
     def starttime_parser(self,first,second):
         return 'depth:{}branch:{}'.format(first, second)
 
@@ -302,11 +293,12 @@ class XArrayCombine(ab.AnxcorDataTask):
 
 class XArrayStack(ab.XArrayProcessor):
 
-    def __init__(self,**kwargs):
+    def __init__(self,norm_procedure=0,**kwargs):
         super().__init__(**kwargs)
+        self._kwargs['norm_procedure']=norm_procedure
 
 
-    def _single_thread_execute(self,first: xr.DataArray, second: xr.DataArray,*args,**kwargs):
+    def _single_thread_execute(self,first: xr.Dataset, second: xr.Dataset,*args,**kwargs):
         if first is None and second is not None:
             return second
         elif first is not None and second is None:
@@ -314,38 +306,50 @@ class XArrayStack(ab.XArrayProcessor):
         elif first is None and second is None:
             return None
         else:
-            first /=np.max(np.abs(first.data))
-            second/=np.max(np.abs(second.data))
+            first_aligned, second_aligned = xr.align(first, second, join='outer')
+            first_aligned_copy = first_aligned.copy()
+            first_var_set = set(list(first.data_vars))
+            second_var_set= set(list(second.data_vars))
+            intersection  = first_var_set.intersection(second_var_set)
+            for var in intersection:
+                first_array  = first_aligned[var]
+                second_array = second_aligned[var]
+                first_array.data  = np.nan_to_num(first_array.data)
+                second_array.data = np.nan_to_num(second_array.data)
+                result = first_array + second_array
+                first_aligned_copy[var]=result
 
-            first_aligned, second_aligned = xr.align(first,second,join='outer')
-            first_aligned.data  = np.nan_to_num(first_aligned.data)
-            second_aligned.data = np.nan_to_num(second_aligned.data)
-            result = first_aligned + second_aligned
-        return result
+            in_second_not_first = second_var_set - intersection
+            for var in in_second_not_first:
+                first_aligned_copy[var]=second_aligned[var]
+
+        return first_aligned_copy
 
 
     def _metadata_to_persist(self, xarray_1,xarray_2,*args, **kwargs):
         return  method_per_op(self._combine_metadata,self._getattr,xarray_1,xarray_2)
 
+    def _lambda_add(self,x_stacks,y_stacks):
+        return int(x_stacks + y_stacks)
+
     def _combine_metadata(self,attrs1, attrs2):
-        attrs = {}
-        attrs['delta'] = attrs1['delta']
-        attrs['starttime'] = self._get_lower(attrs1, attrs2, 'starttime')
-        attrs['endtime'] = self._get_upper(attrs1, attrs2, 'endtime')
-        attrs['stacks'] = attrs1['stacks'] + attrs2['stacks']
-        attrs['operations'] = attrs1['operations']
-        if 'location' in attrs1.keys():
-            attrs['location'] = attrs1['location']
-        return attrs
+        df_1 = attrs1['df']
+        df_2 = attrs2['df']
+        col_names= ['rec','src','src channel','rec channel','delta','operations']
+        if 'rec_latitude' in df_1.columns:
+            col_names = col_names + ['src_latitude','rec_latitude','src_longitude','rec_longitude']
+        if 'rec_elevation' in df_2.columns:
+            col_names = col_names + ['src_elevation','rec_elevation']
+        df_joined = df_1.merge(df_2,on=col_names,how='outer')
+        df_joined.fillna(0,inplace=True)
+        df_joined['stacks']= df_joined.apply(lambda x:   self._lambda_add(x['stacks_x'],x['stacks_y']),axis=1)
+        df_joined.drop(columns=['stacks_x','stacks_y'],inplace=True)
+        return {'df':df_joined}
 
     def _getattr(self,array):
         return array.attrs
 
     def _get_name(self,one,two):
-        if one is not None:
-            return one.name
-        if two is not None:
-            return two.name
         return None
 
     def _get_lower(self,one,two,key):

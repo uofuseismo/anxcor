@@ -2,7 +2,7 @@ import unittest
 #from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
 from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
 from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter, XArrayRemoveMeanTrend
-from anxcor.containers import XArrayStack, AnxcorDatabase
+from anxcor.containers import XArrayStack, AnxcorDatabase, XArrayCombine
 from anxcor.numpyfftfilter import _multiply_in_mat, xarray_crosscorrelate
 from anxcor.core import Anxcor
 import numpy as np
@@ -95,46 +95,29 @@ class TestCorrelation(unittest.TestCase):
 
     def test_stacking_preserves_metadata(self):
         correlator = XArrayXCorrelate(max_tau_shift=5.0)
+        combiner = XArrayCombine()
         syth_trace1 = converter(create_random_trace(station='1', network='v', duration=20))
 
-        result_1 = correlator(syth_trace1, syth_trace1)
-        result_2 = correlator(syth_trace1, syth_trace1)
+        result_1 = combiner(correlator(syth_trace1, syth_trace1),None)
+        result_2 = combiner(correlator(syth_trace1, syth_trace1),None)
 
         stack = stacker(result_1,result_2)
 
-        attrs = stack.attrs
-
-        assert 'starttime' in attrs.keys(), 'starttime did not persist through stacking'
-        assert 'endtime' in attrs.keys(), 'endtime did not persist through stacking'
-        assert attrs['stacks'] == 2,'unexpected stack length'
-        assert 'operations' in attrs.keys(), 'operations did not persist through stacking'
-        assert 'delta' in attrs.keys(), 'delta did not persist through stacking'
+        df = stack.attrs['df']
 
 
-    def test_has_starttime(self):
+        assert df['stacks'].values[0] == 2,'unexpected stack length'
+        assert 'operations' in df.columns, 'operations did not persist through stacking'
+        assert 'delta' in df.columns, 'delta did not persist through stacking'
 
-        correlator  = XArrayXCorrelate(max_tau_shift=5.0)
-        syth_trace1 = converter(create_random_trace(station='1',network='v',duration=20))
 
-        keys = correlator(syth_trace1,syth_trace1).attrs.keys()
-
-        assert 'starttime' in keys, 'starttime not preserved through correlation'
-
-    def test_has_endtime(self):
-
-        correlator = XArrayXCorrelate(max_tau_shift=5.0)
-        syth_trace1 = converter(create_random_trace(station='1', network='v', duration=20))
-
-        keys = correlator(syth_trace1, syth_trace1).attrs.keys()
-
-        assert 'endtime' in keys, 'endtime not preserved through correlation'
 
     def test_has_delta(self):
 
         correlator = XArrayXCorrelate(max_tau_shift=5.0)
         syth_trace1 = converter(create_random_trace(station='1', network='v', duration=20))
 
-        keys = correlator(syth_trace1, syth_trace1).attrs.keys()
+        keys = correlator(syth_trace1, syth_trace1).attrs['df'].columns
 
         assert 'delta' in keys, 'delta not preserved through correlation'
 
@@ -143,7 +126,7 @@ class TestCorrelation(unittest.TestCase):
         correlator = XArrayXCorrelate(max_tau_shift=5.0)
         syth_trace1 = converter(create_random_trace(station='1', network='v', duration=20))
 
-        keys = correlator(syth_trace1, syth_trace1).attrs.keys()
+        keys = correlator(syth_trace1, syth_trace1).attrs['df'].columns
 
         assert 'stacks' in keys, 'stacks not preserved through correlation'
 
@@ -154,7 +137,7 @@ class TestCorrelation(unittest.TestCase):
 
         attr = correlator(syth_trace1, syth_trace1).attrs
 
-        assert attr['stacks'] == 1,'stacks assigned improper value'
+        assert attr['df']['stacks'].values[0] == 1,'stacks assigned improper value'
 
     def test_autocorrelation_delta_attr(self):
 
@@ -163,16 +146,8 @@ class TestCorrelation(unittest.TestCase):
 
         correlation = correlator(syth_trace1,syth_trace1)
 
-        assert 'delta' in correlation.attrs.keys(),'did not propagate the delta value'
+        assert 'delta' in correlation.attrs['df'].columns,'did not propagate the delta value'
 
-    def test_autocorrelation_starttime_attr(self):
-
-        correlator  = XArrayXCorrelate(max_tau_shift=5.0)
-        syth_trace1 = converter(create_random_trace(station='1',network='v',duration=20))
-
-        correlation = correlator(syth_trace1,syth_trace1)
-
-        assert 'starttime' in correlation.attrs.keys(),'did not propagate the delta value'
 
     def test_name(self):
 

@@ -1,33 +1,56 @@
 import  anxcor.utils as utils
 from obspy.core import UTCDateTime
+import anxcor.constants as c
 import xarray as xr
-import sys
+import pandas as pd
 import numpy as np
 import json
-
+sep_char = c.OPERATIONS_SEPARATION_CHARACTER
 def write(xarray, path, extension):
     array_path      = '{}{}{}{}'.format(path, utils.sep, extension, '.nc')
-    attributes_path = '{}{}{}{}'.format(path, utils.sep, extension, '.metadata.json')
     data = xarray.copy()
     data.attrs = {}
     data.to_netcdf(array_path)
-    with open(attributes_path, 'w') as p_file:
-        json.dump(xarray.attrs, p_file, sort_keys=True, indent=4)
+    if 'df' in xarray.attrs.keys():
+        attributes_path = '{}{}{}{}'.format(path, utils.sep, extension, '.metadata.csv')
+        xarray.attrs['df'].to_csv(attributes_path,index_label='index')
+    else:
+        attributes_path = '{}{}{}{}'.format(path, utils.sep, extension, '.metadata.json')
+        with open(attributes_path, 'w') as p_file:
+            json.dump(xarray.attrs, p_file, sort_keys=True, indent=4)
 
 
 def read(path, extension):
     xarray_path     ='{}{}{}{}'.format(path, utils.sep, extension, '.nc')
-    attributes_path ='{}{}{}{}'.format(path, utils.sep, extension, '.metadata.json')
     try:
         xarray = xr.open_dataset(xarray_path)
-        with open(attributes_path, 'r') as p_file:
-            attrs = json.load(p_file)
     except FileNotFoundError:
-        print('File:\n {}\n not found. Ignoring window'.format(attributes_path))
+        print('Data File:\n {}\n not found. Ignoring window'.format(xarray_path))
+        return None
+
+    try:
+        try:
+            attributes_path = '{}{}{}{}'.format(path, utils.sep, extension, '.metadata.csv')
+            attrs = {}
+            attrs['df']=pd.read_csv(attributes_path,index_col='index')
+        except Exception:
+            attributes_path = '{}{}{}{}'.format(path, utils.sep, extension, '.metadata.json')
+            with open(attributes_path, 'r') as p_file:
+                attrs = json.load(p_file)
+    except FileNotFoundError:
+        print('Metadata File:\n {}\n not found. Ignoring window'.format(xarray_path))
         return None
     xarray.attrs = attrs
     return xarray
 
+
+class NullTask:
+
+    def __init__(self):
+        pass
+
+    def __call__(self,correlation,**kwargs):
+        return correlation
 
 class _IO:
 
@@ -49,7 +72,7 @@ class _IO:
             return self._file + utils.sep + pair + utils.sep + stack_num
         elif 'operations' in xarray.attrs.keys():
             # then xarray represents single station data
-            operation = xarray.attrs['operations'].split('\n')[-1]
+            operation = xarray.attrs['operations'].split(sep_char)[-1]
             starttime = UTCDateTime(xarray.attrs['starttime']).isoformat()
             return self._file + utils.sep + operation + utils.sep + starttime
         else:
@@ -106,16 +129,10 @@ class _XArrayRead(_IO):
             utils.make_dir(directory)
         self._file = directory
 
-    def __call__(self, xarray, process, folder, file, dask_client=None, **kwargs):
-        result = None
-        if self._file is not None:
-            folder = self._file + utils.sep + process + utils.sep + folder
-            result = read(folder, file)
+    def __call__(self, process=None, folder=None, file=None, **kwargs):
+        folder = self._file + utils.sep + process + utils.sep + folder
+        return read(folder, file)
 
-        if result is not None:
-            return result
-        else:
-            return xarray
 
 class AnxcorTask:
 
@@ -189,9 +206,9 @@ class AnxcorTask:
         key = self._get_operation_key(**kwargs)
         file, folder, process = self._get_io_string_vars(**kwargs)
         if self.read.is_enabled():
-            result = self._dask_read_execute(*args, result=result, process=process,folder=folder,file=file,key=key,**kwargs)
+            result = self._dask_read_execute( process=process,folder=folder,file=file,key=key,**kwargs)
         elif self.write.is_enabled():
-            self._dask_write_execute(process=process, result=result, folder=folder,file=file,key=key,**kwargs)
+            self._dask_write_execute(result=result,process=process, folder=folder,file=file,key=key,**kwargs)
         return result
 
     def _get_io_string_vars(self, starttime=0, station=0,**kwargs):
@@ -200,8 +217,8 @@ class AnxcorTask:
         file    = station
         return file, folder, process
 
-    def _read_execute(self, result, process, folder, file):
-        result = self.read(result, process,folder,file)
+    def _read_execute(self, process, folder, file):
+        result = self.read(process=process,folder=folder,file=file)
         result = self._additional_read_processing(result)
         return result
 
@@ -210,9 +227,9 @@ class AnxcorTask:
 
     def _dask_read_execute(self,*args,dask_client=None,result=None,process=None,folder=None,file=None,key=None,**kwargs):
         if dask_client is None:
-            result = self._read_execute(result, process, folder, file)
+            result = self._read_execute(process=process, folder=folder, file=file)
         else:
-            result = dask_client.submit(self._read_execute, *args, process, folder, file, key=key)
+            result = dask_client.submit(self._read_execute, process=process, folder=folder, file=file)
         return result
 
     def _dask_write_execute(self,dask_client=None,result=None,process=None,folder=None,file=None,key=None,**kwargs):
@@ -252,9 +269,12 @@ class AnxcorTask:
                     attrs[added_kv_metadata[0]] = added_kv_metadata[1]
             else:
                 attrs[added_kv_metadata[0]] = added_kv_metadata[1]
-        if add_operation is not None:
-            attrs['operations']=attrs['operations'] + '\n' + add_operation
+        if self._use_operation():
+            attrs['operations']=attrs['operations'] + sep_char + add_operation
         return attrs
+
+    def _use_operation(self):
+        return True
 
     def _get_name(self,*args,**kwargs):
         if len(args) == 1:

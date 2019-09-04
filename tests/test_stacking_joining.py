@@ -1,18 +1,13 @@
 import unittest
 from obsplus.bank import WaveBank
 from obspy.core import Stream, Trace
-from anxcor.utils import _clean_files_in_dir, _how_many_fmt
-import anxcor.utils as utils
 from anxcor.core import Anxcor
 from anxcor.containers import AnxcorDatabase
-from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
-import xarray as xr
-from os import path
-import numpy as np
-import pytest
-import os
 
-source_dir = 'test_data/test_anxcor_database/test_stacking_data/NOA_test_0.1_0.2'
+import numpy as np
+
+
+source_dir = 'tests/test_data/test_anxcor_database/test_stacking_data/NOA_test_0.1_0.2'
 
 class WavebankWrapper(AnxcorDatabase):
 

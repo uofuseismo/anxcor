@@ -97,7 +97,8 @@ class TestMetadataInCombine(unittest.TestCase):
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         result = anxcor.process(times)
-        assert 'src:AX.1rec:AX.2' in result.attrs.keys()
+        pairs=result.coords['pair'].values
+        assert 'src:AX.1rec:AX.2' in list(pairs)
 
     def test_metadata_with_latlons(self):
         anxcor = Anxcor()
@@ -106,8 +107,8 @@ class TestMetadataInCombine(unittest.TestCase):
         bank = WavebankWrapperWLatLons(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         result = anxcor.process(times)
-        pair_dict = result.attrs['src:AX.1rec:AX.1']
-        assert 'location' in pair_dict.keys()
+        pair_dict = result.attrs['df']
+        assert 'src_latitude' in pair_dict.columns
 
     def test_output_dataset_format(self):
         anxcor = Anxcor()

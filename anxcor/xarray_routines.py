@@ -7,6 +7,7 @@ import numpy as np
 import xarray as xr
 import anxcor.filters as filt_ops
 import anxcor.numpyfftfilter as npfilt_ops
+import copy
 import pandas as pd
 from anxcor.abstractions import XArrayRolling, XArrayProcessor, _XArrayRead, _XArrayWrite
 
@@ -164,6 +165,39 @@ class XArrayBandpass(XArrayProcessor):
         return 'bandpass'
 
 
+class XArrayNormalizer(XArrayProcessor):
+    """
+    applies a bandpass filter to a provided xarray
+    """
+
+    def __init__(self,norm_type=0,**kwargs):
+        """
+
+        Normalizes a cross-correlation
+        """
+        super().__init__(**kwargs)
+        self._kwargs['norm_type']=norm_type
+
+    def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
+        norm_type = self._kwargs['norm_type']
+        if norm_type==0:
+            pass
+        elif norm_type==1:
+            pass
+        elif norm_type==2:
+            pass
+        else:
+            pass
+        return xarray
+
+    def _add_operation_string(self):
+        return 'bandpass@{}<x(t)<{}'.format(self._kwargs['lower_frequency'],
+                                       self._kwargs['upper_frequency'])
+
+    def _get_process(self):
+        return 'bandpass'
+
+
 class XArrayTaper(XArrayProcessor):
     """
     tapers signals on an xarray timeseries
@@ -270,29 +304,36 @@ class XArrayXCorrelate(XArrayProcessor):
     def _metadata_to_persist(self, xarray_1,xarray_2, **kwargs):
         if xarray_2 is None or xarray_1 is None:
             return None
-
-        xarray_1 = xr.apply_ufunc(filt_ops.taper_func, xarray_1,
-                                  input_core_dims=[['time']],
-                                  output_core_dims=[['time']],
-                                  kwargs={**self._kwargs},keep_attrs=True)
-        xarray_2 = xr.apply_ufunc(filt_ops.taper_func, xarray_2,
-                                  input_core_dims=[['time']],
-                                  output_core_dims=[['time']],
-                                  kwargs={**self._kwargs},keep_attrs=True)
-
-        attrs = {'delta'    : xarray_1.attrs['delta'],
-                 'starttime': xarray_1.attrs['starttime'],
-                 'stacks'   : 1,
-                 'endtime'  : xarray_1.attrs['starttime'] + xarray_1.attrs['delta'] * xarray_1.data.shape[-1],
-                 'operations': xarray_1.attrs['operations'] + c.OPERATIONS_SEPARATION_CHARACTER + \
+        rows=[]
+        row ={
+                'src':list(xarray_1.coords['station_id'].values)[0],
+                'rec':list(xarray_2.coords['station_id'].values)[0],
+                'delta'         : xarray_1.attrs['delta'],
+                'stacks'        : 1,
+                'operations'    : xarray_1.attrs['operations'] + c.OPERATIONS_SEPARATION_CHARACTER + \
                                'correlated@{}<t<{}'.format(self._kwargs['max_tau_shift'],self._kwargs['max_tau_shift'])}
         if 'location' in xarray_1.attrs.keys() and 'location' in xarray_2.attrs.keys():
-            attrs['location'] = {'src':xarray_1.attrs['location'],
-                                 'rec':xarray_2.attrs['location']}
-        return attrs
+            if len(xarray_1.attrs['location']) > 2:
+                row['src_elevation'] = xarray_1.attrs['location'][2]
+                row['rec_elevation']=xarray_2.attrs['location'][2]
+            row['rec_latitude']=xarray_2.attrs['location'][0]
+            row['rec_longitude']=xarray_2.attrs['location'][1]
+            row['src_latitude']=xarray_1.attrs['location'][0]
+            row['src_longitude']=xarray_1.attrs['location'][1]
+        for src_chan in list(xarray_1.coords['channel'].values):
+            for rec_chan in list(xarray_2.coords['channel'].values):
+                row['src channel']=src_chan
+                row['rec channel']=rec_chan
+                rows.append(row)
+                row = copy.deepcopy(row)
+        df = pd.DataFrame(data=rows)
+        return {'df':df}
+
+    def _use_operation(self):
+        return False
 
     def _add_operation_string(self):
-        return None
+        return 'correlated@{}<t<{}'.format(self._kwargs['max_tau_shift'],self._kwargs['max_tau_shift'])
 
     def  _should_process(self,xarray1, xarray2, *args):
         return xarray1 is not None and xarray2 is not None
