@@ -88,7 +88,10 @@ class _AnxcorProcessor:
                                                    starttime=starttime,
                                                    dask_client=dask_client)
 
-            correlation = self._get_task('postcorrelate')(correlation,station=corr_station,starttime=starttime)
+            correlation = self._get_task('postcorrelate')(correlation,
+                                                          station=corr_station,
+                                                          starttime=starttime,
+                                                          dask_client=dask_client)
 
             correlation_stack.append(correlation)
 
