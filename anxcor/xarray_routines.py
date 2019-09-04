@@ -373,6 +373,36 @@ class XArrayRemoveMeanTrend(XArrayProcessor):
     def _get_process(self):
         return 'remove_mean_trend'
 
+class XArrayComponentNormalizer(XArrayProcessor):
+    """
+    removes the mean and trend of an xarray timeseries
+    """
+    def __init__(self,channel_norm='z',**kwargs):
+        super().__init__(**kwargs)
+        self._kwargs['channel_norm']=channel_norm.lower()
+
+    def _single_thread_execute(self, xarray, *args, **kwargs):
+        channels = list(xarray.coords['src_chan'].values)
+        norm_chan = channels[0]
+        for chan in channels:
+            if self._kwargs['channel_norm'] in chan.lower():
+                norm_chan = chan
+                break
+
+        norm_chan_max = max(xarray.loc[dict(src_chan=norm_chan, rec_chan=norm_chan)])
+        xarray /= norm_chan_max
+
+        return xarray
+
+    def _add_operation_string(self):
+        return 'chan normer'
+
+    def _get_process(self):
+        return 'chan normer'
+
+    def _metadata_to_persist(self, first_data,*args, **kwargs):
+        return first_data.attrs
+
 
 class XArrayTemporalNorm(XArrayRolling):
     """
