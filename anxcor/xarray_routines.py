@@ -8,10 +8,9 @@ import xarray as xr
 import anxcor.filters as filt_ops
 import anxcor.numpyfftfilter as npfilt_ops
 import copy
+from obspy.core import UTCDateTime
 import pandas as pd
 from anxcor.abstractions import XArrayRolling, XArrayProcessor, _XArrayRead, _XArrayWrite
-
-
 
 class XArrayConverter(XArrayProcessor):
     """
@@ -121,6 +120,7 @@ class XArrayConverter(XArrayProcessor):
 
     def _get_name(self,*args):
         return None
+
 
 
 class XArrayBandpass(XArrayProcessor):
@@ -375,30 +375,62 @@ class XArrayRemoveMeanTrend(XArrayProcessor):
 
 class XArrayComponentNormalizer(XArrayProcessor):
     """
-    removes the mean and trend of an xarray timeseries
+    normalizes preprocessed data based on a single component
     """
     def __init__(self,channel_norm='z',**kwargs):
         super().__init__(**kwargs)
         self._kwargs['channel_norm']=channel_norm.lower()
 
     def _single_thread_execute(self, xarray, *args, **kwargs):
-        channels = list(xarray.coords['src_chan'].values)
+        channels = list(xarray.coords['channel'].values)
         norm_chan = channels[0]
         for chan in channels:
             if self._kwargs['channel_norm'] in chan.lower():
                 norm_chan = chan
                 break
 
-        norm_chan_max = max(xarray.loc[dict(src_chan=norm_chan, rec_chan=norm_chan)])
+        norm_chan_max = np.max(np.abs(xarray.loc[dict(channel=norm_chan)].data.ravel()))
         xarray /= norm_chan_max
 
         return xarray
 
     def _add_operation_string(self):
-        return 'chan normer'
+        return 'channel normer'
 
     def _get_process(self):
-        return 'chan normer'
+        return 'channel normer'
+
+    def _metadata_to_persist(self, first_data,*args, **kwargs):
+        return first_data.attrs
+
+class XArray9ComponentNormalizer(XArrayProcessor):
+    """
+    normalizes a correlation based on a source and receiver channel
+    """
+    def __init__(self,src_chan='z',rec_chan='z',**kwargs):
+        super().__init__(**kwargs)
+        self._kwargs['src_chan']=src_chan
+        self._kwargs['rec_chan']=rec_chan
+
+    def _single_thread_execute(self, xarray, *args, **kwargs):
+        src_chan = [x for x in list(xarray.coords['src_chan'].values)
+                    if self._kwargs['src_chan'] in x.lower()]
+        rec_chan = [x for x in list(xarray.coords['rec_chan'].values)
+                    if self._kwargs['rec_chan'] in x.lower()]
+        try:
+            data_slice = xarray.loc[dict(src_chan=src_chan[0],rec_chan=rec_chan[0])].data
+        except Exception:
+            return None
+
+        norm_chan_max = np.max(np.abs(data_slice.ravel()))
+        xarray /= norm_chan_max
+        return xarray
+
+    def _add_operation_string(self):
+        return 'corr channel normer'
+
+    def _get_process(self):
+        return 'corr channel normer'
 
     def _metadata_to_persist(self, first_data,*args, **kwargs):
         return first_data.attrs
@@ -484,6 +516,8 @@ class XArrayTemporalNorm(XArrayRolling):
 class XArrayWhiten(XArrayRolling):
     """
     whitens the frequency spectrum of a given xarray
+
+    see XArrayRolling for general rolling kwargs
     """
     def __init__(self, lower_frequency=0.01,upper_frequency=5.0,order=3,taper=0.1,
                  **kwargs):

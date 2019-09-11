@@ -5,6 +5,7 @@ import xarray as xr
 import pandas as pd
 import numpy as np
 import json
+
 sep_char = c.OPERATIONS_SEPARATION_CHARACTER
 def write(xarray, path, extension):
     array_path      = '{}{}{}{}'.format(path, utils.sep, extension, '.nc')
@@ -52,6 +53,14 @@ class NullTask:
     def __call__(self,correlation,**kwargs):
         return correlation
 
+class NullDualTask:
+
+    def __init__(self):
+        pass
+
+    def __call__(self,correlation1, correlation2,**kwargs):
+        return correlation1, correlation2
+
 class _IO:
 
     def __init__(self, dir):
@@ -63,6 +72,7 @@ class _IO:
 
     def is_enabled(self):
         return self._isenabled
+
 
     def get_folder_extension(self, xarray):
         if 'stacks' in xarray.attrs.keys():
@@ -104,6 +114,7 @@ class _XArrayWrite(_IO):
         if not utils.folder_exists(file):
             utils.make_dir(file)
         self._file = file
+
 
     def _chkmkdir(self,dir):
         if not utils.folder_exists(dir):

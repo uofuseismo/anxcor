@@ -5,6 +5,7 @@ import xarray as xr
 import scipy.fftpack as fftpack
 STARTTIME_NS_PRECISION = 100.0
 DELTA_MS_PRECISION     = 100.0/1
+import matplotlib.pyplot as plt
 ZERO                   = np.datetime64(UTCDateTime(0.0).datetime)
 
 def xarray_crosscorrelate(source_xarray, receiver_xarray,
@@ -17,19 +18,20 @@ def xarray_crosscorrelate(source_xarray, receiver_xarray,
         return None
     src_channels   = list(source_xarray['channel'].values)
     rec_channels   = list(receiver_xarray['channel'].values)
-    pair = ['src:' + list(source_xarray.coords['station_id'].values)[0] + \
-            'rec:' + list(receiver_xarray.coords['station_id'].values)[0]]
+    pair = [list(source_xarray.coords['station_id'].values)[0],list(receiver_xarray.coords['station_id'].values)[0]]
 
     xcorr_np_mat = _cross_correlate_xarray_data(source_xarray,receiver_xarray,**kwargs)
 
     tau_array    = _get_new_time_array(source_xarray)
 
-    xcorr_np_mat = xcorr_np_mat.reshape((len(src_channels),len(rec_channels),1,xcorr_np_mat.shape[-1]))
+    xcorr_np_mat = xcorr_np_mat.reshape((1,1,len(src_channels),len(rec_channels),xcorr_np_mat.shape[-1]))
 
-    xarray = xr.DataArray(xcorr_np_mat, coords=(('src_chan', src_channels),
+    xarray = xr.DataArray(xcorr_np_mat, coords=(('src',[pair[0]]),
+                                                ('rec',[pair[1]]),
+                                                ('src_chan', src_channels),
                                                 ('rec_chan', rec_channels),
-                                                ('pair', pair),
                                                 ('time',tau_array)))
+    print(pair)
     if max_tau_shift is not None:
         xarray = _slice_xarray_tau(xarray,max_tau_shift)
     return xarray
@@ -64,7 +66,7 @@ def _cross_correlate_xarray_data(source_xarray, receiver_xarray,**kwargs):
 
     xcorr_mat = np.fft.fftshift(np.real(np.fft.irfft(result,corr_length, axis=-1).astype(np.float64)),axes=-1)
 
-    return xcorr_mat / corr_length
+    return xcorr_mat
 
 def _multiply_in_mat(one,two,dtype=np.complex64):
     zero_mat = np.zeros((one.shape[0],

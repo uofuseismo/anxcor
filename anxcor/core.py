@@ -1,6 +1,6 @@
 from  anxcor.containers import DataLoader, XArrayCombine, XArrayStack
 from  anxcor.xarray_routines import XArrayConverter, XArrayResample, XArrayXCorrelate
-from anxcor.abstractions import NullTask
+from anxcor.abstractions import NullTask, NullDualTask
 import xarray as xr
 import numpy as np
 import itertools
@@ -35,18 +35,24 @@ class _AnxcorProcessor:
         station_pairs = self.get_station_combinations()
         futures = []
         for starttime in starttimes:
-
+            print('processing window {}'.format(UTCDateTime(starttime)))
             correlation_dataset  = self._iterate_over_pairs(starttime, station_pairs, dask_client=dask_client)
             futures.append(correlation_dataset)
-            if stack_immediately and len(futures)==2:
+            if stack_immediately and len(futures)>=2:
+                if dask_client is not None:
+                    dask_client.scatter(futures)
                 station = 'stack_'+UTCDateTime(starttime).strftime(self.time_format)
                 stacked_result = self._reduce(futures,
                                                   station=station,
                                                   reducing_func=self._get_task('stack'),
                                                   dask_client=dask_client)
+                if dask_client is not None:
+                    stacked_result = stacked_result.result()
                 futures=[stacked_result]
 
         if not stack_immediately:
+            if dask_client is not None:
+                dask_client.scatter(futures)
             combined_crosscorrelations = self._reduce(futures,
                                                   station='stack',
                                                   reducing_func=self._get_task('stack'),
@@ -98,6 +104,10 @@ class _AnxcorProcessor:
         combined_crosscorrelations = self._reduce(correlation_stack,
                                                   station=UTCDateTime(starttime).strftime(self.time_format),
                                                   reducing_func=self._get_task('combine'),
+                                                  dask_client=dask_client)
+        combined_crosscorrelations = self._get_task('post-combine')(correlation_stack,
+                                                  station='all',
+                                                  starttime=starttime,
                                                   dask_client=dask_client)
 
         if dask_client is not None:
@@ -152,12 +162,16 @@ class _AnxcorData:
         self._tasks = {
             'data': DataLoader(),
             'xconvert': XArrayConverter(),
-            'resample': XArrayResample(),
             'process' : {},
             'crosscorrelate': XArrayXCorrelate(),
-            'postcorrelate': NullTask(),
-            'combine': XArrayCombine(),
-            'stack': XArrayStack()
+
+            'post-correlate': NullTask(),
+            'combine':      XArrayCombine(),
+            'post-combine': NullTask(),
+
+            'pre-stack':    NullDualTask(),
+            'stack':        XArrayStack(),
+            'post-stack':   NullTask()
             }
         self._process_order = []
 
