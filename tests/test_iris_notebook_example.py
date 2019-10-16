@@ -69,7 +69,7 @@ class TestNotebookUsageExample(unittest.TestCase):
         for window_number in range(0, 4):
             starttimes.append(starttime + 60 * 10.0 * window_number)
         xarray_dataset = anxcor_main.process(starttimes)
-        assert len(list(xarray_dataset.coords['pair'].values))==3
+        assert len(list(xarray_dataset.coords['rec'].values))==2
 
 
     def test_chan_norm(self):
@@ -87,4 +87,4 @@ class TestNotebookUsageExample(unittest.TestCase):
         for window_number in range(0, 4):
             starttimes.append(starttime + 60 * 10.0 * window_number)
         xarray_dataset = anxcor_main.process(starttimes)
-        assert len(list(xarray_dataset.coords['pair'].values))==3
+        assert len(list(xarray_dataset.coords['rec'].values))==2

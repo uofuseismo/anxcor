@@ -55,7 +55,7 @@ class TestConfig(unittest.TestCase):
         anxcor.set_window_length(120.0)
         anxcor2.add_process(XArrayTemporalNorm())
         anxcor2.load_config(save_dir + os.sep + 'config.ini')
-        tnorm=anxcor2._get_task('process')['temp_norm']
+        tnorm=anxcor2._get_task('process')['temp_norm:0']
         time_mean_src = tnorm._kwargs['window']
         assert time_mean_target == time_mean_src
 

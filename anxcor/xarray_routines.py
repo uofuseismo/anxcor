@@ -115,7 +115,7 @@ class XArrayConverter(XArrayProcessor):
     def _metadata_to_persist(self, *param, **kwargs):
         return None
 
-    def _get_process(self):
+    def get_name(self):
         return 'xconvert'
 
     def _get_name(self,*args):
@@ -161,7 +161,7 @@ class XArrayBandpass(XArrayProcessor):
         return 'bandpass@{}<x(t)<{}'.format(self._kwargs['lower_frequency'],
                                        self._kwargs['upper_frequency'])
 
-    def _get_process(self):
+    def get_name(self):
         return 'bandpass'
 
 
@@ -194,7 +194,7 @@ class XArrayNormalizer(XArrayProcessor):
         return 'bandpass@{}<x(t)<{}'.format(self._kwargs['lower_frequency'],
                                        self._kwargs['upper_frequency'])
 
-    def _get_process(self):
+    def get_name(self):
         return 'bandpass'
 
 
@@ -224,7 +224,7 @@ class XArrayTaper(XArrayProcessor):
     def _add_operation_string(self):
         return 'taper@{}%'.format(self._kwargs['taper']*100)
 
-    def _get_process(self):
+    def get_name(self):
         return 'taper'
 
 
@@ -234,13 +234,15 @@ class XArrayResample(XArrayProcessor):
     """
 
     def __init__(self, target_rate=c.RESAMPLE_DEFAULT,
-                 taper=c.TAPER_DEFAULT,**kwargs):
+                 taper=c.TAPER_DEFAULT,order=1,**kwargs):
         super().__init__(**kwargs)
         self._kwargs['target_rate'] = target_rate
         self._kwargs['taper']       = taper
+        self._kwargs['order']       = order
 
     def _single_thread_execute(self, xarray: xr.DataArray,*args,starttime=0,**kwargs):
         delta =  xarray.attrs['delta']
+        order = self._kwargs['order']
         sampling_rate = 1.0 / delta
         nyquist       = self._kwargs['target_rate'] / 2.0
         target_rule = str(int((1.0 /self._kwargs['target_rate']) * c.SECONDS_2_NANOSECONDS)) + 'N'
@@ -259,7 +261,8 @@ class XArrayResample(XArrayProcessor):
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={'upper_frequency':    nyquist,
-                                                'sample_rate': sampling_rate})
+                                                'sample_rate': sampling_rate,
+                                                'order': order})
 
         resampled_array= filtered_array.resample(time=target_rule)\
             .interpolate('linear').bfill('time').ffill('time')
@@ -268,7 +271,7 @@ class XArrayResample(XArrayProcessor):
     def _add_metadata_key(self):
         return ('delta',1.0/self._kwargs['target_rate'])
 
-    def _get_process(self):
+    def get_name(self):
         return 'resample'
 
     def _add_operation_string(self):
@@ -297,7 +300,7 @@ class XArrayXCorrelate(XArrayProcessor):
             return correlation
         return None
 
-    def _get_process(self):
+    def get_name(self):
         return 'crosscorrelate'
 
 
@@ -370,7 +373,7 @@ class XArrayRemoveMeanTrend(XArrayProcessor):
     def _add_operation_string(self):
         return 'remove_Mean&Trend'
 
-    def _get_process(self):
+    def get_name(self):
         return 'remove_mean_trend'
 
 class XArrayComponentNormalizer(XArrayProcessor):
@@ -397,7 +400,7 @@ class XArrayComponentNormalizer(XArrayProcessor):
     def _add_operation_string(self):
         return 'channel normer'
 
-    def _get_process(self):
+    def get_name(self):
         return 'channel normer'
 
     def _metadata_to_persist(self, first_data,*args, **kwargs):
@@ -429,7 +432,7 @@ class XArray9ComponentNormalizer(XArrayProcessor):
     def _add_operation_string(self):
         return 'corr channel normer'
 
-    def _get_process(self):
+    def get_name(self):
         return 'corr channel normer'
 
     def _metadata_to_persist(self, first_data,*args, **kwargs):
@@ -479,7 +482,7 @@ class XArrayTemporalNorm(XArrayRolling):
 
         return filtered_array
 
-    def _get_process(self):
+    def get_name(self):
         return 'temp_norm'
 
 
@@ -551,7 +554,7 @@ class XArrayWhiten(XArrayRolling):
     def _get_rolling_samples(self,processed_xarray, xarray):
         return int(self._kwargs['window'] * xarray.data.shape[-1]/2)
 
-    def _get_process(self):
+    def get_name(self):
         return 'whiten'
 
     def _add_operation_string(self):

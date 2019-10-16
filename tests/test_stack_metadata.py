@@ -97,8 +97,8 @@ class TestMetadataInCombine(unittest.TestCase):
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         result = anxcor.process(times)
-        pairs=result.coords['pair'].values
-        assert 'src:AX.1rec:AX.2' in list(pairs)
+        pairs= result.coords['rec'].values
+        assert 'AX.1' in list(pairs) and 'AX.2' in list(pairs)
 
     def test_metadata_with_latlons(self):
         anxcor = Anxcor()
@@ -128,13 +128,15 @@ class TestMetadataInCombine(unittest.TestCase):
         bank = WavebankWrapperWLatLons(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         result = anxcor.process(times)
-        len_pair = len(list(result.coords['pair'].values))
-        len_src = len(list(result.coords['src_chan'].values))
-        len_rec = len(list(result.coords['rec_chan'].values))
+        len_src_chan = len(list(result.coords['src_chan'].values))
+        len_rec_chan = len(list(result.coords['rec_chan'].values))
+        len_src = len(list(result.coords['src'].values))
+        len_rec = len(list(result.coords['rec'].values))
         #
-        assert len_pair == 6,'not enough pairs retained'
-        assert len_src == 3, 'not enough source channels retained'
-        assert len_rec == 3, 'not enough receiver channels retained'
+        assert len_src_chan == 3,'not enough src chan  retained'
+        assert len_rec_chan == 3, 'not enough rec chan retained'
+        assert len_src == 3, 'not enough sources retained'
+        assert len_rec == 3, 'not enough receivers retained'
 
 
 

@@ -17,9 +17,8 @@ class _AnxcorProcessor:
         pass
 
     def _station_window_operations(self, channels, dask_client=None, starttime=None, station=None):
-        xarray      = self._get_task('xconvert')(channels, starttime=starttime, station=station, dask_client=dask_client )
-        downsampled = self._get_task('resample')(xarray, starttime=starttime, station=station, dask_client=dask_client )
-        tasks = [downsampled]
+        xarray       = self._get_task('xconvert')(channels, starttime=starttime, station=station, dask_client=dask_client )
+        tasks        = [xarray]
         process_list = self._get_process_order()
         for process_key in process_list:
             process = self._get_process(process_key)
@@ -94,7 +93,7 @@ class _AnxcorProcessor:
                                                    starttime=starttime,
                                                    dask_client=dask_client)
 
-            correlation = self._get_task('postcorrelate')(correlation,
+            correlation = self._get_task('post-correlate')(correlation,
                                                           station=corr_station,
                                                           starttime=starttime,
                                                           dask_client=dask_client)
@@ -105,7 +104,7 @@ class _AnxcorProcessor:
                                                   station=UTCDateTime(starttime).strftime(self.time_format),
                                                   reducing_func=self._get_task('combine'),
                                                   dask_client=dask_client)
-        combined_crosscorrelations = self._get_task('post-combine')(correlation_stack,
+        combined_crosscorrelations = self._get_task('post-combine')(combined_crosscorrelations,
                                                   station='all',
                                                   starttime=starttime,
                                                   dask_client=dask_client)
@@ -122,6 +121,8 @@ class _AnxcorProcessor:
                 dask_client=None):
 
         tree_depth = 1
+        assert len(future_stack) > 0 
+    
         while len(future_stack) > 1:
             new_future_list = []
 
@@ -156,7 +157,10 @@ class _AnxcorProcessor:
 
 
 class _AnxcorData:
-    TASKS = ['data', 'xconvert', 'resample', 'process', 'crosscorrelate', 'combine', 'stack']
+    TASKS = ['data', 'xconvert', 'process',
+             'crosscorrelate','post-correlate',
+             'combine','post-combine',
+             'pre-stack','stack','post-stack']
     def __init__(self):
         self._window_length=60*60.0
         self._tasks = {
@@ -270,7 +274,11 @@ class _AnxcorData:
 
 
     def add_process(self, process):
-        key = process.get_name()
+        key = process._get_process()
+        while key in self._tasks['process'].keys():
+            process.increment_process_number()
+            key = process._get_process()
+        print('adding process {}'.format(process._get_process()))
         self._tasks['process'][key]=process
         self._process_order.append(key)
 
@@ -297,7 +305,7 @@ class _AnxcorData:
             else:
                 return task
         else:
-            raise KeyError('key does not exist in tasks')
+            raise KeyError('key {} does not exist in tasks'.format(key))
 
 
 class _AnxcorConfig:
@@ -379,20 +387,38 @@ class _AnxcorConverter:
         starttime = self._extract_timestamp(starttime)
         for name in xdataset.data_vars:
             xarray = xdataset[name]
-            for pair in list(xdataset.coords['pair'].values):
-                for src_chan in list(xdataset.coords['src_chan'].values):
-                    for rec_chan in list(xdataset.coords['rec_chan'].values):
 
-                        record = xarray.loc[dict(pair=pair,src_chan=src_chan,rec_chan=rec_chan)]
+            srcs = xarray.coords['src'].values
+            recs = xarray.coords['rec'].values
+            src_chans = xarray.coords['src_chan'].values
+            rec_chans = xarray.coords['rec_chan'].values
+            unique_stations = set(list(srcs)+list(recs))
+            unique_channels = set(list(src_chans)+list(rec_chans))
+            unique_pairs    = itertools.combinations(unique_stations,2)
+            arg_list = itertools.product(unique_pairs, unique_channels, unique_channels)
+            for parameter in arg_list:
+                src = parameter[0][0]
+                rec = parameter[0][1]
+                src_chan = parameter[1]
+                rec_chan = parameter[2]
+                arg_combos= [dict(src=src, rec=rec, src_chan=src_chan, rec_chan=rec_chan),
+                 dict(src=src, rec=rec, src_chan=rec_chan, rec_chan=src_chan),
+                 dict(src=rec, rec=src, src_chan=src_chan, rec_chan=rec_chan),
+                 dict(src=rec, rec=src, src_chan=rec_chan, rec_chan=src_chan)]
 
-                        src, rec = pair.split('rec:')
-                        src = src.strip('src:')
+                arg_dict_to_use=None
+                for subdict in arg_combos:
+                    meta_record = df.loc[(df['src']     == subdict['src'])      & (df['rec']         ==subdict['rec'])  &
+                                     (df['src channel'] == subdict['src_chan']) & (df['rec channel'] ==subdict['rec_chan'])]
+                    arg_dict_to_use = subdict
+                    if not meta_record.empty:
+                        break
+                record = xarray.loc[arg_dict_to_use]
 
-                        meta_record = df.loc[(df['src']==src)              & (df['rec']==rec) &
-                                             (df['src channel']==src_chan) & (df['rec channel']==rec_chan)]
-                        if not meta_record.empty:
-                            station_1, station_2, network_1, network_2 = self._extract_station_network_info(pair)
-                            header_dict = {
+                if not meta_record.empty:
+                    station_1,network_1  = self._extract_station_network_info(src)
+                    station_2,network_2  = self._extract_station_network_info(rec)
+                    header_dict = {
                             'delta'    : meta_record['delta'].values[0],
                             'npts'     : record.data.shape[-1],
                             'starttime': starttime,
@@ -400,15 +426,15 @@ class _AnxcorConverter:
                             'channel'  : '{}.{}'.format(src_chan,rec_chan),
                             'network'  : '{}.{}'.format(network_1,network_2)
                             }
-                            trace = Trace(data=record.data,header=header_dict)
-                            if 'rec_latitude' in meta_record.columns:
-                                trace.stats.coordinates = {
+                    trace = Trace(data=record.data,header=header_dict)
+                    if 'rec_latitude' in meta_record.columns:
+                            trace.stats.coordinates = {
                                 'src_latitude' :meta_record['src_latitude'].values[0],
                                 'src_longitude':meta_record['src_longitude'].values[0],
                                 'rec_latitude':meta_record['rec_latitude'].values[0],
                                 'rec_longitude':meta_record['rec_longitude'].values[0]
                                 }
-                            traces.append(trace)
+                    traces.append(trace)
 
         return Stream(traces=traces)
 
@@ -416,17 +442,9 @@ class _AnxcorConverter:
         starttimestamp = starttimestamp.astype(np.float64)/1e9
         return UTCDateTime(starttimestamp)
 
-    def _extract_station_network_info(self,pair):
-        stations = [0, 0]
-        pairs = pair.split('rec:')
-        stations[0] = pairs[0].split(':')[1]
-        stations[1] = pairs[1]
-
-        station_1 = stations[0].split('.')[1]
-        station_2 = stations[1].split('.')[1]
-        network_1 = stations[0].split('.')[0]
-        network_2 = stations[1].split('.')[0]
-        return station_1, station_2, network_1, network_2
+    def _extract_station_network_info(self,station):
+        pairs = station.split('.')
+        return pairs[1], pairs[0]
 
     def align_station_pairs(self,xdataset: xr.Dataset):
         attrs = xdataset.attrs.copy()

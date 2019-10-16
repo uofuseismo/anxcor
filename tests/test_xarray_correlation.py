@@ -1,13 +1,14 @@
 import unittest
 #from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
 from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
-from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter, XArrayRemoveMeanTrend
+from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter, XArrayRemoveMeanTrend, XArrayResample
 from anxcor.containers import XArrayStack, AnxcorDatabase, XArrayCombine
 from anxcor.numpyfftfilter import _multiply_in_mat, xarray_crosscorrelate
 from anxcor.core import Anxcor
 import numpy as np
 import xarray as xr
 from obspy.core import  UTCDateTime, Trace, Stream, read
+import matplotlib.pyplot as plt
 from obsplus.bank import WaveBank
 import pytest
 
@@ -89,8 +90,8 @@ class TestCorrelation(unittest.TestCase):
         correlator  = XArrayXCorrelate(max_tau_shift=5.0)
         synth_trace1 = converter(create_random_trace(station='1',network='v',duration=20))
         correlation = correlator(synth_trace1,synth_trace1)
-        zero_target_index = correlation.data.shape[3]//2
-        zero_source_index = np.argmax(correlation.data[0,0,0,:])
+        zero_target_index = correlation.data.shape[4]//2
+        zero_source_index = np.argmax(correlation.data[0,0,0,:][0])
         assert zero_source_index == zero_target_index,'autocorrelation failed'
 
     def test_stacking_preserves_metadata(self):
@@ -227,7 +228,8 @@ class TestCorrelation(unittest.TestCase):
 
         test_correlation   = correlator(synth_trace_1.sel(dict(channel=src_chan)).expand_dims('channel'),
                                         synth_trace_2.sel(dict(channel=rec_chan)).expand_dims('channel'))
-        result_1     = correlation_source.loc[src_chan, rec_chan, :, :] - test_correlation
+        print(correlation_source)
+        result_1     = correlation_source.loc[dict(src='v.h',rec='v.k',src_chan=src_chan, rec_chan=rec_chan)] - test_correlation
         assert 0 == np.sum(result_1.data)
 
 
@@ -243,7 +245,7 @@ class TestCorrelation(unittest.TestCase):
 
         test_correlation = correlator(synth_trace_1.sel(dict(channel=src_chan)).expand_dims('channel'),
                                       synth_trace_2.sel(dict(channel=rec_chan)).expand_dims('channel'))
-        result_1 = correlation_source.loc[src_chan, rec_chan, :, :] - test_correlation
+        result_1 = correlation_source.loc[dict(src='v.h',rec='v.k',src_chan=src_chan, rec_chan=rec_chan)] - test_correlation
         assert 0 == np.sum(result_1.data)
 
     def test_correct_pair_ez(self):
@@ -258,7 +260,7 @@ class TestCorrelation(unittest.TestCase):
 
         test_correlation = correlator(synth_trace_1.sel(dict(channel=src_chan)).expand_dims('channel'),
                                       synth_trace_2.sel(dict(channel=rec_chan)).expand_dims('channel'))
-        result_1 = correlation_source.loc[src_chan, rec_chan, :, :] - test_correlation
+        result_1 = correlation_source.loc[dict(src='v.h',rec='v.k',src_chan=src_chan, rec_chan=rec_chan)] - test_correlation
         assert 0 == np.sum(result_1.data)
 
     def test_correct_pair_ze(self):
@@ -273,7 +275,7 @@ class TestCorrelation(unittest.TestCase):
 
         test_correlation = correlator(synth_trace_1.sel(dict(channel=src_chan)).expand_dims('channel'),
                                       synth_trace_2.sel(dict(channel=rec_chan)).expand_dims('channel'))
-        result_1 = correlation_source.loc[src_chan, rec_chan, :, :] - test_correlation
+        result_1 = correlation_source.loc[dict(src='v.h',rec='v.k',src_chan=src_chan, rec_chan=rec_chan)] - test_correlation
         assert 0 == np.sum(result_1.data)
 
 
@@ -288,7 +290,7 @@ class TestCorrelation(unittest.TestCase):
 
         test_correlation = correlator(synth_trace_1.sel(dict(channel=src_chan)).expand_dims('channel'),
                                       synth_trace_2.sel(dict(channel=rec_chan)).expand_dims('channel'))
-        result_1 = correlation_source.loc[src_chan, rec_chan, :, :] - test_correlation
+        result_1 = correlation_source.loc[dict(src='v.h',rec='v.k',src_chan=src_chan, rec_chan=rec_chan)] - test_correlation
         assert 0 == np.sum(result_1.data)
 
     def test_proper_matrix_order(self):
@@ -315,7 +317,7 @@ class TestCorrelation(unittest.TestCase):
         anxcor = Anxcor()
         anxcor.set_window_length(60 * 9.9995)
         anxcor.set_task_kwargs('crosscorrelate',{'max_tau_shift':None})
-        anxcor.set_task_kwargs('resample',{'target_rate':20})
+        anxcor.add_process(XArrayResample(target_rate=20))
         anxcor.add_process(XArrayRemoveMeanTrend())
         bank = WavebankWrapper(source_dir)
         df = bank.bank.get_uptime_df()

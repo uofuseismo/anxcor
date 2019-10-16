@@ -53,6 +53,15 @@ class NullTask:
     def __call__(self,correlation,**kwargs):
         return correlation
 
+    def disable(self):
+        pass
+
+    def set_kwargs(self,*args,**kwargs):
+        pass
+
+    def get_kwargs(self):
+        return {}
+
 class NullDualTask:
 
     def __init__(self):
@@ -60,6 +69,15 @@ class NullDualTask:
 
     def __call__(self,correlation1, correlation2,**kwargs):
         return correlation1, correlation2
+
+    def disable(self):
+        pass
+
+    def set_kwargs(self,*args,**kwargs):
+        pass
+
+    def get_kwargs(self):
+        return {}
 
 class _IO:
 
@@ -154,6 +172,10 @@ class AnxcorTask:
         self.write = _XArrayWrite(None)
         self._enabled = True
         self._fire_and_forget = None
+        self._process_number = 0
+
+    def increment_process_number(self):
+        self._process_number+=1
 
     def disable(self):
         self._enabled=False
@@ -177,7 +199,7 @@ class AnxcorTask:
         return {**self._kwargs}
 
     def get_name(self):
-        return self._get_process()
+        return 'default name'
 
     def __call__(self, *args, dask_client=None, **kwargs):
         key = self._get_operation_key(**kwargs)
@@ -304,7 +326,7 @@ class AnxcorTask:
         return None
 
     def _get_process(self):
-        return 'process'
+        return self.get_name() + ':{}'.format(self._process_number)
 
     def _additional_read_processing(self, result):
         return result
@@ -441,5 +463,5 @@ class XArrayRolling(XArrayProcessor):
                         return xarray[dict(channel=coordinate)]
         return xarray
 
-    def _get_process(self):
+    def get_name(self):
         return 'rolling operation'

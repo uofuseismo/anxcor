@@ -65,7 +65,7 @@ class TestObspyUtilFunction(unittest.TestCase):
         anxcor.add_dataset(bank, 'nodals')
         result  = anxcor.process([starttime_stamp])
         streams = anxcor.xarray_to_obspy(result)
-        assert len(streams) == 43,'not enough traces retained!'
+        assert len(streams) == 25,'not enough traces retained!'
 
 
     def test_basic_read_conversion_functionality(self):
