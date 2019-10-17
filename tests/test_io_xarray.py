@@ -169,7 +169,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         cluster.close()
         assert 48 == how_many_nc
 
-    def test_write_tempnorm(self):
+    def test_write_tempnorm_dask(self):
         from distributed import Client, LocalCluster
         from dask.distributed import wait
         cluster = LocalCluster(n_workers=1, threads_per_worker=1)
@@ -375,7 +375,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.add_process(XArrayTemporalNorm(time_window=5.0, lower_frequency=0.02))
-        anxcor.save_at_process(target_dir,'temp_norm')
+        anxcor.save_at_process(target_dir,'temp_norm:0')
         result = anxcor.process(times)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)

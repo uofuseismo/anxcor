@@ -6,6 +6,7 @@ import numpy as np
 import itertools
 from obspy.core import UTCDateTime, Stream, Trace
 import json
+import pandas as pd
 import anxcor.utils as utils
 import copy
 
@@ -64,9 +65,9 @@ class _AnxcorProcessor:
 
     def _iterate_over_pairs(self, starttime, station_pairs, dask_client=None):
         correlation_stack = []
-        for pair in station_pairs:
-            source   = pair[0]
-            receiver = pair[1]
+        for index, row in station_pairs.iterrows():
+            source   = row['source']
+            receiver = row['receiver']
             source_channels = self._get_task('data',dask_client=dask_client)(
                                                   starttime=starttime,
                                                   station=source,
@@ -121,7 +122,6 @@ class _AnxcorProcessor:
                 dask_client=None):
 
         tree_depth = 1
-        assert len(future_stack) > 0 
     
         while len(future_stack) > 1:
             new_future_list = []
@@ -162,6 +162,8 @@ class _AnxcorData:
              'combine','post-combine',
              'pre-stack','stack','post-stack']
     def __init__(self):
+        self._source_stations   = []
+        self._receiver_stations = []
         self._window_length=60*60.0
         self._tasks = {
             'data': DataLoader(),
@@ -178,6 +180,31 @@ class _AnxcorData:
             'post-stack':   NullTask()
             }
         self._process_order = []
+
+    def _get_anxcor_config_dict(self):
+        return {'source_stations': self._source_stations,
+                'receiver_stations': self._receiver_stations,
+                'window_length': self._window_length }
+    def _set_anxcor_config_dict(self,dict):
+        self._source_stations=dict['source_stations']
+        self._receiver_stations= dict['receiver_stations']
+        self._window_length = dict['window_length']
+
+    def set_source_stations(self,source_stations):
+        if isinstance(source_stations,str):
+            self._source_stations.append(source_stations)
+        elif isinstance(source_stations,tuple) or isinstance(source_stations,list):
+            self._source_stations = self._source_stations + source_stations
+        else:
+            print('source stations are neither string, tuple, or list. Ignoring')
+
+    def set_receiver_stations(self,receiver_stations):
+        if isinstance(receiver_stations,str):
+            self._receiver_stations.append(receiver_stations)
+        elif isinstance(receiver_stations,tuple) or isinstance(receiver_stations,list):
+            self._receiver_stations = self._receiver_stations + receiver_stations
+        else:
+            print('source stations are neither string, tuple, or list. Ignoring')
 
     def print_parameters(self):
         for task in self._tasks.keys():
@@ -217,7 +244,12 @@ class _AnxcorData:
     def get_station_combinations(self):
         stations = self._tasks['data'].get_stations()
         station_pairs = list(itertools.combinations_with_replacement(stations, 2))
-        return station_pairs
+        df = pd.DataFrame(station_pairs,columns=['source','receiver'])
+        if self._source_stations:
+            df=df[df['source'].isin(self._source_stations)]
+        if self._receiver_stations:
+            df = df[df['receiver'].isin(self._receiver_stations)]
+        return df
 
     def has_data(self):
         return self._tasks['data'].has_data()
@@ -226,13 +258,13 @@ class _AnxcorData:
         if task in self._tasks.keys() and task!='process':
              self._tasks[task].set_io_task(folder, 'save')
         else:
-            print('{} is Not a valid task'.format(task))
+            print('{} is Not a valid task to save from'.format(task))
 
     def save_at_process(self, folder, process : str='whiten'):
         if process in self._process_order:
              self._tasks['process'][process].set_io_task(folder, 'save')
         else:
-            print('{} is Not a valid process'.format(process))
+            print('{} is not a valid process to save from'.format(process))
 
 
     def load_at_process(self, folder, process='resample'):
@@ -241,14 +273,14 @@ class _AnxcorData:
             self._disable_tasks('process')
             self._disable_process(process)
         else:
-            print('{} is Not a valid process'.format(process))
+            print('{} is not a valid process to load from'.format(process))
 
     def load_at_task(self, folder, task='resample'):
         if task in self._tasks.keys() and task!='process':
              self._tasks[task].set_io_task(folder, 'load')
              self._disable_tasks(task)
         else:
-            print('{} is Not a valid task'.format(task))
+            print('{} is not a valid task to load from'.format(task))
 
 
     def _disable_process(self, process):
@@ -286,7 +318,7 @@ class _AnxcorData:
         if task in self._tasks.keys():
             self._tasks[task].set_kwargs(kwargs)
         else:
-            print('{}: is not a valid task. must be one of:'.format(task))
+            print('{}: is not a valid task to assign kwargs. must be one of:'.format(task))
             for acceptable_task in self._tasks.keys():
                 print(acceptable_task)
             print('ignoring')
@@ -295,7 +327,8 @@ class _AnxcorData:
         if process in self._tasks['process'].keys():
             self._tasks['process'][process].set_kwargs(kwargs)
         else:
-            print('{}: is not a valid process. ignoring'.format(process))
+            print(self._tasks['process'])
+            print('{}: is not a valid process to assign kwargs. ignoring'.format(process))
 
     def _get_task(self,key,dask_client=None):
         if key in self._tasks.keys():
@@ -325,6 +358,7 @@ class _AnxcorConfig:
                 for key, process in self._get_task(task).items():
                     config[task][key]=process.get_kwargs()
 
+        config['anxcor_configs'] = self._get_anxcor_config_dict()
         folder = utils.get_folderpath(file)
         if not utils.folder_exists(folder):
             print('given folder to save file does not exist. ignoring save call')
@@ -352,6 +386,8 @@ class _AnxcorConfig:
                                   'Skipping for now..')
                         else:
                             self._get_task(task)[key].set_kwargs(process_kwargs)
+
+        self._set_anxcor_config_dict(config['anxcor_configs'])
 
 class _AnxcorConverter:
 
