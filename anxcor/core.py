@@ -33,6 +33,11 @@ class _AnxcorProcessor:
     def process(self,starttimes, dask_client=None,stack_immediately=False,**kwargs):
 
         station_pairs = self.get_station_combinations()
+        if station_pairs.empty:
+            print('no possible station pairs detected. Exiting')
+            return None
+        else:
+            print('correlating {} station-pairs'.format(len(station_pairs.index)))
         futures = []
         for starttime in starttimes:
             print('processing window {}'.format(UTCDateTime(starttime)))
@@ -162,8 +167,8 @@ class _AnxcorData:
              'combine','post-combine',
              'pre-stack','stack','post-stack']
     def __init__(self):
-        self._source_stations   = []
-        self._receiver_stations = []
+        self._include_stations   = []
+        self._exclude_stations = []
         self._window_length=60*60.0
         self._tasks = {
             'data': DataLoader(),
@@ -182,27 +187,27 @@ class _AnxcorData:
         self._process_order = []
 
     def _get_anxcor_config_dict(self):
-        return {'source_stations': self._source_stations,
-                'receiver_stations': self._receiver_stations,
+        return {'source_stations': self._include_stations,
+                'receiver_stations': self._exclude_stations,
                 'window_length': self._window_length }
     def _set_anxcor_config_dict(self,dict):
-        self._source_stations=dict['source_stations']
-        self._receiver_stations= dict['receiver_stations']
+        self._include_stations=dict['source_stations']
+        self._exclude_stations= dict['receiver_stations']
         self._window_length = dict['window_length']
 
-    def set_source_stations(self,source_stations):
-        if isinstance(source_stations,str):
-            self._source_stations.append(source_stations)
-        elif isinstance(source_stations,tuple) or isinstance(source_stations,list):
-            self._source_stations = self._source_stations + source_stations
+    def set_must_include_stations(self,include_stations):
+        if isinstance(include_stations,str):
+            self._include_stations.append(include_stations)
+        elif isinstance(include_stations,tuple) or isinstance(include_stations,list):
+            self._include_stations = self._include_stations + include_stations
         else:
-            print('source stations are neither string, tuple, or list. Ignoring')
+            print('include stations are neither string, tuple, or list. Ignoring')
 
-    def set_receiver_stations(self,receiver_stations):
-        if isinstance(receiver_stations,str):
-            self._receiver_stations.append(receiver_stations)
-        elif isinstance(receiver_stations,tuple) or isinstance(receiver_stations,list):
-            self._receiver_stations = self._receiver_stations + receiver_stations
+    def set_must_exclude_stations(self, exclude_stations):
+        if isinstance(exclude_stations, str):
+            self._exclude_stations.append(exclude_stations)
+        elif isinstance(exclude_stations, tuple) or isinstance(exclude_stations, list):
+            self._exclude_stations = self._exclude_stations + exclude_stations
         else:
             print('source stations are neither string, tuple, or list. Ignoring')
 
@@ -245,10 +250,12 @@ class _AnxcorData:
         stations = self._tasks['data'].get_stations()
         station_pairs = list(itertools.combinations_with_replacement(stations, 2))
         df = pd.DataFrame(station_pairs,columns=['source','receiver'])
-        if self._source_stations:
-            df=df[df['source'].isin(self._source_stations)]
-        if self._receiver_stations:
-            df = df[df['receiver'].isin(self._receiver_stations)]
+        if self._include_stations:
+            df=df[df['source'].isin(self._include_stations) |
+                  df['receiver'].isin(self._include_stations)]
+        if self._exclude_stations:
+            df = df[(~df['receiver'].isin(self._exclude_stations)) &
+                    (~df['source'].isin(self._exclude_stations))]
         return df
 
     def has_data(self):
