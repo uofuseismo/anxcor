@@ -101,6 +101,60 @@ class TestIntegratedIOOps(unittest.TestCase):
         cluster.close()
         assert 6 ==len(pairs)
 
+
+    def test_dask_execution_exclude(self):
+
+        from distributed import Client, LocalCluster
+        cluster = LocalCluster(n_workers=1, threads_per_worker=1)
+        c = Client(cluster)
+        anxcor = Anxcor()
+        anxcor.set_window_length(120)
+        anxcor.set_task_kwargs('crosscorrelate',dict(max_tau_shift=20.0))
+        times = anxcor.get_starttimes(starttime_stamp,endtime_stamp, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.set_must_exclude_stations('AX.1')
+        anxcor.add_dataset(bank, 'nodals')
+        result = anxcor.process(times,dask_client=c,stack_immediately=True)
+        pairs  = list(result.coords['rec'].values)+ list(result.coords['src'].values)
+        c.close()
+        cluster.close()
+        assert 4 ==len(pairs)
+
+    def test_dask_execution_exclude_stack_immediately(self):
+
+        from distributed import Client, LocalCluster
+        cluster = LocalCluster(n_workers=1, threads_per_worker=1)
+        c = Client(cluster)
+        anxcor = Anxcor()
+        anxcor.set_window_length(40.0)
+        anxcor.set_task_kwargs('crosscorrelate',dict(max_tau_shift=20.0))
+        times = anxcor.get_starttimes(starttime_stamp,endtime_stamp, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.set_must_exclude_stations('AX.1')
+        anxcor.add_dataset(bank, 'nodals')
+        result = anxcor.process(times,dask_client=c,stack_immediately=True)
+        pairs  = list(result.coords['rec'].values)+ list(result.coords['src'].values)
+        c.close()
+        cluster.close()
+        assert 4 ==len(pairs)
+
+    def test_dask_execution_include_stack_immediately(self):
+
+        from distributed import Client, LocalCluster
+        cluster = LocalCluster(n_workers=1, threads_per_worker=1)
+        c = Client(cluster)
+        anxcor = Anxcor()
+        anxcor.set_window_length(120.0)
+        times = anxcor.get_starttimes(starttime_stamp,endtime_stamp, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.set_must_exclude_stations('AX.1')
+        anxcor.add_dataset(bank, 'nodals')
+        result = anxcor.process(times,dask_client=c,stack_immediately=True)
+        pairs  = list(result.coords['rec'].values)+ list(result.coords['src'].values)
+        c.close()
+        cluster.close()
+        assert 4 ==len(pairs)
+
     def test_pair_preservation(self):
         anxcor = Anxcor()
         anxcor.set_window_length(120.0)

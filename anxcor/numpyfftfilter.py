@@ -102,7 +102,8 @@ def _check_xcorrelate_assumptions(source_xarray, receiver_xarray, taper, max_tau
     if max_tau_shift is not None:
         timedelta = 2*(source_xarray.coords['time'].values.max() - source_xarray.coords['time'].values.min())
         max_delta = pd.Timedelta(max_tau_shift*2*1e9,unit='N').to_timedelta64()
-        assert timedelta >= max_delta, 'target tau shift delta is too long. aborting'
+        assert timedelta >= max_delta, 'target tau shift: {}s delta '.format(max_tau_shift)+\
+                                       'is too long (trace is {}s). aborting'.format(timedelta/2e9)
 
 def _will_not_correlate_message(source_xarray,receiver_xarray):
     start1 = UTCDateTime(source_xarray.attrs['starttime'])

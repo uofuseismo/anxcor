@@ -43,30 +43,29 @@ class _AnxcorProcessor:
             print('processing window {}'.format(UTCDateTime(starttime)))
             correlation_dataset  = self._iterate_over_pairs(starttime, station_pairs, dask_client=dask_client)
             futures.append(correlation_dataset)
-            if stack_immediately and len(futures)>=2:
-                if dask_client is not None:
-                    dask_client.scatter(futures)
-                station = 'stack_'+UTCDateTime(starttime).strftime(self.time_format)
-                stacked_result = self._reduce(futures,
-                                                  station=station,
-                                                  reducing_func=self._get_task('stack'),
-                                                  dask_client=dask_client)
-                if dask_client is not None:
+            if stack_immediately:
+                stacked_result = self._prepare_results(dask_client, futures)
+                if dask_client is not None and \
+                    stacked_result is not None \
+                    and not isinstance(stacked_result,xr.Dataset):
                     stacked_result = stacked_result.result()
                 futures=[stacked_result]
 
-        if not stack_immediately:
-            if dask_client is not None:
-                dask_client.scatter(futures)
-            combined_crosscorrelations = self._reduce(futures,
-                                                  station='stack',
-                                                  reducing_func=self._get_task('stack'),
-                                                  dask_client=dask_client)
-        else:
-            combined_crosscorrelations=futures[0]
+        combined_crosscorrelations = self._prepare_results(dask_client, futures)
 
         return combined_crosscorrelations
 
+    def _prepare_results(self, dask_client, futures):
+        if len(futures) >= 2:
+            if dask_client is not None:
+                dask_client.scatter(futures)
+            combined_crosscorrelations = self._reduce(futures,
+                                                      station='stack',
+                                                      reducing_func=self._get_task('stack'),
+                                                      dask_client=dask_client)
+        else:
+            combined_crosscorrelations = futures[0]
+        return combined_crosscorrelations
 
     def _iterate_over_pairs(self, starttime, station_pairs, dask_client=None):
         correlation_stack = []
