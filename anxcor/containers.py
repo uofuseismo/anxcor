@@ -223,13 +223,18 @@ class XArrayCombine(ab.AnxcorDataTask):
         super().__init__(**kwargs)
 
     def _single_thread_execute(self,first_data, second_data,**kwargs):
+        print('***********************************************************')
+        print('data one input size: {}'.format(os_utils.getsize(first_data)))
+        print('data two input size: {}'.format(os_utils.getsize(second_data)))
         if isinstance(first_data,xr.DataArray):
             first_data.attrs = {}
             first_data = first_data.to_dataset()
         if isinstance(second_data,xr.DataArray):
             second_data.attrs = {}
             second_data = second_data.to_dataset()
-        return execute_if_ok_else_pass_through(self._normal_combine,first_data,second_data)
+        result = execute_if_ok_else_pass_through(self._normal_combine,first_data,second_data)
+        print('result output size: {}'.format(os_utils.getsize(result)))
+        return result
 
     def _normal_combine(self, first_data, second_data):
         if isinstance(first_data, xr.DataArray) and isinstance(second_data, xr.DataArray):
@@ -270,11 +275,14 @@ class XArrayCombine(ab.AnxcorDataTask):
         else:
             attrs_1 = first_data.attrs
             attrs_2 = second_data.attrs
+            assert 'df' in attrs_1.keys(), 'no dataframe in 1!!! attrs is {}'.format(attrs_1)
+            assert 'df' in attrs_2.keys(), 'no dataframe in 2!!! attrs is {}'.format(attrs_1)
             df_1 = attrs_1['df']
             df_2 = attrs_2['df']
             attrs = {'df': pd.concat([df_1,df_2],ignore_index=True)}
             if attrs['df'].isnull().values.any():
                 print('isnull')
+            print('metadata size: {}'.format(os_utils.getsize(attrs)))
             return attrs
 
     def _io_result(self, result, *args, **kwargs):

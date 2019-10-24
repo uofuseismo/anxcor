@@ -126,7 +126,8 @@ class _AnxcorProcessor:
                 dask_client=None):
 
         tree_depth = 1
-    
+        if dask_client is not None:
+            dask_client.scatter(future_stack)
         while len(future_stack) > 1:
             new_future_list = []
 
