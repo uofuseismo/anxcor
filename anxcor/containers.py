@@ -233,7 +233,9 @@ class XArrayCombine(ab.AnxcorDataTask):
             second_data.attrs = {}
             second_data = second_data.to_dataset()
         result = execute_if_ok_else_pass_through(self._normal_combine,first_data,second_data)
-        print('result output size: {}'.format(os_utils.getsize(result)))
+        if result is not None:
+            print('result output size: {} with dimensions {}'.format(os_utils.getsize(result),result.sizes))
+
         return result
 
     def _normal_combine(self, first_data, second_data):
