@@ -33,7 +33,7 @@ setuptools.setup(
     'scipy>=1.0',
     'pandas>=0.24',
     'bottleneck>=1.2',
-    'pympler-0.7>=0.7'],
+    'pympler>=0.7'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
