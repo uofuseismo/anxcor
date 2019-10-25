@@ -287,9 +287,6 @@ class XArrayCombine(ab.AnxcorDataTask):
     def _io_result(self, result, *args, **kwargs):
         return result
 
-    def _get_name(self, *args):
-        return None
-
     def _get_process(self):
         return 'combine'
 
@@ -355,9 +352,6 @@ class XArrayStack(ab.XArrayProcessor):
 
     def _getattr(self,array):
         return array.attrs
-
-    def _get_name(self,one,two):
-        return None
 
     def _get_lower(self,one,two,key):
         if one[key] < two[key]:

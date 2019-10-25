@@ -232,7 +232,7 @@ class AnxcorTask:
             return None
         if persisted_metadata is not None:
             result.attrs = persisted_metadata
-        if persist_name is not None:
+        if persist_name is not None and isinstance(result,xr.DataArray):
             result.name  = persist_name
 
     def _io_operations(self, *args, result=None, **kwargs):
@@ -310,14 +310,17 @@ class AnxcorTask:
         return True
 
     def _get_name(self,*args,**kwargs):
-        if len(args) == 1:
+        if len(args) == 1 and isinstance(args[0],xr.DataArray):
             return args[0].name
         elif args[0] is None and args[1] is not None:
-            return args[1].name
+            if isinstance(args[1],xr.DataArray):
+                return args[1].name
         elif args[0] is not None and args[1] is None:
-            return args[0].name
-        else:
+            if isinstance(args[0],xr.DataArray):
+                return args[0].name
+        elif isinstance(args[0],xr.DataArray) and isinstance(args[1],xr.DataArray):
             return args[0].name + ':' + args[1].name
+        return None
 
     def _add_operation_string(self):
         return None
