@@ -312,13 +312,13 @@ class AnxcorTask:
     def _get_name(self,*args,**kwargs):
         if len(args) == 1 and isinstance(args[0],xr.DataArray):
             return args[0].name
-        elif args[0] is None and args[1] is not None:
+        elif len(args)==2 and args[0] is None and args[1] is not None:
             if isinstance(args[1],xr.DataArray):
                 return args[1].name
-        elif args[0] is not None and args[1] is None:
+        elif len(args)==2 and args[0] is not None and args[1] is None:
             if isinstance(args[0],xr.DataArray):
                 return args[0].name
-        elif isinstance(args[0],xr.DataArray) and isinstance(args[1],xr.DataArray):
+        elif len(args)==2 and isinstance(args[0],xr.DataArray) and isinstance(args[1],xr.DataArray):
             return args[0].name + ':' + args[1].name
         return None
 
