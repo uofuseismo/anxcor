@@ -6,6 +6,7 @@ import xarray as xr
 import pandas as pd
 FLOAT_PRECISION = 1e-9
 import numpy as np
+import sparse
 
 def execute_if_ok_else_pass_through(method, one, two):
     if one is None and two is not None:
@@ -223,9 +224,6 @@ class XArrayCombine(ab.AnxcorDataTask):
         super().__init__(**kwargs)
 
     def _single_thread_execute(self,first_data, second_data,**kwargs):
-        print('***********************************************************')
-        print('data one input size: {}'.format(os_utils.getsize(first_data)))
-        print('data two input size: {}'.format(os_utils.getsize(second_data)))
         if isinstance(first_data,xr.DataArray):
             first_data.attrs = {}
             first_data = first_data.to_dataset()
@@ -233,8 +231,15 @@ class XArrayCombine(ab.AnxcorDataTask):
             second_data.attrs = {}
             second_data = second_data.to_dataset()
         result = execute_if_ok_else_pass_through(self._normal_combine,first_data,second_data)
-        if result is not None:
-            print('result output size: {} with dimensions {}'.format(os_utils.getsize(result),result.sizes))
+        if first_data is not None and second_data is not None:
+            print('***********************************************************')
+            print(
+                'data one coords: src{} rec{}'.format(first_data.coords['src'].values, first_data.coords['rec'].values))
+            print('data two coords: src{} rec{}'.format(second_data.coords['src'].values,
+                                                        second_data.coords['rec'].values))
+            print('data one input size: {}'.format(os_utils.getsize(first_data)))
+            print('data two input size: {}'.format(os_utils.getsize(second_data)))
+            print('result size: {}'.format(os_utils.getsize(result)))
 
         return result
 
@@ -284,7 +289,6 @@ class XArrayCombine(ab.AnxcorDataTask):
             attrs = {'df': pd.concat([df_1,df_2],ignore_index=True)}
             if attrs['df'].isnull().values.any():
                 print('isnull')
-            print('metadata size: {}'.format(os_utils.getsize(attrs)))
             return attrs
 
     def _io_result(self, result, *args, **kwargs):

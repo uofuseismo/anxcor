@@ -28,10 +28,11 @@ setuptools.setup(
     tests_require=TESTS_REQUIRE,
     install_requires = [
     'obspy>=1.1',
-    'xarray>=0.12',
-    'numpy>=1.16',
+    'xarray>=0.14',
+    'numpy>=1.17',
     'scipy>=1.0',
-    'pandas>=0.24',
+    'pandas>=0.25',
+    'sparse>=0.8',
     'bottleneck>=1.2',
     'pympler>=0.7'],
     classifiers=[

@@ -104,11 +104,11 @@ def get_folderpath(filepath):
 def getsize(obj_0):
     """Recursively iterate to sum size of object & members."""
     size = asizeof.asizeof(obj_0)
-    if size < 1e6:
-        mb = int(size / 1e6)
+    if size < 1e9:
+        mb = size / 1e6
         string = '{} MB'.format(mb)
     else:
-        gb = int(size/1e9)
+        gb = size/1e9
         string = '{} GB'.format(gb)
 
     return string
