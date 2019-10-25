@@ -233,14 +233,7 @@ class XArrayCombine(ab.AnxcorDataTask):
         result = execute_if_ok_else_pass_through(self._normal_combine,first_data,second_data)
         if first_data is not None and second_data is not None:
             print('***********************************************************')
-            print(
-                'data one coords: src{} rec{}'.format(first_data.coords['src'].values, first_data.coords['rec'].values))
-            print('data two coords: src{} rec{}'.format(second_data.coords['src'].values,
-                                                        second_data.coords['rec'].values))
-            print('data one input size: {}'.format(os_utils.getsize(first_data)))
-            print('data two input size: {}'.format(os_utils.getsize(second_data)))
-            print('result size: {}'.format(os_utils.getsize(result)))
-
+            print('combined object size: {}'.format(os_utils.getsize(result)))
         return result
 
     def _normal_combine(self, first_data, second_data):
