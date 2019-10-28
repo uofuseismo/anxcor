@@ -268,7 +268,7 @@ class _AnxcorData:
         df = pd.DataFrame(station_pairs, columns=['source', 'receiver'])
         # ok first must include
         if self._station_pair_include:
-            df = df[df['source'].isin(self._single_station_include) & df['receiver'].isin(self._single_station_include)]
+            df = df[df['source'].isin(self._station_pair_include) & df['receiver'].isin(self._station_pair_include)]
 
         elif  self._single_station_include:
             df=df[df['source'].isin(self._single_station_include) | df['receiver'].isin(self._single_station_include)]
