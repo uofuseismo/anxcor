@@ -136,7 +136,7 @@ class DataLoader(ab.AnxcorDataTask):
         gather = '{}:{}@{}'.format('gather',data_key,extension)
         return gather
 
-    def _single_thread_execute(self,*args, station=0, starttime=0, **kwargs):
+    def execute(self, *args, station=0, starttime=0, **kwargs):
         network, station = station.split('.')
 
         kwarg_execute    = {
@@ -194,7 +194,7 @@ class DataLoader(ab.AnxcorDataTask):
         path = self._file + os_utils.sep + extension + os_utils.sep
         return path
 
-    def _metadata_to_persist(self, *param, **kwargs):
+    def _persist_metadata(self, *param, **kwargs):
         return None
 
     def _get_name(self,*args):
@@ -203,7 +203,7 @@ class DataLoader(ab.AnxcorDataTask):
     def _get_process(self):
         return 'load'
 
-    def _should_process(self, *args):
+    def _child_can_process(self, *args):
         return True
 
     def _window_key_convert(self,starttime=0):
@@ -223,7 +223,7 @@ class XArrayCombine(ab.AnxcorDataTask):
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
 
-    def _single_thread_execute(self,first_data, second_data,**kwargs):
+    def execute(self, first_data, second_data, **kwargs):
         if isinstance(first_data,xr.DataArray):
             first_data.attrs = {}
             first_data = first_data.to_dataset()
@@ -265,7 +265,7 @@ class XArrayCombine(ab.AnxcorDataTask):
             result = xr.merge([data_set, data_array])
         return result
 
-    def _metadata_to_persist(self, first_data, second_data, **kwargs):
+    def _persist_metadata(self, first_data, second_data, **kwargs):
         if first_data is None and second_data is None:
             return None
         elif first_data is None and second_data is not None:
@@ -302,7 +302,7 @@ class XArrayStack(ab.XArrayProcessor):
         self._kwargs['norm_procedure']=norm_procedure
 
 
-    def _single_thread_execute(self,first: xr.Dataset, second: xr.Dataset,*args,**kwargs):
+    def execute(self, first: xr.Dataset, second: xr.Dataset, *args, **kwargs):
         if first is None and second is not None:
             return second
         elif first is not None and second is None:
@@ -330,7 +330,7 @@ class XArrayStack(ab.XArrayProcessor):
         return first_aligned_copy
 
 
-    def _metadata_to_persist(self, xarray_1,xarray_2,*args, **kwargs):
+    def _persist_metadata(self, xarray_1, xarray_2, *args, **kwargs):
         return  method_per_op(self._combine_metadata,self._getattr,xarray_1,xarray_2)
 
     def _lambda_add(self,x_stacks,y_stacks):
@@ -366,7 +366,7 @@ class XArrayStack(ab.XArrayProcessor):
     def _get_process(self):
         return 'stack'
 
-    def _should_process(self,xarray1,xarray2, *args):
+    def _child_can_process(self, xarray1, xarray2, *args):
         return xarray1 is not None or xarray2 is not None
 
     def starttime_parser(self,first,second):

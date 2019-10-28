@@ -31,7 +31,6 @@ def xarray_crosscorrelate(source_xarray, receiver_xarray,
                                                 ('src_chan', src_channels),
                                                 ('rec_chan', rec_channels),
                                                 ('time',tau_array)))
-    print(pair)
     if max_tau_shift is not None:
         xarray = _slice_xarray_tau(xarray,max_tau_shift)
     return xarray

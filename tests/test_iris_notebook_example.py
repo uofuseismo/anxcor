@@ -1,7 +1,7 @@
 import unittest
 from obspy.clients.fdsn import Client
 from obspy.core import UTCDateTime, Stream, Trace
-from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter
+from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter, XArrayResample
 import numpy as np
 from anxcor.core import Anxcor
 from anxcor.xarray_routines import XArrayProcessor, XArrayRemoveMeanTrend, XArrayComponentNormalizer
@@ -44,7 +44,7 @@ class XArrayOneBit(XArrayProcessor):
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
 
-    def _single_thread_execute(self, xarray,*args, **kwargs):
+    def execute(self, xarray, *args, **kwargs):
         return np.sign(xarray)
 
     def _add_operation_string(self):
@@ -60,7 +60,7 @@ class TestNotebookUsageExample(unittest.TestCase):
         anxcor_main.add_dataset(IRISWrapper(), 'IMUSH_ST_HELLENS_DATA')
         resample_kwargs  = dict(taper=0.05, target_rate=20.0)
         correlate_kwargs = dict(taper=0.1, max_tau_shift=50.0)
-        anxcor_main.set_task_kwargs('resample', resample_kwargs)
+        anxcor_main.add_process(XArrayResample(**resample_kwargs))
         anxcor_main.set_task_kwargs('crosscorrelate', correlate_kwargs)
         anxcor_main.add_process(XArrayRemoveMeanTrend())
         anxcor_main.add_process(XArrayOneBit())
@@ -77,9 +77,9 @@ class TestNotebookUsageExample(unittest.TestCase):
         anxcor_main.add_dataset(IRISWrapper(), 'IMUSH_ST_HELLENS_DATA')
         resample_kwargs  = dict(taper=0.05, target_rate=20.0)
         correlate_kwargs = dict(taper=0.1, max_tau_shift=50.0)
-        anxcor_main.set_task_kwargs('resample', resample_kwargs)
+        anxcor_main.add_process(XArrayResample(**resample_kwargs))
         anxcor_main.set_task_kwargs('crosscorrelate', correlate_kwargs)
-        anxcor_main.set_task('postcorrelate',XArrayComponentNormalizer())
+        anxcor_main.set_task('post-correlate',XArrayComponentNormalizer())
         anxcor_main.add_process(XArrayRemoveMeanTrend())
         anxcor_main.add_process(XArrayOneBit())
         starttime = UTCDateTime("2005-6-22 12:00:00").timestamp

@@ -104,18 +104,20 @@ class _AnxcorProcessor:
                                                           dask_client=dask_client)
 
             correlation_stack.append(correlation)
-
+        print(correlation_stack)
         combined_crosscorrelations = self._reduce(correlation_stack,
                                                   station=UTCDateTime(starttime).strftime(self.time_format),
                                                   reducing_func=self._get_task('combine'),
                                                   dask_client=dask_client)
+        print(combined_crosscorrelations)
         combined_crosscorrelations = self._get_task('post-combine')(combined_crosscorrelations,
                                                   station='all',
                                                   starttime=starttime,
                                                   dask_client=dask_client)
-
+        print(combined_crosscorrelations)
         if dask_client is not None:
             combined_crosscorrelations = combined_crosscorrelations.result()
+        print(combined_crosscorrelations)
         return combined_crosscorrelations
 
 
@@ -167,8 +169,10 @@ class _AnxcorData:
              'combine','post-combine',
              'pre-stack','stack','post-stack']
     def __init__(self):
-        self._include_stations   = []
-        self._exclude_stations = []
+        self._single_station_include = []
+        self._station_pair_include   = []
+        self._station_pair_exclude   = []
+        self._single_station_exclude = []
         self._window_length=60*60.0
         self._tasks = {
             'data': DataLoader(),
@@ -187,29 +191,41 @@ class _AnxcorData:
         self._process_order = []
 
     def _get_anxcor_config_dict(self):
-        return {'source_stations': self._include_stations,
-                'receiver_stations': self._exclude_stations,
+        return {'source_stations': self._single_station_include,
+                'receiver_stations': self._single_station_exclude,
                 'window_length': self._window_length }
     def _set_anxcor_config_dict(self,dict):
-        self._include_stations=dict['source_stations']
-        self._exclude_stations= dict['receiver_stations']
+        self._single_station_include=dict['source_stations']
+        self._single_station_exclude= dict['receiver_stations']
         self._window_length = dict['window_length']
 
-    def set_must_include_stations(self,include_stations):
+    def set_must_include_single_stations(self, include_stations):
         if isinstance(include_stations,str):
-            self._include_stations.append(include_stations)
+            self._single_station_include.append(include_stations)
         elif isinstance(include_stations,tuple) or isinstance(include_stations,list):
-            self._include_stations = self._include_stations + include_stations
+            self._single_station_include = self._single_station_include + include_stations
         else:
-            print('include stations are neither string, tuple, or list. Ignoring')
+            print('include station pairs are neither string, tuple, or list. Ignoring')
 
-    def set_must_exclude_stations(self, exclude_stations):
-        if isinstance(exclude_stations, str):
-            self._exclude_stations.append(exclude_stations)
-        elif isinstance(exclude_stations, tuple) or isinstance(exclude_stations, list):
-            self._exclude_stations = self._exclude_stations + exclude_stations
+    def set_must_only_include_station_pairs(self, include_stations):
+        if isinstance(include_stations,tuple) or isinstance(include_stations,list):
+            self._station_pair_include = self._station_pair_include + include_stations
         else:
-            print('source stations are neither string, tuple, or list. Ignoring')
+            print('include station pairs are neither string, tuple, or list. Ignoring')
+
+    def set_must_exclude_single_stations(self, exclude_stations):
+        if isinstance(exclude_stations, str):
+            self._single_station_exclude.append(exclude_stations)
+        elif isinstance(exclude_stations, tuple) or isinstance(exclude_stations, list):
+            self._single_station_exclude = self._single_station_exclude + exclude_stations
+        else:
+            print('source stations are neither tuple, or list. Ignoring')
+
+    def set_must_exclude_station_pairs(self, exclude_stations):
+        if isinstance(exclude_stations,tuple) or isinstance(exclude_stations,list):
+            self._station_pair_exclude = self._station_pair_exclude + exclude_stations
+        else:
+            print('exclude station pairs are neither tuple, or list. Ignoring')
 
     def print_parameters(self):
         for task in self._tasks.keys():
@@ -249,13 +265,21 @@ class _AnxcorData:
     def get_station_combinations(self):
         stations = self._tasks['data'].get_stations()
         station_pairs = list(itertools.combinations_with_replacement(stations, 2))
-        df = pd.DataFrame(station_pairs,columns=['source','receiver'])
-        if self._include_stations:
-            df=df[df['source'].isin(self._include_stations) |
-                  df['receiver'].isin(self._include_stations)]
-        if self._exclude_stations:
-            df = df[(~df['receiver'].isin(self._exclude_stations)) &
-                    (~df['source'].isin(self._exclude_stations))]
+        df = pd.DataFrame(station_pairs, columns=['source', 'receiver'])
+        # ok first must include
+        if self._station_pair_include:
+            df = df[df['source'].isin(self._single_station_include) & df['receiver'].isin(self._single_station_include)]
+
+        elif  self._single_station_include:
+            df=df[df['source'].isin(self._single_station_include) | df['receiver'].isin(self._single_station_include)]
+
+        # then exclude
+
+        # then must exclude
+
+        if self._single_station_exclude:
+            df = df[(~df['receiver'].isin(self._single_station_exclude)) &
+                    (~df['source'].isin(self._single_station_exclude))]
         return df
 
     def has_data(self):

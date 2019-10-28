@@ -1,5 +1,8 @@
 import unittest
-from tests.synthetic_trace_factory import  create_random_trace, create_sinsoidal_trace
+try:
+    from tests.synthetic_trace_factory import  create_random_trace, create_sinsoidal_trace
+except Exception:
+    from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace
 import numpy as np
 from anxcor.xarray_routines import XArrayConverter, XArrayBandpass
 from scipy import fftpack

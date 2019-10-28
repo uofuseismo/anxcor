@@ -4,25 +4,21 @@ from dask.distributed import Future
 import unittest
 from obsplus.bank import WaveBank
 from obspy.core import Stream, Trace
-from anxcor.utils import _clean_files_in_dir, _how_many_fmt
-import anxcor.utils as utils
 from anxcor.core import Anxcor
 from anxcor.containers import AnxcorDatabase
-from anxcor.xarray_routines import XArrayTemporalNorm, XArrayWhiten
-import xarray as xr
 from os import path
 import numpy as np
 import pytest
 import os
 
-source_dir = 'tests/test_data/test_anxcor_database/test_waveforms_obsplus_test_case/1'
+source_dir = 'tests/test_data/test_anxcor_database/test_waveforms_multi_station'
 target_dir = 'tests/test_data/test_anxcor_database/test_save_output'
 
 if not path.exists(target_dir):
     print(os.getcwd())
     os.mkdir(target_dir)
 
-class TestProcess:
+class Process:
 
     def __init__(self):
         pass
@@ -72,19 +68,19 @@ class WavebankWrapper(AnxcorDatabase):
 
 class TestConfig(unittest.TestCase):
 
-    @pytest.mark.skip('not needed')
+
     def test_dask_execution(self):
         # created test after observing incorrect time array conversion. Will test again on cluster
         from distributed import Client, LocalCluster
-        cluster = LocalCluster(n_workers=1, threads_per_worker=4)
+        cluster = LocalCluster()
         c = Client(cluster)
         anxcor = Anxcor()
-        anxcor.set_window_length(60*15)
-        starttime = 1482368213.0
-        times = [starttime]
+        anxcor.set_window_length(150)
+        starttime = 0.0
+        times = [starttime,starttime+60]
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        result = anxcor.process(times, dask_client=None)
+        result = anxcor.process(times, dask_client=c)
         if isinstance(result,Future):
             result = result.result()
         rec_chan = list(result.coords['rec_chan'].values)

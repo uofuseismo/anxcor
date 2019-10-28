@@ -28,7 +28,7 @@ class XArrayConverter(XArrayProcessor):
         station = trace.stats.station
         return network + '.' + station
 
-    def _single_thread_execute(self, stream,*args, **kwargs):
+    def execute(self, stream, *args, **kwargs):
         if stream is not None and len(stream)>0:
             return self._convert_trace_2_xarray(stream)
         return None
@@ -112,7 +112,7 @@ class XArrayConverter(XArrayProcessor):
                 xarray.attrs['location'] = (latitude, longitude)
         return xarray
 
-    def _metadata_to_persist(self, *param, **kwargs):
+    def _persist_metadata(self, *param, **kwargs):
         return None
 
     def get_name(self):
@@ -138,7 +138,7 @@ class XArrayBandpass(XArrayProcessor):
                         'order':order,
                         'taper':taper}
 
-    def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
+    def execute(self, xarray: xr.DataArray, *args, **kwargs):
         sampling_rate = 1.0 / xarray.attrs['delta']
         ufunc_kwargs = {**self._kwargs}
 
@@ -178,7 +178,7 @@ class XArrayNormalizer(XArrayProcessor):
         super().__init__(**kwargs)
         self._kwargs['norm_type']=norm_type
 
-    def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
+    def execute(self, xarray: xr.DataArray, *args, **kwargs):
         norm_type = self._kwargs['norm_type']
         if norm_type==0:
             pass
@@ -213,7 +213,7 @@ class XArrayTaper(XArrayProcessor):
         super().__init__(**kwargs)
         self._kwargs = {'taper':taper}
 
-    def _single_thread_execute(self, xarray: xr.DataArray,*args, **kwargs):
+    def execute(self, xarray: xr.DataArray, *args, **kwargs):
         filtered_array = xr.apply_ufunc(filt_ops.taper_func, xarray,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
@@ -240,7 +240,7 @@ class XArrayResample(XArrayProcessor):
         self._kwargs['taper']       = taper
         self._kwargs['order']       = order
 
-    def _single_thread_execute(self, xarray: xr.DataArray,*args,starttime=0,**kwargs):
+    def execute(self, xarray: xr.DataArray, *args, starttime=0, **kwargs):
         delta =  xarray.attrs['delta']
         order = self._kwargs['order']
         sampling_rate = 1.0 / delta
@@ -291,7 +291,7 @@ class XArrayXCorrelate(XArrayProcessor):
         self._kwargs['max_tau_shift']=max_tau_shift
         self._kwargs['taper'] = taper
 
-    def _single_thread_execute(self, source_xarray: xr.DataArray, receiver_xarray: xr.DataArray,*args, **kwargs):
+    def execute(self, source_xarray: xr.DataArray, receiver_xarray: xr.DataArray, *args, **kwargs):
         if source_xarray is not None and receiver_xarray is not None:
             correlation = npfilt_ops.xarray_crosscorrelate(source_xarray,
                                                            receiver_xarray,
@@ -304,7 +304,7 @@ class XArrayXCorrelate(XArrayProcessor):
         return 'crosscorrelate'
 
 
-    def _metadata_to_persist(self, xarray_1,xarray_2, **kwargs):
+    def _persist_metadata(self, xarray_1, xarray_2, **kwargs):
         if xarray_2 is None or xarray_1 is None:
             return None
         rows=[]
@@ -338,7 +338,7 @@ class XArrayXCorrelate(XArrayProcessor):
     def _add_operation_string(self):
         return 'correlated@{}<t<{}'.format(self._kwargs['max_tau_shift'],self._kwargs['max_tau_shift'])
 
-    def  _should_process(self,xarray1, xarray2, *args):
+    def  _child_can_process(self, xarray1, xarray2, *args):
         return xarray1 is not None and xarray2 is not None
 
     def _get_name(self,one,two):
@@ -355,7 +355,7 @@ class XArrayRemoveMeanTrend(XArrayProcessor):
         super().__init__(**kwargs)
 
 
-    def _single_thread_execute(self,xarray,*args,**kwargs):
+    def execute(self, xarray, *args, **kwargs):
 
         detrend_array = xr.apply_ufunc(filt_ops.detrend, xarray,
                                        input_core_dims=[['time']],
@@ -384,7 +384,7 @@ class XArrayComponentNormalizer(XArrayProcessor):
         super().__init__(**kwargs)
         self._kwargs['channel_norm']=channel_norm.lower()
 
-    def _single_thread_execute(self, xarray, *args, **kwargs):
+    def execute(self, xarray, *args, **kwargs):
         channels = list(xarray.coords['channel'].values)
         norm_chan = channels[0]
         for chan in channels:
@@ -403,7 +403,7 @@ class XArrayComponentNormalizer(XArrayProcessor):
     def get_name(self):
         return 'channel normer'
 
-    def _metadata_to_persist(self, first_data,*args, **kwargs):
+    def _persist_metadata(self, first_data, *args, **kwargs):
         return first_data.attrs
 
 class XArray9ComponentNormalizer(XArrayProcessor):
@@ -415,7 +415,7 @@ class XArray9ComponentNormalizer(XArrayProcessor):
         self._kwargs['src_chan']=src_chan
         self._kwargs['rec_chan']=rec_chan
 
-    def _single_thread_execute(self, xarray, *args, **kwargs):
+    def execute(self, xarray, *args, **kwargs):
         src_chan = [x for x in list(xarray.coords['src_chan'].values)
                     if self._kwargs['src_chan'] in x.lower()]
         rec_chan = [x for x in list(xarray.coords['rec_chan'].values)
@@ -430,12 +430,12 @@ class XArray9ComponentNormalizer(XArrayProcessor):
         return xarray
 
     def _add_operation_string(self):
-        return 'corr channel normer'
+        return '9ch norm'
 
     def get_name(self):
-        return 'corr channel normer'
+        return '9ch norm'
 
-    def _metadata_to_persist(self, first_data,*args, **kwargs):
+    def _persist_metadata(self, first_data, *args, **kwargs):
         return first_data.attrs
 
 

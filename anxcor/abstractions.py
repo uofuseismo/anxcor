@@ -51,6 +51,7 @@ class NullTask:
         pass
 
     def __call__(self,correlation,**kwargs):
+        print(correlation)
         return correlation
 
     def disable(self):
@@ -169,7 +170,7 @@ class AnxcorTask:
         self._kwargs = kwargs
         self._kwargs['dummy_task']=dummy_task
         self.read  = _XArrayRead(None)
-        self.write = _XArrayWrite(None)
+        self.write_execute = _XArrayWrite(None)
         self._enabled = True
         self._fire_and_forget = None
         self._process_number = 0
@@ -182,7 +183,7 @@ class AnxcorTask:
 
     def set_io_task(self, folder, action, **kwargs):
         if action=='save':
-            self.write.set_folder(folder)
+            self.write_execute.set_folder(folder)
         else:
             self.read.set_folder(folder)
 
@@ -205,43 +206,48 @@ class AnxcorTask:
         key = self._get_operation_key(**kwargs)
 
         result = None
-        if self._enabled and not self.read.is_enabled() and self._should_process(*args):
-                if dask_client is None:
-                    result = self._execute(*args,**kwargs)
-                else:
-                    result = dask_client.submit(self._execute, *args, key=key,**kwargs)
-        result = self._io_operations(*args, dask_client=dask_client, result=result,**kwargs)
+        if self._parent_can_process() and self._child_can_process(*args):
+            if dask_client is None:
+                result = self._prepare_launch_process(*args, **kwargs)
+            else:
+                result = dask_client.submit(self._prepare_launch_process, *args, key=key, **kwargs)
+        result = self._io_operations(dask_client=dask_client, result=result,**kwargs)
         return result
 
-    def _execute(self, *args, **kwargs):
-        persist_name       = self.__get_name(*args)
-        persisted_metadata = self.__metadata_to_persist(*args, **kwargs)
+    def _prepare_launch_process(self, *args, **kwargs):
+        persisted_name, persisted_metadata  = self._persist_name_and_metadata(*args,**kwargs)
+        result = self._launch_process(*args,**kwargs)
+        result = self._assign_metadata(persisted_name, persisted_metadata, result,**kwargs)
+        return result
+
+    def _persist_name_and_metadata(self,*args,**kwargs):
+        return self.__get_name(*args), self.__metadata_to_persist(*args, **kwargs)
+
+    def _launch_process(self,*args,**kwargs):
         if args is None or len(args)==1 and args[0] is None:
             result = None
         else:
-            result = self._single_thread_execute(*args, **kwargs)
-        if result is not None:
-            self._assign_metadata(persist_name, persisted_metadata, result)
-            printstr = 'successful conversion of' + str(kwargs) + ' at ' + self._get_process() + '\n'+str(result)
-        else:
-            printstr = 'Nonetype returned at '+ str(kwargs) + ' in ' + self._get_process()
+            result = self.execute(*args, **kwargs)
         return result
 
-    def _assign_metadata(self, persist_name, persisted_metadata, result):
+    def _assign_metadata(self, persist_name, persisted_metadata, result,**kwargs):
         if result is None:
-            return None
-        if persisted_metadata is not None:
-            result.attrs = persisted_metadata
-        if persist_name is not None and isinstance(result,xr.DataArray):
-            result.name  = persist_name
+            printstr = 'Nonetype returned at ' + str(kwargs) + ' in ' + self._get_process()
+        else:
+            printstr = 'successful conversion of' + str(kwargs) + ' at ' + self._get_process() + '\n' + str(result)
+            if persisted_metadata is not None:
+                result.attrs = persisted_metadata
+            if persist_name is not None and isinstance(result,xr.DataArray):
+                result.name  = persist_name
+        return result
 
-    def _io_operations(self, *args, result=None, **kwargs):
+    def _io_operations(self, result=None, **kwargs):
         key = self._get_operation_key(**kwargs)
         file, folder, process = self._get_io_string_vars(**kwargs)
         if self.read.is_enabled():
-            result = self._dask_read_execute( process=process,folder=folder,file=file,key=key,**kwargs)
-        elif self.write.is_enabled():
-            self._dask_write_execute(result=result,process=process, folder=folder,file=file,key=key,**kwargs)
+            result = self._read_execute(process=process, folder=folder, file=file, key=key, **kwargs)
+        elif self.write_execute.is_enabled():
+            self._write_execute(result=result, process=process, folder=folder, file=file, key=key, **kwargs)
         return result
 
     def _get_io_string_vars(self, starttime=0, station=0,**kwargs):
@@ -250,29 +256,29 @@ class AnxcorTask:
         file    = station
         return file, folder, process
 
-    def _read_execute(self, process, folder, file):
+    def read_execute(self, process, folder, file):
         result = self.read(process=process,folder=folder,file=file)
         result = self._additional_read_processing(result)
         return result
 
-    def _single_thread_execute(self,*args,**kwargs):
+    def execute(self, *args, **kwargs):
         pass
 
-    def _dask_read_execute(self,*args,dask_client=None,result=None,process=None,folder=None,file=None,key=None,**kwargs):
+    def _read_execute(self, *args, dask_client=None, process=None, folder=None, file=None, **kwargs):
         if dask_client is None:
-            result = self._read_execute(process=process, folder=folder, file=file)
+            result = self.read_execute(process=process, folder=folder, file=file)
         else:
-            result = dask_client.submit(self._read_execute, process=process, folder=folder, file=file)
+            result = dask_client.submit(self.read_execute, process=process, folder=folder, file=file)
         return result
 
-    def _dask_write_execute(self,dask_client=None,result=None,process=None,folder=None,file=None,key=None,**kwargs):
+    def _write_execute(self, dask_client=None, result=None, process=None, folder=None, file=None, key=None, **kwargs):
         if dask_client is None:
-            self.write(result, process, folder, file)
+            self.write_execute(result, process, folder, file)
         else:
             if self._fire_and_forget is None:
                 from dask.distributed import fire_and_forget
                 self._fire_and_forget = fire_and_forget
-            end = dask_client.submit(self.write, result, process, folder, file, key='writing: ' + key)
+            end = dask_client.submit(self.write_execute, result, process, folder, file, key='writing: ' + key)
             if self._fire_and_forget is not None:
                 self._fire_and_forget(end)
 
@@ -280,7 +286,7 @@ class AnxcorTask:
         if param is None or (len(param)==1 and param[0] is None):
             return None
         else:
-            return self._metadata_to_persist(*param,**kwargs)
+            return self._persist_metadata(*param, **kwargs)
 
     def __get_name(self,*param,**kwargs):
         if param is None or (len(param)==1 and param[0] is None):
@@ -289,7 +295,7 @@ class AnxcorTask:
             return self._get_name(*param,**kwargs)
 
 
-    def _metadata_to_persist(self, *param, **kwargs):
+    def _persist_metadata(self, *param, **kwargs):
         if len(param)==1:
             attrs = param[0].attrs.copy()
         else:
@@ -341,9 +347,14 @@ class AnxcorTask:
         window_key = self._window_key_convert(starttime=starttime)
         return '{}-{}-{}'.format(self._get_process(),station,window_key)
 
-    def _should_process(self, *args):
+    def _child_can_process(self, *args):
         return True
 
+    def _parent_can_process(self):
+        return self._enabled and not self.read.is_enabled()
+
+    def _persist_name_and_metadata(self,*args,**kwargs):
+        return self.__get_name(*args), self.__metadata_to_persist(*args, **kwargs)
 
 
 class XArrayProcessor(AnxcorTask):
@@ -360,7 +371,7 @@ class XArrayProcessor(AnxcorTask):
             return xarray
         return result
 
-    def  _should_process(self,xarray, *args):
+    def  _child_can_process(self, xarray, *args):
         return xarray is not None
 
     def _window_key_convert(self,starttime=0):
@@ -390,7 +401,7 @@ class XArrayRolling(XArrayProcessor):
             'reduce_metric' : reduce_metric,
             'rolling_metric': rolling_metric}
 
-    def _single_thread_execute(self, xarray: xr.DataArray, *args, **kwargs):
+    def execute(self, xarray: xr.DataArray, *args, **kwargs):
 
         processed_array = self._preprocess(xarray)
         pre_rolling = self._pre_rolling_process(processed_array, xarray)

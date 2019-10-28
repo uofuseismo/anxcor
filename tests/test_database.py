@@ -72,7 +72,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         anxcor.set_window_length(120.0)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_must_include_stations('AX.1')
+        anxcor.set_must_include_single_stations('AX.1')
         stations = anxcor.get_station_combinations()
         assert len(stations.index)==3, 'too many stations retained'
 
@@ -81,7 +81,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         anxcor.set_window_length(120.0)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
-        anxcor.set_must_exclude_stations('AX.1')
+        anxcor.set_must_exclude_single_stations('AX.1')
         stations = anxcor.get_station_combinations()
         assert len(stations.index) == 3, 'too many stations retained'
 
