@@ -310,6 +310,7 @@ class XArrayStack(ab.XArrayProcessor):
         elif first is None and second is None:
             return None
         else:
+            print('stacking! everything is fine')
             first_aligned, second_aligned = xr.align(first, second, join='outer')
             first_aligned_copy = first_aligned.copy()
             first_var_set = set(list(first.data_vars))

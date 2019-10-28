@@ -233,6 +233,7 @@ class AnxcorTask:
     def _assign_metadata(self, persist_name, persisted_metadata, result,**kwargs):
         if result is None:
             printstr = 'Nonetype returned at ' + str(kwargs) + ' in ' + self._get_process()
+            print(printstr)
         else:
             printstr = 'successful conversion of' + str(kwargs) + ' at ' + self._get_process() + '\n' + str(result)
             if persisted_metadata is not None:
