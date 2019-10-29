@@ -45,41 +45,6 @@ def read(path, extension):
     return xarray
 
 
-class NullTask:
-
-    def __init__(self):
-        pass
-
-    def __call__(self,correlation,**kwargs):
-        print(correlation)
-        return correlation
-
-    def disable(self):
-        pass
-
-    def set_kwargs(self,*args,**kwargs):
-        pass
-
-    def get_kwargs(self):
-        return {}
-
-class NullDualTask:
-
-    def __init__(self):
-        pass
-
-    def __call__(self,correlation1, correlation2,**kwargs):
-        return correlation1, correlation2
-
-    def disable(self):
-        pass
-
-    def set_kwargs(self,*args,**kwargs):
-        pass
-
-    def get_kwargs(self):
-        return {}
-
 class _IO:
 
     def __init__(self, dir):
@@ -160,7 +125,7 @@ class _XArrayRead(_IO):
         self._file = directory
 
     def __call__(self, process=None, folder=None, file=None, **kwargs):
-        folder = self._file + utils.sep + process + utils.sep + folder
+        folder ='{}{}{}{}{}'.format(self._file,utils.sep,process,utils.sep,folder)
         return read(folder, file)
 
 
@@ -386,6 +351,61 @@ class AnxcorDataTask(AnxcorTask):
 
     def _additional_read_processing(self, result):
         return result
+
+class NullTask(AnxcorTask):
+
+    def __init__(self,name):
+        super().__init__()
+        self.name  = name
+
+
+    def execute(self,input, *args, **kwargs):
+        return input
+
+    def disable(self):
+        pass
+
+    def set_kwargs(self,*args,**kwargs):
+        pass
+
+    def get_kwargs(self):
+        return {}
+
+    def _get_process(self):
+        return self.name
+
+    def get_name(self):
+        return self.name
+
+    def _use_operation(self):
+        return False
+
+class NullDualTask(AnxcorTask):
+
+    def __init__(self,name):
+        super().__init__()
+        self.name = name
+
+    def execute(self, input1, input2, *args, **kwargs):
+        return input1, input2
+
+    def disable(self):
+        pass
+
+    def set_kwargs(self,*args,**kwargs):
+        pass
+
+    def get_kwargs(self):
+        return {}
+
+    def _get_process(self):
+        return self.name
+
+    def get_name(self):
+        return self.name
+
+    def _use_operation(self):
+        return False
 
 
 class XArrayRolling(XArrayProcessor):

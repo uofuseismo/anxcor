@@ -104,20 +104,19 @@ class _AnxcorProcessor:
                                                           dask_client=dask_client)
 
             correlation_stack.append(correlation)
-        print(correlation_stack)
+
         combined_crosscorrelations = self._reduce(correlation_stack,
                                                   station=UTCDateTime(starttime).strftime(self.time_format),
                                                   reducing_func=self._get_task('combine'),
                                                   dask_client=dask_client)
-        print(combined_crosscorrelations)
         combined_crosscorrelations = self._get_task('post-combine')(combined_crosscorrelations,
                                                   station='all',
                                                   starttime=starttime,
                                                   dask_client=dask_client)
-        print(combined_crosscorrelations)
+
         if dask_client is not None:
             combined_crosscorrelations = combined_crosscorrelations.result()
-        print(combined_crosscorrelations)
+
         return combined_crosscorrelations
 
 
@@ -180,13 +179,13 @@ class _AnxcorData:
             'process' : {},
             'crosscorrelate': XArrayXCorrelate(),
 
-            'post-correlate': NullTask(),
+            'post-correlate': NullTask('post-correlate'),
             'combine':      XArrayCombine(),
-            'post-combine': NullTask(),
+            'post-combine': NullTask('post-combine'),
 
-            'pre-stack':    NullDualTask(),
+            'pre-stack':    NullDualTask('pre-stack'),
             'stack':        XArrayStack(),
-            'post-stack':   NullTask()
+            'post-stack':   NullTask('post-stack')
             }
         self._process_order = []
 

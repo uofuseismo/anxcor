@@ -318,6 +318,38 @@ class TestIntegratedIOOps(unittest.TestCase):
         _clean_files_in_dir(target_dir)
         assert 36 == how_many_nc
 
+    def test_write_post_combine(self):
+        anxcor = Anxcor()
+        anxcor.set_window_length(120.0)
+        times = anxcor.get_starttimes(starttime_stamp,endtime_stamp, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.save_at_task(target_dir,'post-combine')
+        result = anxcor.process(times)
+        how_many_nc = _how_many_fmt(target_dir, format='.nc')
+        _clean_files_in_dir(target_dir)
+        assert 8 == how_many_nc
+
+
+    def test_read_post_combine(self):
+        anxcor = Anxcor()
+        anxcor.set_window_length(120.0)
+        times = anxcor.get_starttimes(starttime_stamp,endtime_stamp, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.save_at_task(target_dir,'post-combine')
+        result = anxcor.process(times)
+
+        anxcor = Anxcor()
+        anxcor.set_window_length(120.0)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.load_at_task(target_dir,'post-combine')
+        result = anxcor.process(times)
+        _clean_files_in_dir(target_dir)
+        print(result)
+        assert len(result.coords['src_chan'].values)==3
+
     def test_read_correlate(self):
         anxcor = Anxcor()
         anxcor.set_window_length(120.0)
