@@ -6,7 +6,7 @@ import xarray as xr
 import pandas as pd
 FLOAT_PRECISION = 1e-9
 import numpy as np
-import sparse
+#import sparse
 
 def execute_if_ok_else_pass_through(method, one, two):
     if one is None and two is not None:

@@ -139,7 +139,11 @@ class XArrayBandpass(XArrayProcessor):
                         'taper':taper}
 
     def execute(self, xarray: xr.DataArray, *args, **kwargs):
-        sampling_rate = 1.0 / xarray.attrs['delta']
+        if 'delta' in xarray.attrs.keys():
+            delta = xarray.attrs['delta']
+        else:
+            delta = xarray.attrs['df']['delta'].values[0]
+        sampling_rate = 1.0 / delta
         ufunc_kwargs = {**self._kwargs}
 
         if self._kwargs['upper_frequency'] > sampling_rate / 2:

@@ -1,7 +1,11 @@
 import os
 import shutil
-from pympler import asizeof
-
+try:
+    from pympler import asizeof
+    objsize = asizeof.asizeof
+except Exception:
+    def objsize(obj):
+        return 0
 import sys
 from numbers import Number
 from collections import Set, Mapping, deque
@@ -103,7 +107,7 @@ def get_folderpath(filepath):
 
 def getsize(obj_0):
     """Recursively iterate to sum size of object & members."""
-    size = asizeof.asizeof(obj_0)
+    size = objsize(obj_0)
     if size < 1e9:
         mb = size / 1e6
         string = '{} MB'.format(mb)

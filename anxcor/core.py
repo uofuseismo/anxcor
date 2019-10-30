@@ -520,6 +520,24 @@ class _AnxcorConverter:
         for name in xdataset.data_vars:
             xarray = xdataset[name]
 
+    def save_result(self,result: xr.Dataset,directory):
+        result = result.copy()
+        df = result.attrs['df']
+        del result.attrs['df']
+        utils.make_dir(directory)
+        result.to_netcdf(path='{}{}{}.nc'.format(directory,utils.sep,'result'))
+        df.to_csv('{}{}{}.csv'.format(directory,utils.sep, 'metadata'))
+
+    def load_result(self,directory):
+        df     = pd.read_csv('{}{}{}.csv'.format(directory,utils.sep, 'metadata'))
+
+        for col in list(df.columns):
+            if 'Unnamed: 0'== col:
+                df     = df.drop(columns=['Unnamed: 0'])
+                break
+        result = xr.load_dataset('{}{}{}.nc'.format(directory,utils.sep,'result'))
+        result.attrs['df'] = df
+        return result
 
 
 

@@ -273,7 +273,7 @@ class AnxcorTask:
                     attrs[added_kv_metadata[0]] = added_kv_metadata[1]
             else:
                 attrs[added_kv_metadata[0]] = added_kv_metadata[1]
-        if self._use_operation():
+        if self._use_operation() and 'operations' in attrs.keys():
             attrs['operations']=attrs['operations'] + sep_char + add_operation
         return attrs
 

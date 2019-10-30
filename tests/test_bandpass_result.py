@@ -5,9 +5,11 @@ from os import path
 from anxcor.containers import AnxcorDatabase
 from anxcor.utils import _clean_files_in_dir, _how_many_fmt
 from anxcor.core import Anxcor
+from anxcor.xarray_routines import XArrayBandpass
 from obspy.core import Stream, Trace
 import anxcor.utils as utils
 from obsplus import WaveBank
+import xarray as xr
 import numpy as np
 from anxcor.xarray_routines import XArrayTemporalNorm
 import json
@@ -66,28 +68,13 @@ class TestConfig(unittest.TestCase):
     def tearDown(self):
         _clean_files_in_dir(target_dir)
 
-    def test_save_result(self):
+    def test_bandpass_result(self):
+        bp = XArrayBandpass(lower_frequency=0.1,upper_frequency=10.0)
         anxcor = Anxcor()
         anxcor.set_window_length(120.0)
         times = anxcor.get_starttimes(starttime_stamp, endtime_stamp, 0.5)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         result = anxcor.process(times)
-        anxcor.save_result(result,target_dir)
-        num_nc = _how_many_fmt(target_dir,format='.nc')
-        assert num_nc==1
-
-    def test_load_result(self):
-        anxcor = Anxcor()
-        anxcor.set_window_length(120.0)
-        times = anxcor.get_starttimes(starttime_stamp, endtime_stamp, 0.5)
-        bank = WavebankWrapper(source_dir)
-        anxcor.add_dataset(bank, 'nodals')
-        original_result = anxcor.process(times)
-        anxcor.save_result(original_result, target_dir)
-        final_result = anxcor.load_result(target_dir)
-        assert len(final_result.to_array().squeeze().data.shape)==5
-
-
-if __name__ == '__main__':
-    unittest.main()
+        bp_result = bp(result)
+        assert isinstance(bp_result,xr.Dataset)
