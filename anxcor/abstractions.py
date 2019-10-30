@@ -200,7 +200,6 @@ class AnxcorTask:
             printstr = 'Nonetype returned at ' + str(kwargs) + ' in ' + self._get_process()
             print(printstr)
         else:
-            printstr = 'successful conversion of' + str(kwargs) + ' at ' + self._get_process() + '\n' + str(result)
             if persisted_metadata is not None:
                 result.attrs = persisted_metadata
             if persist_name is not None and isinstance(result,xr.DataArray):
