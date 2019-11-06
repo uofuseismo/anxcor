@@ -10,12 +10,6 @@ ZERO                   = np.datetime64(UTCDateTime(0.0).datetime)
 
 def xarray_crosscorrelate(source_xarray, receiver_xarray,
                           taper=0.1, max_tau_shift=None, dummy_task=False,**kwargs):
-    try:
-        _check_xcorrelate_assumptions(source_xarray,receiver_xarray,taper,max_tau_shift,dummy_task,**kwargs)
-    except Exception as exp:
-        print(exp)
-        _will_not_correlate_message(source_xarray,receiver_xarray)
-        return None
     src_channels   = list(source_xarray['channel'].values)
     rec_channels   = list(receiver_xarray['channel'].values)
     pair = [list(source_xarray.coords['station_id'].values)[0],list(receiver_xarray.coords['station_id'].values)[0]]
@@ -87,22 +81,6 @@ def _check_if_inputs_make_sense(source_array,  max_tau_shift):
     if max_tau_shift is not None and total_time <= max_tau_shift:
         raise Exception('given tau shift is too large for input array')
 
-
-def _check_xcorrelate_assumptions(source_xarray, receiver_xarray, taper, max_tau_shift, dummy_task, **kwargs):
-    assert int(source_xarray.attrs['delta']   * DELTA_MS_PRECISION)/DELTA_MS_PRECISION == \
-           int(receiver_xarray.attrs['delta'] * DELTA_MS_PRECISION)/DELTA_MS_PRECISION, \
-                'array deltas are not equal!!'
-    assert int(source_xarray.attrs['starttime']   * STARTTIME_NS_PRECISION)/STARTTIME_NS_PRECISION==\
-           int(receiver_xarray.attrs['starttime'] * STARTTIME_NS_PRECISION)/STARTTIME_NS_PRECISION, \
-                'differring starttimes!!'+\
-                                             ' will not correlate'
-    assert source_xarray.data.shape[-1]==receiver_xarray.data.shape[-1], \
-        'xarray shapes are different! will not proceed'
-    if max_tau_shift is not None:
-        timedelta = 2*(source_xarray.coords['time'].values.max() - source_xarray.coords['time'].values.min())
-        max_delta = pd.Timedelta(max_tau_shift*2*1e9,unit='N').to_timedelta64()
-        assert timedelta >= max_delta, 'target tau shift: {}s delta '.format(max_tau_shift)+\
-                                       'is too long (trace is {}s). aborting'.format(timedelta/2e9)
 
 def _will_not_correlate_message(source_xarray,receiver_xarray):
     start1 = UTCDateTime(source_xarray.attrs['starttime'])

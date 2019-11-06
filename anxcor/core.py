@@ -5,6 +5,7 @@ import xarray as xr
 import numpy as np
 import itertools
 from obspy.core import UTCDateTime, Stream, Trace
+from obspy.geodetics.base import gps2dist_azimuth
 import json
 import pandas as pd
 import anxcor.utils as utils
@@ -512,13 +513,81 @@ class _AnxcorConverter:
         pairs = station.split('.')
         return pairs[1], pairs[0]
 
-    def align_station_pairs(self,xdataset: xr.Dataset):
-        attrs = xdataset.attrs.copy()
-        del attrs['delta']
-        del attrs['operations']
-        print(attrs.keys())
+    def align_station_pairs(self,xdataset: xr.Dataset,dask_client = None):
+        xdataset = xdataset.where(xdataset!=0)
+        df = xdataset.attrs['df']
+        merged_arrays = []
         for name in xdataset.data_vars:
             xarray = xdataset[name]
+            arguments = itertools.product(xarray.coords['rec'].values, xarray.coords['src'].values)
+            arrays = []
+            for arg in arguments:
+                arrays.append(self._align_pair(arg, xarray,df))
+            merged_arrays.append(xr.merge(arrays))
+        new_dataset = xr.merge(merged_arrays)
+        new_dataset.attrs['df']=df
+        return new_dataset
+
+    def _align_pair(self,pair_arg,xarray,df):
+        rec = pair_arg[0]
+        src = pair_arg[1]
+        xarray = xarray.transpose('src_chan','rec_chan','src','rec','time',transpose_coords=True)
+        subset = xarray.loc[dict(rec=rec,src=src)]
+        if rec==src:
+            #subset.coordinates({'e':'r','n':'t'})
+            return self._create_radial_transverse_xarray(subset.data,xarray,src,rec)
+
+        data  = subset.data
+        count = np.count_nonzero(~np.isnan(data))
+        if count == 0:
+            subset = xarray.loc[dict(rec=src,src=rec)]
+            rec = pair_arg[1]
+            src = pair_arg[0]
+
+       # get coordinates
+        local_frame = df.loc[(df['src']==src) & (df['rec']==rec)].iloc[0]
+        src_lat = local_frame['src_latitude']
+        src_lon = local_frame['src_longitude']
+        rec_lat = local_frame['rec_latitude']
+        rec_lon = local_frame['rec_longitude']
+        dist, az, backaz = gps2dist_azimuth(src_lat,src_lon,rec_lat,rec_lon)
+
+        rotation_matrix_a = np.asarray([[1,           0,          0],
+                                        [0,  np.cos(az), np.sin(az)],
+                                        [0, -np.sin(az), np.cos(az)]])
+        rotation_matrix_b = np.asarray([[1,               0,               0],
+                                        [0, -np.cos(backaz), -np.sin(backaz)],
+                                        [0,  np.sin(backaz), -np.cos(backaz)]])
+
+        rotated_timeseries = np.einsum('ij,li...->ij...', rotation_matrix_a, subset)
+        rotated_timeseries = np.einsum('ij...,li...->ij...', rotated_timeseries, rotation_matrix_b)
+
+        return self._create_radial_transverse_xarray(rotated_timeseries,xarray,src,rec)
+
+    def _create_radial_transverse_xarray(self,data, original_xarray, src, rec):
+        return xr.DataArray(data.reshape(3,3,1,1,original_xarray.data.shape[-1]),
+                                dims=['src_chan','rec_chan','src','rec','time'],
+                                coords={
+                                    'rec_chan':['z','r','t'],
+                                    'src_chan':['z','r','t'],
+                                    'src':[src],
+                                    'rec':[rec],
+                                    'time':original_xarray.coords['time'].values
+                                    },
+                                name=original_xarray.name)
+
+
+            #ok. so for each source-receiver we need:
+        # | ZZ ZR ZT |       | 1    0     0     |   | ZZ  ZN  ZE |   | 1       0       0  |
+        # | RZ RR RT |   =   | 0  cos(a) sin(a) |   | NZ  NN  NE |   | 0  -cos(b) -sin(b) |
+        # | TZ TR TT |       | 0 -sin(a) cos(a) |   | EZ  EN  EE |   | 0   sin(b) -cos(b) |
+        # where a is source-receiver azimuth and b is receiver-source azimuth.
+        # lets rename each tensor according to stuff
+        # Aligned_S1R1  = ROT_S1R1 * Unaligned_S1R1 * ROTINV_S1R1
+        # in this example, unaligned S1R1 has dimensions of (3 src, 3 rec, t time)
+        # to add a second pair example, we can do:
+        # Aligned_S2R2  = ROT_S2R2 * Unaligned_S2R2 * ROTINV_S2R2
+        # this represents an operation where 
 
     def save_result(self,result: xr.Dataset,directory):
         result = result.copy()
