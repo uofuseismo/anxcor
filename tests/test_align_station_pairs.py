@@ -103,10 +103,9 @@ class TestAlignOps(unittest.TestCase):
         anxcor.align_station_pairs(result)
         assert len(pairs) == 6
 
-    def test_align_algo(self):
-        # z, R, T
-        se_one_trace = np.asarray([1e-10, -0.5,np.sqrt(3)/2]).T
-        nw_one_trace = np.asarray([1e-10, 0.5,-np.sqrt(3)/2])
+    def test_align_algo_z_invariant(self):
+        se_one_trace = np.asarray([5, 1e-15,1e-15]).T
+        nw_one_trace = np.asarray([5, 1e-15,1e-15])
         zne_matrix = np.outer(se_one_trace,nw_one_trace)
         result = np.stack([zne_matrix]*100,axis=2)
         result = np.reshape(result,(3,3,100,1,1))
@@ -121,16 +120,100 @@ class TestAlignOps(unittest.TestCase):
             name='test_array')
         data = dataarray.data
         dataset  = dataarray.to_dataset()
-        df = pd.DataFrame([{'src':'test_src', 'rec':'test_rec',
+        df = pd.DataFrame([{'src':'test_src','rec':'test_rec',
                                              'src_latitude':0,
                                              'src_longitude':0,
                                              'rec_latitude':-1/200,
                                              'rec_longitude': np.sqrt(3)/200}])
         dataset.attrs['df'] = df
 
-        alined_set = anxcor.align_station_pairs(dataset)
-        assert False
+        aligned_result = anxcor.align_station_pairs(dataset)
+        aligned_array  = aligned_result[list(aligned_result.data_vars)[0]]
+        data = aligned_array.data
+        assert np.sum(data[0,0,:,0,0])==25.0*100, 'zz was rotated!!'
+        assert np.sum(data[0,0,:,1,0])<1e-10, 'rotation failed with off diagonal nz'
+        assert np.sum(data[0, 0, :, 0, 1]) < 1e-10, 'rotation failed with off diagonal zn'
+        assert np.sum(data[0, 0, :, 2, 0]) < 1e-10, 'rotation failed with off diagonal ez'
+        assert np.sum(data[0, 0, :, 1, 1]) < 1e-10, 'rotation failed with off diagonal nn'
+        assert np.sum(data[0, 0, :, 2, 2]) < 1e-10, 'rotation failed with off diagonal ee'
+        assert np.sum(data[0, 0, :, 0, 2]) < 1e-10, 'rotation failed with off diagonal ze'
+
+
+    def test_align_algo_0_deg_angle_invariant(self):
+
+        result = np.ones((3,3,100)) * 1e-15
+        result[1,1,:]=1
+        result[2, 2, :] = 1
+        result = np.reshape(result,(3,3,100,1,1))
+        anxcor = Anxcor()
+        dataarray = xr.DataArray(result,coords={
+            'rec' : ['test_rec'],
+            'src' : ['test_src'],
+            'src_chan':['Z','N','E'],
+            'rec_chan':['Z','N','E'],
+            'time':np.arange(0,100)},
+            dims=['src_chan','rec_chan','time','rec','src'],
+            name='test_array')
+        data = dataarray.data
+        dataset  = dataarray.to_dataset()
+        df = pd.DataFrame([{'src':'test_src','rec':'test_rec',
+                                             'src_latitude':0,
+                                             'src_longitude':0,
+                                             'rec_latitude':1,
+                                             'rec_longitude': 0}])
+        dataset.attrs['df'] = df
+
+        aligned_result = anxcor.align_station_pairs(dataset)
+        aligned_array  = aligned_result[list(aligned_result.data_vars)[0]]
+        data = aligned_array.data
+        assert np.sum(data[0,0,:,1,1])==100, 'radial failed to rotate properly under zero degree rotation'
+        assert np.sum(data[0,0,:,2,2])==100, 'transverse failed to rotate properly under zero degree rotation'
+        assert np.sum(data[0,0,:,0,0]) < 1e-10, 'z component introduced rotation under zero degree transform'
+
+    def test_align_algo_90_deg_angle_invariant(self):
+
+        result = np.ones((3,3,100)) * 1e-15
+        result[1,1,:]=2
+        result[2, 2, :] = 3
+        result = np.reshape(result,(3,3,100,1,1))
+        anxcor = Anxcor()
+        dataarray = xr.DataArray(result,coords={
+            'rec' : ['test_rec'],
+            'src' : ['test_src'],
+            'src_chan':['Z','N','E'],
+            'rec_chan':['Z','N','E'],
+            'time':np.arange(0,100)},
+            dims=['src_chan','rec_chan','time','rec','src'],
+            name='test_array')
+        data = dataarray.data
+        dataset  = dataarray.to_dataset()
+        df = pd.DataFrame([{'src':'test_src','rec':'test_rec',
+                                             'src_latitude':0,
+                                             'src_longitude':0,
+                                             'rec_latitude':0,
+                                             'rec_longitude': 1}])
+        dataset.attrs['df'] = df
+
+        aligned_result = anxcor.align_station_pairs(dataset)
+        aligned_array  = aligned_result[list(aligned_result.data_vars)[0]]
+        data = aligned_array.data
+        assert np.sum(data[0,0,:,1,1])==300, 'radial failed to rotate properly under 90 degree rotation'
+        assert np.sum(data[0,0,:,2,2])==200, 'transverse failed to rotate properly under 90 degree rotation'
+        assert np.sum(data[0,0,:,0,0]) < 1e-10, 'z component introduced rotation under 90 degree transform'
 
 
     def test_dask_align(self):
-        assert False
+        from distributed import Client, LocalCluster
+        cluster = LocalCluster(n_workers=1, threads_per_worker=1)
+        c = Client(cluster)
+        anxcor = Anxcor()
+        anxcor.set_window_length(120.0)
+        times = anxcor.get_starttimes(starttime_stamp, endtime_stamp, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        result = anxcor.process(times)
+        pairs = list(result.coords['rec'].values) + list(result.coords['src'].values)
+        result = anxcor.align_station_pairs(result,dask_client=c)
+        c.close()
+        cluster.close()
+        assert result is not None

@@ -522,20 +522,33 @@ class _AnxcorConverter:
             arguments = itertools.product(xarray.coords['rec'].values, xarray.coords['src'].values)
             arrays = []
             for arg in arguments:
-                arrays.append(self._align_pair(arg, xarray,df))
-            merged_arrays.append(xr.merge(arrays))
-        new_dataset = xr.merge(merged_arrays)
+                if dask_client is not None:
+                    arrays.append(dask_client.submit(self._align_pair,arg,xarray,df))
+                else:
+                    arrays.append(self._align_pair(arg, xarray,df))
+
+            if dask_client is not None:
+                merged_arrays.append(dask_client.submit(xr.merge,arrays))
+            else:
+                merged_arrays.append(xr.merge(arrays))
+        if dask_client is not None:
+            new_dataset = dask_client.submit(xr.merge,merged_arrays)
+            new_dataset = new_dataset.result()
+        else:
+            new_dataset = xr.merge(merged_arrays)
         new_dataset.attrs['df']=df
         return new_dataset
 
     def _align_pair(self,pair_arg,xarray,df):
         rec = pair_arg[0]
         src = pair_arg[1]
-        xarray = xarray.transpose('src_chan','rec_chan','src','rec','time',transpose_coords=True)
+        time_length   = len(xarray.coords['time'])
+        xarray = xarray.transpose('src','rec','time','src_chan','rec_chan',transpose_coords=True)
         subset = xarray.loc[dict(rec=rec,src=src)]
         if rec==src:
-            #subset.coordinates({'e':'r','n':'t'})
-            return self._create_radial_transverse_xarray(subset.data,xarray,src,rec)
+            return self._create_radial_transverse_xarray(np.reshape(subset.data,
+                                                                    (1,1,time_length,3,3))
+                                                         ,xarray,src,rec)
 
         data  = subset.data
         count = np.count_nonzero(~np.isnan(data))
@@ -551,22 +564,23 @@ class _AnxcorConverter:
         rec_lat = local_frame['rec_latitude']
         rec_lon = local_frame['rec_longitude']
         dist, az, backaz = gps2dist_azimuth(src_lat,src_lon,rec_lat,rec_lon)
-
+        az      = np.deg2rad(az)
+        backaz  = np.deg2rad(backaz)
         rotation_matrix_a = np.asarray([[1,           0,          0],
                                         [0,  np.cos(az), np.sin(az)],
                                         [0, -np.sin(az), np.cos(az)]])
         rotation_matrix_b = np.asarray([[1,               0,               0],
                                         [0, -np.cos(backaz), -np.sin(backaz)],
-                                        [0,  np.sin(backaz), -np.cos(backaz)]])
+                                        [0,  np.sin(backaz), -np.cos(backaz)]]).T
+        subset_data   = subset.data
+        subset_data   = np.reshape(rotation_matrix_a @ subset_data @ rotation_matrix_b,
+                                   (1,1,time_length,3,3))
 
-        rotated_timeseries = np.einsum('ij,li...->ij...', rotation_matrix_a, subset)
-        rotated_timeseries = np.einsum('ij...,li...->ij...', rotated_timeseries, rotation_matrix_b)
-
-        return self._create_radial_transverse_xarray(rotated_timeseries,xarray,src,rec)
+        return self._create_radial_transverse_xarray(subset_data,xarray,src,rec)
 
     def _create_radial_transverse_xarray(self,data, original_xarray, src, rec):
-        return xr.DataArray(data.reshape(3,3,1,1,original_xarray.data.shape[-1]),
-                                dims=['src_chan','rec_chan','src','rec','time'],
+        xarray_rotated = xr.DataArray(data,
+                                dims=['src','rec','time','src_chan','rec_chan'],
                                 coords={
                                     'rec_chan':['z','r','t'],
                                     'src_chan':['z','r','t'],
@@ -575,6 +589,7 @@ class _AnxcorConverter:
                                     'time':original_xarray.coords['time'].values
                                     },
                                 name=original_xarray.name)
+        return xarray_rotated
 
 
             #ok. so for each source-receiver we need:
