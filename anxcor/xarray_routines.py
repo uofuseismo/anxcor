@@ -168,6 +168,9 @@ class XArrayBandpass(XArrayProcessor):
     def get_name(self):
         return 'bandpass'
 
+    def _nonetype_returned_message(self, **kwargs):
+        pass
+
 
 class XArrayNormalizer(XArrayProcessor):
     """
@@ -201,6 +204,9 @@ class XArrayNormalizer(XArrayProcessor):
     def get_name(self):
         return 'bandpass'
 
+    def _nonetype_returned_message(self, **kwargs):
+        pass
+
 
 class XArrayTaper(XArrayProcessor):
     """
@@ -231,6 +237,9 @@ class XArrayTaper(XArrayProcessor):
     def get_name(self):
         return 'taper'
 
+    def _nonetype_returned_message(self, **kwargs):
+        pass
+
 
 class XArrayResample(XArrayProcessor):
     """
@@ -238,11 +247,12 @@ class XArrayResample(XArrayProcessor):
     """
 
     def __init__(self, target_rate=c.RESAMPLE_DEFAULT,
-                 taper=c.TAPER_DEFAULT,order=1,**kwargs):
+                 taper=c.TAPER_DEFAULT,order=1,lowpass=True,**kwargs):
         super().__init__(**kwargs)
         self._kwargs['target_rate'] = target_rate
         self._kwargs['taper']       = taper
         self._kwargs['order']       = order
+        self._kwargs['lowpass']     = lowpass
 
     def execute(self, xarray: xr.DataArray, *args, starttime=0, **kwargs):
         delta =  xarray.attrs['delta']
@@ -251,17 +261,12 @@ class XArrayResample(XArrayProcessor):
         nyquist       = self._kwargs['target_rate'] / 2.0
         target_rule = str(int((1.0 /self._kwargs['target_rate']) * c.SECONDS_2_NANOSECONDS)) + 'N'
 
-        mean_array     = xarray.mean(dim=['time'])
-        demeaned_array = xarray - mean_array
-        detrend_array  = xr.apply_ufunc(filt_ops.detrend, demeaned_array,
-                                        input_core_dims=[['time']],
-                                        output_core_dims = [['time']],
-                                        kwargs={'type':'linear'})
-        tapered_array = xr.apply_ufunc(filt_ops.taper_func, detrend_array,
+        if self._kwargs['lowpass']:
+            tapered_array = xr.apply_ufunc(filt_ops.taper_func, xarray,
                                        input_core_dims=[['time']],
                                        output_core_dims=[['time']],
                                        kwargs={**self._kwargs})
-        filtered_array = xr.apply_ufunc(filt_ops.lowpass_filter,tapered_array,
+            filtered_array = xr.apply_ufunc(filt_ops.lowpass_filter,tapered_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={'upper_frequency':    nyquist,
@@ -280,6 +285,9 @@ class XArrayResample(XArrayProcessor):
 
     def _add_operation_string(self):
         return 'resampled@{}Hz'.format(self._kwargs['target_rate'])
+
+    def _nonetype_returned_message(self, **kwargs):
+        pass
 
 
 
@@ -380,6 +388,9 @@ class XArrayRemoveMeanTrend(XArrayProcessor):
     def get_name(self):
         return 'remove_mean_trend'
 
+    def _nonetype_returned_message(self, **kwargs):
+        pass
+
 class XArrayComponentNormalizer(XArrayProcessor):
     """
     normalizes preprocessed data based on a single component
@@ -409,6 +420,9 @@ class XArrayComponentNormalizer(XArrayProcessor):
 
     def _persist_metadata(self, first_data, *args, **kwargs):
         return first_data.attrs
+
+    def _nonetype_returned_message(self, **kwargs):
+        pass
 
 class XArray9ComponentNormalizer(XArrayProcessor):
     """
@@ -519,6 +533,9 @@ class XArrayTemporalNorm(XArrayRolling):
                 self._kwargs['upper_frequency'])
         return op
 
+    def _nonetype_returned_message(self, **kwargs):
+        pass
+
 
 class XArrayWhiten(XArrayRolling):
     """
@@ -580,6 +597,9 @@ class XArrayWhiten(XArrayRolling):
                 self._kwargs['lower_frequency'],
                 self._kwargs['upper_frequency'])
         return op
+
+    def _nonetype_returned_message(self, **kwargs):
+        pass
 
 
 
