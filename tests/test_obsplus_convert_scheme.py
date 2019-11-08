@@ -82,6 +82,7 @@ class TestConfig(unittest.TestCase):
         anxcor.add_dataset(bank, 'nodals')
         result = anxcor.process(times, dask_client=c)
         if isinstance(result,Future):
+            print('future')
             result = result.result()
         rec_chan = list(result.coords['rec_chan'].values)
         assert 3 == len(rec_chan)

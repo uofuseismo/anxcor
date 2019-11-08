@@ -236,6 +236,7 @@ class XArrayCombine(ab.AnxcorDataTask):
             print('combined object size: {}'.format(os_utils.getsize(result)))
         return result
 
+
     def _normal_combine(self, first_data, second_data):
         if isinstance(first_data, xr.DataArray) and isinstance(second_data, xr.DataArray):
             if first_data.name == second_data.name:
