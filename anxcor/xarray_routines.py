@@ -266,14 +266,14 @@ class XArrayResample(XArrayProcessor):
                                        input_core_dims=[['time']],
                                        output_core_dims=[['time']],
                                        kwargs={**self._kwargs})
-            filtered_array = xr.apply_ufunc(filt_ops.lowpass_filter,tapered_array,
+            xarray = xr.apply_ufunc(filt_ops.lowpass_filter,tapered_array,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={'upper_frequency':    nyquist,
                                                 'sample_rate': sampling_rate,
                                                 'order': order})
 
-        resampled_array= filtered_array.resample(time=target_rule)\
+        resampled_array= xarray.resample(time=target_rule)\
             .interpolate('linear').bfill('time').ffill('time')
         return resampled_array
 
