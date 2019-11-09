@@ -294,6 +294,9 @@ class XArrayCombine(ab.AnxcorDataTask):
     def starttime_parser(self,first,second):
         return 'depth:{}branch:{}'.format(first, second)
 
+    def _nonetype_returned_message(self, **kwargs):
+        pass
+
 
 
 class XArrayStack(ab.XArrayProcessor):

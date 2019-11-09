@@ -15,11 +15,10 @@ def xarray_crosscorrelate(source_xarray, receiver_xarray,
     pair = [list(source_xarray.coords['station_id'].values)[0],list(receiver_xarray.coords['station_id'].values)[0]]
 
     xcorr_np_mat = _cross_correlate_xarray_data(source_xarray,receiver_xarray,**kwargs)
-
     tau_array    = _get_new_time_array(source_xarray)
 
     xcorr_np_mat = xcorr_np_mat.reshape((1,1,len(src_channels),len(rec_channels),xcorr_np_mat.shape[-1]))
-
+    xcorr_np_mat, tau_array=_correct_for_time_misalignment_if_necessary(tau_array,xcorr_np_mat)
     xarray = xr.DataArray(xcorr_np_mat, coords=(('src',[pair[0]]),
                                                 ('rec',[pair[1]]),
                                                 ('src_chan', src_channels),
@@ -28,6 +27,27 @@ def xarray_crosscorrelate(source_xarray, receiver_xarray,
     if max_tau_shift is not None:
         xarray = _slice_xarray_tau(xarray,max_tau_shift)
     return xarray
+
+def _correct_for_time_misalignment_if_necessary(time_array,mat_array):
+    if mat_array.shape[-1] != len(time_array):
+        cut_end = True
+        while mat_array.shape[-1]!=len(time_array):
+            if mat_array.shape[-1]>len(time_array):
+                if cut_end:
+                    mat_array=mat_array[:,:,:,:,:-1]
+                    cut_end=False
+                else:
+                    mat_array = mat_array[:, :, :, :, 1:]
+                    cut_end=True
+            else:
+                if cut_end:
+                    time_array=time_array[:-1]
+                    cut_end=False
+                else:
+                    time_array=time_array[1:]
+                    cut_end=True
+
+    return mat_array,time_array
 
 def _get_new_time_array(source_xarray):
     delta       = source_xarray.attrs['delta']

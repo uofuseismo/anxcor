@@ -20,8 +20,6 @@ class XArrayConverter(XArrayProcessor):
 
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
-        self.writer = _XArrayWrite(None)
-        self.reader = _XArrayRead(None)
 
     def _get_station_id(self,trace):
         network = trace.stats.network
@@ -120,7 +118,6 @@ class XArrayConverter(XArrayProcessor):
 
     def _get_name(self,*args):
         return None
-
 
 
 class XArrayBandpass(XArrayProcessor):
