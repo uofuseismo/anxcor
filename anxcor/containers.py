@@ -231,9 +231,6 @@ class XArrayCombine(ab.AnxcorDataTask):
             second_data.attrs = {}
             second_data = second_data.to_dataset()
         result = execute_if_ok_else_pass_through(self._normal_combine,first_data,second_data)
-        if first_data is not None and second_data is not None:
-            print('***********************************************************')
-            print('combined object size: {}'.format(os_utils.getsize(result)))
         return result
 
 
