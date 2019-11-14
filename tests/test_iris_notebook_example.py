@@ -72,19 +72,3 @@ class TestNotebookUsageExample(unittest.TestCase):
         assert len(list(xarray_dataset.coords['rec'].values))==2
 
 
-    def test_chan_norm(self):
-        anxcor_main = Anxcor(60 * 10.0)
-        anxcor_main.add_dataset(IRISWrapper(), 'IMUSH_ST_HELLENS_DATA')
-        resample_kwargs  = dict(taper=0.05, target_rate=20.0)
-        correlate_kwargs = dict(taper=0.1, max_tau_shift=50.0)
-        anxcor_main.add_process(XArrayResample(**resample_kwargs))
-        anxcor_main.set_task_kwargs('crosscorrelate', correlate_kwargs)
-        anxcor_main.set_task('post-correlate',XArrayComponentNormalizer())
-        anxcor_main.add_process(XArrayRemoveMeanTrend())
-        anxcor_main.add_process(XArrayOneBit())
-        starttime = UTCDateTime("2005-6-22 12:00:00").timestamp
-        starttimes = []
-        for window_number in range(0, 4):
-            starttimes.append(starttime + 60 * 10.0 * window_number)
-        xarray_dataset = anxcor_main.process(starttimes)
-        assert len(list(xarray_dataset.coords['rec'].values))==2

@@ -8,7 +8,6 @@ import xarray as xr
 import anxcor.filters as filt_ops
 import anxcor.numpyfftfilter as npfilt_ops
 import copy
-from obspy.core import UTCDateTime
 import pandas as pd
 from anxcor.abstractions import XArrayRolling, XArrayProcessor, _XArrayRead, _XArrayWrite
 
@@ -23,94 +22,92 @@ class XArrayConverter(XArrayProcessor):
         self.writer = _XArrayWrite(None)
         self.reader = _XArrayRead(None)
 
-    def _get_station_id(self,trace):
-        network = trace.stats.network
-        station = trace.stats.station
-        return network + '.' + station
-
     def execute(self, stream, *args, **kwargs):
         if stream is not None and len(stream)>0:
             return self._convert_trace_2_xarray(stream)
         return None
 
     def _convert_trace_2_xarray(self, stream):
-        channels = []
-        stations = []
+        timeseries   = self._get_timeseries(stream)
+        coordinates  = self._get_coordinates(stream)
+        delta        = self._get_delta(stream)
+        station_code = self._get_station_id(stream)
+        data_type    = self._get_datatype(stream)
+        starttime    = self._get_starttime(stream)
+        channels     = self._get_channels(stream)
 
-        delta      = None
-        time_array = None
-        data_type  = 'default'
-        starttime  = None
-        latitude   = None
-        longitude  = None
-        elevation  = None
-        for trace in stream:
-            station_code = self._get_station_id(trace)
-            if station_code not in stations:
-                stations.append(station_code)
+        data = self._create_numpy_data(channels, stream)
 
-            channel = trace.stats.channel
-            if channel not in channels:
-                channels.append(channel)
-            if time_array is None:
-                time_array = self._assign_time_coordinate(trace)
-                delta     = trace.stats.delta
-                starttime = trace.stats.starttime.timestamp
-                if hasattr(trace.stats,'data_type'):
-                    data_type = trace.stats.data_type
-                stats_keys = trace.stats.keys()
-                if 'coordinates' in stats_keys:
-                    elevation, latitude, longitude = self._assign_coordinates(trace)
-        empty_array = np.zeros((len(channels), len(stations), len(time_array)))
-        for trace in stream:
-            chan       = channels.index(trace.stats.channel)
-            station_id = stations.index(self._get_station_id(trace))
-            empty_array[chan, station_id, :] = trace.data
-
-        xarray = self._create_xarray(channels, data_type, delta, elevation, empty_array, latitude, longitude, starttime,
-                                   stations, time_array)
+        metadata={'coords': {'time'    :timeseries,
+                             'channels':channels,
+                             'station_id':[station_code]},
+                  'data_type':data_type,
+                  'geographic_coordinates':coordinates,
+                  'delta':delta,
+                  'starttime':starttime
+                  }
+        xarray = self._create_xarray(data, metadata)
         return xarray
 
-    def _assign_time_coordinate(self, trace):
-        starttime = np.datetime64(trace.stats.starttime.datetime)
-        endtime   = np.datetime64(trace.stats.endtime.datetime)
-        delta     = trace.stats.delta
+    def _create_xarray(self, data, metadata):
+        xarray = xr.DataArray(data, coords=[metadata['coords']['channels'],
+                                             metadata['coords']['station_id'],
+                                             metadata['coords']['time']],
+                              dims=['channel', 'station_id', 'time'])
+        xarray.name = metadata['data_type']
+        xarray.attrs['delta'] =  metadata['delta']
+        xarray.attrs['starttime'] =  metadata['starttime']
+        xarray.attrs['operations'] = 'xconvert'
+        if metadata['geographic_coordinates'] is not None:
+            xarray.attrs['location'] = metadata['geographic_coordinates']
+        return xarray
+
+    def _get_channels(self,stream):
+        return [trace.stats.channel for trace in stream ]
+
+    def _create_numpy_data(self, channels, stream):
+        data = np.zeros((len(channels), 1, len(stream[0].data)))
+        for trace in stream:
+            chan = channels.index(trace.stats.channel)
+            data[chan, 0, :] = trace.data
+        return data
+
+    def _get_station_id(self, stream):
+        network = stream[0].stats.network
+        station = stream[0].stats.station
+        return network + '.' + station
+
+    def _get_datatype(self,stream):
+        data_type = 'default'
+        if hasattr(stream[0].stats,'data_type'):
+            data_type = stream[0].stats.data_type
+        return data_type
+
+    def _get_delta(self,stream):
+        return stream[0].stats.delta
+
+    def _get_coordinates(self,stream):
+        if hasattr(stream[0].stats,'coordinates'):
+            return stream[0].stats.coordinates
+        return None
+
+    def _get_timeseries(self, stream):
+        starttime = np.datetime64(stream[0].stats.starttime.datetime)
+        endtime   = np.datetime64(stream[0].stats.endtime.datetime)
+        delta     = stream[0].stats.delta
         timedelta = pd.Timedelta(delta, 's').to_timedelta64()
         time_array= np.arange(starttime, endtime, timedelta)
         delta_num = 1
-        while len(trace.data)!=len(time_array):
-            if len(trace.data)>len(time_array):
+        while len(stream[0].data)!=len(time_array):
+            if len(stream[0].data)>len(time_array):
                 time_array=np.append(time_array,endtime+delta_num*timedelta)
                 delta_num+=1
             else:
                 time_array=time_array[:-1]
         return time_array
 
-    def _assign_coordinates(self, trace):
-        coordinate_dict = trace.stats.coordinates
-        latitude=None; longitude=None; elevation=None
-        if 'latitude' in coordinate_dict.keys():
-            latitude = coordinate_dict['latitude']
-        if 'longitude' in coordinate_dict.keys():
-            longitude = coordinate_dict['longitude']
-        if 'elevation' in coordinate_dict.keys():
-            elevation = coordinate_dict['elevation']
-        return elevation, latitude, longitude
-
-    def _create_xarray(self, channels, data_type, delta, elevation, empty_array, latitude, longitude, starttime,
-                       stations, time_array):
-        xarray = xr.DataArray(empty_array, coords=[channels, stations, time_array],
-                              dims=['channel', 'station_id', 'time'])
-        xarray.name = data_type
-        xarray.attrs['delta'] = delta
-        xarray.attrs['starttime'] = starttime
-        xarray.attrs['operations'] = 'xconvert'
-        if latitude is not None and longitude is not None:
-            if elevation is not None:
-                xarray.attrs['location'] = (latitude, longitude, elevation)
-            else:
-                xarray.attrs['location'] = (latitude, longitude)
-        return xarray
+    def _get_starttime(self,stream):
+        return stream[0].stats.starttime.timestamp
 
     def _persist_metadata(self, *param, **kwargs):
         return None
@@ -320,13 +317,13 @@ class XArrayXCorrelate(XArrayProcessor):
                 'operations'    : xarray_1.attrs['operations'] + c.OPERATIONS_SEPARATION_CHARACTER + \
                                'correlated@{}<t<{}'.format(self._kwargs['max_tau_shift'],self._kwargs['max_tau_shift'])}
         if 'location' in xarray_1.attrs.keys() and 'location' in xarray_2.attrs.keys():
-            if len(xarray_1.attrs['location']) > 2:
-                row['src_elevation'] = xarray_1.attrs['location'][2]
-                row['rec_elevation']=xarray_2.attrs['location'][2]
-            row['rec_latitude']=xarray_2.attrs['location'][0]
-            row['rec_longitude']=xarray_2.attrs['location'][1]
-            row['src_latitude']=xarray_1.attrs['location'][0]
-            row['src_longitude']=xarray_1.attrs['location'][1]
+            if len(xarray_1.attrs['location'].keys()) > 2:
+                row['src_elevation'] = xarray_1.attrs['location']['elevation']
+                row['rec_elevation']=xarray_2.attrs['location']['elevation']
+            row['rec_latitude']=xarray_2.attrs['location']['latitude']
+            row['rec_longitude']=xarray_2.attrs['location']['longitude']
+            row['src_latitude']=xarray_1.attrs['location']['latitude']
+            row['src_longitude']=xarray_1.attrs['location']['longitude']
         for src_chan in list(xarray_1.coords['channel'].values):
             for rec_chan in list(xarray_2.coords['channel'].values):
                 row['src channel']=src_chan
@@ -379,36 +376,6 @@ class XArrayRemoveMeanTrend(XArrayProcessor):
 
     def get_name(self):
         return 'remove_mean_trend'
-
-class XArrayComponentNormalizer(XArrayProcessor):
-    """
-    normalizes preprocessed data based on a single component
-    """
-    def __init__(self,channel_norm='z',**kwargs):
-        super().__init__(**kwargs)
-        self._kwargs['channel_norm']=channel_norm.lower()
-
-    def execute(self, xarray, *args, **kwargs):
-        channels = list(xarray.coords['channel'].values)
-        norm_chan = channels[0]
-        for chan in channels:
-            if self._kwargs['channel_norm'] in chan.lower():
-                norm_chan = chan
-                break
-
-        norm_chan_max = np.max(np.abs(xarray.loc[dict(channel=norm_chan)].data.ravel()))
-        xarray /= norm_chan_max
-
-        return xarray
-
-    def _add_operation_string(self):
-        return 'channel normer'
-
-    def get_name(self):
-        return 'channel normer'
-
-    def _persist_metadata(self, first_data, *args, **kwargs):
-        return first_data.attrs
 
 class XArray9ComponentNormalizer(XArrayProcessor):
     """
