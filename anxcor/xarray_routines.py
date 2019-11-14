@@ -33,6 +33,7 @@ class XArrayConverter(XArrayProcessor):
         delta        = self._get_delta(stream)
         station_code = self._get_station_id(stream)
         data_type    = self._get_datatype(stream)
+
         starttime    = self._get_starttime(stream)
         channels     = self._get_channels(stream)
 
