@@ -197,14 +197,17 @@ class AnxcorTask:
 
     def _assign_metadata(self, persist_name, persisted_metadata, result,**kwargs):
         if result is None:
-            printstr = 'Nonetype returned at ' + str(kwargs) + ' in ' + self._get_process()
-            print(printstr)
+            self._nonetype_returned_message(**kwargs)
         else:
             if persisted_metadata is not None:
                 result.attrs = persisted_metadata
             if persist_name is not None and isinstance(result,xr.DataArray):
                 result.name  = persist_name
         return result
+
+    def _nonetype_returned_message(self,**kwargs):
+        printstr = 'Nonetype returned at ' + str(kwargs) + ' in ' + self._get_process()
+        print(printstr)
 
     def _io_operations(self, result=None, **kwargs):
         key = self._get_operation_key(**kwargs)

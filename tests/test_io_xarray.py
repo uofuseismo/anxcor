@@ -223,6 +223,29 @@ class TestIntegratedIOOps(unittest.TestCase):
         cluster.close()
         assert 48 == how_many_nc
 
+
+    def test_read_combine_instastack(self):
+
+        anxcor = Anxcor()
+        anxcor.set_window_length(120.0)
+        times = anxcor.get_starttimes(starttime_stamp, endtime_stamp, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+
+        anxcor.save_at_task(target_dir, 'combine')
+        result = anxcor.process(times,stack_immediately=True)
+
+        anxcor = Anxcor()
+        anxcor.set_window_length(120.0)
+        bank = WavebankWrapper(source_dir)
+        anxcor.add_dataset(bank, 'nodals')
+        anxcor.load_at_task(target_dir, 'combine')
+        result = anxcor.process(times,stack_immediately=True)
+
+        how_many_nc = _how_many_fmt(target_dir, format='.nc')
+        _clean_files_in_dir(target_dir)
+        assert 48 == how_many_nc
+
     def test_write_tempnorm_dask(self):
         from distributed import Client, LocalCluster
         from dask.distributed import wait

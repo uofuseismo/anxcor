@@ -231,10 +231,8 @@ class XArrayCombine(ab.AnxcorDataTask):
             second_data.attrs = {}
             second_data = second_data.to_dataset()
         result = execute_if_ok_else_pass_through(self._normal_combine,first_data,second_data)
-        if first_data is not None and second_data is not None:
-            print('***********************************************************')
-            print('combined object size: {}'.format(os_utils.getsize(result)))
         return result
+
 
     def _normal_combine(self, first_data, second_data):
         if isinstance(first_data, xr.DataArray) and isinstance(second_data, xr.DataArray):
@@ -292,6 +290,9 @@ class XArrayCombine(ab.AnxcorDataTask):
 
     def starttime_parser(self,first,second):
         return 'depth:{}branch:{}'.format(first, second)
+
+    def _nonetype_returned_message(self, **kwargs):
+        pass
 
 
 

@@ -248,6 +248,23 @@ class TestCorrelation(unittest.TestCase):
         result_1 = correlation_source.loc[dict(src='v.h',rec='v.k',src_chan=src_chan, rec_chan=rec_chan)] - test_correlation
         assert 0 == np.sum(result_1.data)
 
+
+    def test_numpy_equivalent(self):
+        max_tau_shift = 19.99
+        correlator = XArrayXCorrelate(max_tau_shift=max_tau_shift)
+
+        synth_trace_1, synth_trace_2 = create_example_xarrays()
+        src_chan = 'z'
+        rec_chan = 'z'
+
+        correlation_source = correlator(synth_trace_1.copy(), synth_trace_2.copy())
+
+        test_correlation =  np.correlate(np.asarray(synth_trace_1.sel(dict(channel=src_chan)).expand_dims('channel').data).squeeze(),
+                                      np.asarray(synth_trace_2.sel(dict(channel=rec_chan)).expand_dims('channel').data).squeeze(),mode='full')
+        corr_source    = np.asarray(correlation_source.loc[dict(src='v.h',rec='v.k',src_chan=src_chan, rec_chan=rec_chan)].data)
+        assert np.allclose(test_correlation,corr_source)
+
+
     def test_correct_pair_ez(self):
         max_tau_shift = 8
         correlator = XArrayXCorrelate(max_tau_shift=max_tau_shift)
