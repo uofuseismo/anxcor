@@ -1,10 +1,15 @@
 import unittest
 #from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
 from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
-from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter, XArrayRemoveMeanTrend, XArrayResample
+from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter, XArrayRemoveMeanTrend, XArrayResample, XArrayTaper, XArrayProcessor
+import os
 from anxcor.containers import XArrayStack, AnxcorDatabase, XArrayCombine
-from anxcor.numpyfftfilter import _multiply_in_mat, xarray_crosscorrelate
+import glob
+from anxcor.numpyfftfilter import xarray_crosscorrelate
 from anxcor.core import Anxcor
+import pandas as pd
+import matplotlib.pyplot as plt
+import scipy.signal as sig
 import numpy as np
 import xarray as xr
 from obspy.core import  UTCDateTime, Trace, Stream, read
@@ -47,6 +52,186 @@ class WavebankWrapper(AnxcorDatabase):
         df['seed'] = df.apply(lambda row: create_seed(row), axis=1)
         unique_stations = df['seed'].unique().tolist()
         return unique_stations
+
+
+class XArrayCustomComponentNormalizer(XArrayProcessor):
+    """
+    normalizes preprocessed data based on a single component
+    """
+    def __init__(self,channel_norm='z',**kwargs):
+        super().__init__(**kwargs)
+        self._kwargs['channel_norm']=channel_norm.lower()
+
+    def execute(self, xarray, *args, **kwargs):
+        norm_chan_max = np.amax(np.abs(xarray.loc[dict(src_chan='z',rec_chan='z')]))
+        xarray /= norm_chan_max
+        return xarray
+
+    def _add_operation_string(self):
+        return 'channel normer zz'
+
+    def get_name(self):
+        return 'channel normer zz'
+
+    def _persist_metadata(self, first_data, *args, **kwargs):
+        return first_data.attrs
+
+
+class DWellsDecimatedReader(AnxcorDatabase):
+    """
+    class for reading in time synced filed synced
+    like fan chi lin's group likes to do
+    """
+    time_format = '%Y%m%d'
+
+    def __init__(self, data_dir, station_file, station_number=None, source=None, extension=None):
+
+        self.df = pd.read_csv(station_file, delim_whitespace=True,
+                              skiprows=0,
+                              names=['station', 'unknown_col', 'latitude', 'longitude'], dtype={'station': object})
+        self.data_dir = data_dir
+        self.extension = extension
+
+    def get_waveforms(self, starttime=0, endtime=0, station=0, network=0):
+        """
+        get waveforms yields a stream of traces given a starttitme and endtime in utcdatetime floats
+        """
+        # print('starttime:{} endtime:{} network: {} station: {}'.format(starttime,endtime,network,station))
+        start_format = self.format_utcdatetime(starttime)
+        end_format = self.format_utcdatetime(endtime)
+        if start_format == end_format:
+            file_list = self.get_filelist(start_format, station)
+        else:
+            file_list = self.get_filelist(start_format, station) + self.get_filelist(end_format, station)
+        stream = self.read_in_traces(file_list)
+        stream.merge(method=1, interpolation_samples=-1)
+        stream.trim(starttime=UTCDateTime(starttime), endtime=UTCDateTime(endtime), fill_value=np.nan)
+        stream = self.assign_coordinates(stream)
+        traces = []
+        for trace in stream:
+            if max(trace.data) > 0.0:
+                # print('adding trace')
+                self.cast_to_simple_channel(trace)
+                traces.append(trace)
+        new_stream = Stream(traces=traces)
+        # print('trace size for query is {} and station is str {}'.format(len(new_stream),isinstance(station,str)))
+        return new_stream
+
+    def assign_coordinates(self, stream):
+        new_traces = []
+        for trace in stream:
+            station=trace.stats.station.lstrip('0')
+            new_trace = Trace(trace.data,
+                                    header={'starttime':trace.stats.starttime,
+                                            'delta': np.round(trace.stats.delta,decimals=5),
+                                            'channel':trace.stats.channel,
+                                            'station':station,
+                                            'network':trace.stats.network})
+            station   = station
+            latitude  = self.df.loc[self.df['station'] == station]['latitude'].values[0]
+            longitude = self.df.loc[self.df['station'] == station]['longitude'].values[0]
+            new_trace.stats.coordinates = {'latitude': latitude, 'longitude': longitude}
+            new_traces.append(new_trace)
+        return Stream(traces=new_traces)
+
+    def cast_to_simple_channel(self, trace):
+        channel = trace.stats.channel
+        target_channel = 'na'
+        if 'z' in channel[-1].lower():
+            target_channel = 'z'
+        elif 'n' in channel[-1].lower():
+            target_channel = 'n'
+        elif 'e' in channel[-1].lower():
+            target_channel = 'e'
+        trace.stats.channel = target_channel
+
+    def get_filelist(self, base_format, station):
+        if isinstance(station, int):
+            station = str(station)
+        general_format = self.data_dir + os.sep + station + os.sep + base_format + '*.' + station + '.*sac*'
+        if self.extension is not None:
+            general_format = general_format + self.extension
+        glob_result = glob.glob(general_format)
+        return glob_result
+
+    def get_single_sacfile(self, station):
+        if isinstance(station, int):
+            station = str(station)
+        general_format = self.data_dir + os.sep + station + os.sep + '*sac*'
+        glob_result = glob.glob(general_format)
+        return glob_result
+
+    def get_network_code_from_sacfile(self, station):
+        file = self.get_single_sacfile(station)[0]
+        stream = read(file)
+        trace = stream[0]
+        return trace.stats['network']
+
+    def verify_sacfile_exists(self, station):
+        file = self.get_single_sacfile(station)
+        if file:
+            return True
+        else:
+            return False
+
+    def generate_networks(self):
+        self.df['valid_station'] = self.df['station'].apply(lambda x: self.verify_sacfile_exists(x))
+        self.df['network'] = np.nan
+        self.df['station_id'] = np.nan
+        df = self.df
+        df.loc[df['valid_station'], 'network'] = df[df['valid_station']]['station'].apply(
+            lambda x: self.get_network_code_from_sacfile(x))
+        df.loc[df['valid_station'], 'station_id'] = df[df['valid_station']].apply(
+            lambda x: str(x['network']) + '.' + str(x['station']), axis=1)
+        self.df = df
+
+    def read_in_traces(self, file_list):
+        running_stream = Stream()
+        for file in file_list:
+            running_stream += read(file)
+        return running_stream
+
+    def format_utcdatetime(self, time):
+        utcdatetime = UTCDateTime(time)
+        string = utcdatetime.strftime(self.time_format)
+        string = string.replace(" ", "")
+        return string
+
+    def get_stations(self):
+        if 'network' not in self.df.columns:
+            print('generating stream database')
+            self.generate_networks()
+        return list(self.df[self.df['valid_station'] == True]['station_id'].values)
+
+
+def build_anxcor(tau):
+    broadband_data_dir               = 'tests/test_data/correlation_integration_testing/FORU'
+    broadband_station_location_file  = 'tests/test_data/correlation_integration_testing/bbstationlist.txt'
+    nodal_data_dir               =     'tests/test_data/correlation_integration_testing/DV'
+    nodal_station_location_file  =     'tests/test_data/correlation_integration_testing/DV_stationlst.lst'
+
+    broadband_database = DWellsDecimatedReader(broadband_data_dir, broadband_station_location_file)
+    nodal_database     = DWellsDecimatedReader(nodal_data_dir,     nodal_station_location_file,extension='d')
+    window_length = 10*60.0
+    #include_stations = ['DV.{}'.format(x) for x in range(1,10)]
+    include_stations = ['UU.FORU','DV.1','DV.2']
+
+    taper_ratio     = 0.05
+    target_rate     = 50.0
+    correlate_kwargs= dict(max_tau_shift=tau,taper=taper_ratio)
+    resample_kwargs = dict(target_rate=target_rate,lowpass=False)
+
+    anxcor_main = Anxcor()
+    anxcor_main.set_window_length(window_length)
+    anxcor_main.set_must_only_include_station_pairs(include_stations)
+    anxcor_main.add_dataset(broadband_database,'BB')
+    anxcor_main.add_dataset(nodal_database, 'DV')
+    anxcor_main.add_process(XArrayTaper(taper=taper_ratio))
+    anxcor_main.add_process(XArrayRemoveMeanTrend())
+    anxcor_main.add_process(XArrayTaper(taper=taper_ratio))
+    anxcor_main.set_task_kwargs('crosscorrelate',correlate_kwargs)
+    anxcor_main.set_task('post-correlate',XArrayCustomComponentNormalizer())
+    return anxcor_main
 
 def shift_trace(data,time=1.0,delta=0.1):
     sampling_rate = int(1.0/delta)
@@ -249,7 +434,7 @@ class TestCorrelation(unittest.TestCase):
         assert 0 == np.sum(result_1.data)
 
 
-    def test_numpy_equivalent(self):
+    def test_scipy_equivalent(self):
         max_tau_shift = 19.99
         correlator = XArrayXCorrelate(max_tau_shift=max_tau_shift)
 
@@ -259,10 +444,10 @@ class TestCorrelation(unittest.TestCase):
 
         correlation_source = correlator(synth_trace_1.copy(), synth_trace_2.copy())
 
-        test_correlation =  np.correlate(np.asarray(synth_trace_1.sel(dict(channel=src_chan)).expand_dims('channel').data).squeeze(),
+        test_correlation =  sig.correlate(np.asarray(synth_trace_1.sel(dict(channel=src_chan)).expand_dims('channel').data).squeeze(),
                                       np.asarray(synth_trace_2.sel(dict(channel=rec_chan)).expand_dims('channel').data).squeeze(),mode='full')
         corr_source    = np.asarray(correlation_source.loc[dict(src='v.h',rec='v.k',src_chan=src_chan, rec_chan=rec_chan)].data)
-        assert np.allclose(test_correlation,corr_source)
+        assert np.sum(np.abs(test_correlation-corr_source))==0
 
 
     def test_correct_pair_ez(self):
@@ -310,17 +495,6 @@ class TestCorrelation(unittest.TestCase):
         result_1 = correlation_source.loc[dict(src='v.h',rec='v.k',src_chan=src_chan, rec_chan=rec_chan)] - test_correlation
         assert 0 == np.sum(result_1.data)
 
-    def test_proper_matrix_order(self):
-        one = np.arange(0,4).reshape((4,1))
-        two = np.arange(1,4).reshape((3,1))
-
-        source = _multiply_in_mat(one,two,dtype=np.float32)
-        target = np.asarray([[0, 0, 0],
-                             [1, 2, 3],
-                             [2, 4, 6],
-                             [3, 6, 9]])
-        assert np.sum(source[:,:,0]-target) == 0
-
 
 
     def test_nonetype_in_out(self):
@@ -359,6 +533,69 @@ class TestCorrelation(unittest.TestCase):
         slice_data /= max(slice_data)
         assert np.cumsum(trace.data - result_data.ravel())[-1]==pytest.approx(0,abs=1e-2)
 
+    def test_absolute_scipy_equality_integration(self):
+        overlap = 0.0
+        tau=120
+        delta=50
+        starttime = UTCDateTime("2017-10-01 06:00:00").timestamp
+        endtime   = UTCDateTime("2017-10-01 06:10:00").timestamp
+        #test this with anxcor functions outside of anxcor
+        anxcor_main = build_anxcor(tau)
+        starttime_list = anxcor_main.get_starttimes(starttime, endtime, overlap)
+
+        result = anxcor_main.process(starttime_list)
+
+        source = result.loc[dict(src='UU.FORU',rec='DV.1')]['src:BB rec:DV']
+        #source.loc[dict(src_chan='z',rec_chan='z')].plot(x='time')
+        source_stream = Stream(traces=[Trace(source.loc[dict(src_chan='z',rec_chan='z')].data.ravel(),
+                               header={'starttime':UTCDateTime(-tau*delta),'delta': result.attrs['df']['delta'].values[0]})])
+
+        foru = read('tests/test_data/correlation_integration_testing/FORU/FORU/20171001.FORU.EHZ.sac').trim(UTCDateTime(starttime),
+                                                                                                            UTCDateTime(endtime))\
+            .detrend('linear').detrend('constant').taper(0.05).taper(0.05)
+        dv_1 = read('tests/test_data/correlation_integration_testing/DV/1/2017*EHZ*').trim(UTCDateTime(starttime),
+                                                                                            UTCDateTime(endtime))\
+            .detrend('linear').detrend('constant').taper(0.05).taper(0.05)
+        foru.plot()
+        dv_1.plot()
+        target_numpy_array = sig.fftconvolve(foru[0].data,dv_1[0].data[::-1],mode='full')
+        plt.figure()
+        plt.plot(target_numpy_array)
+        plt.show()
+        target_numpy_array = np.correlate(dv_1[0].data, foru[0].data, mode='full')
+        plt.figure()
+        plt.plot(target_numpy_array)
+        plt.show()
+        center_of_array    = target_numpy_array[len(target_numpy_array)//2 -delta*tau: len(target_numpy_array)//2+delta*tau+1]
+        center_of_array/=np.amax(np.abs(center_of_array))
+        # get result
+        # do it with scipy
+        # passband w obspy
+        # assert allclose
+        plt.figure()
+        plt.plot(center_of_array,label='scipy')
+        plt.plot(source_stream[0].data,label='anxcor')
+        plt.legend()
+        plt.show()
+        np.testing.assert_allclose(center_of_array,source_stream[0].data)
+
+    def test_passband_2_obspy_equivlanet(self):
+        overlap = 0.0
+        starttime = UTCDateTime("2017-10-01 06:00:00").timestamp
+        endtime = UTCDateTime("2017-10-01 06:10:00").timestamp
+        anxcor_main = build_anxcor()
+        starttime_list = anxcor_main.get_starttimes(starttime, endtime, overlap)
+
+        pass
+
+    def test_passband_3_obspy_equivalent(self):
+        overlap = 0.0
+        starttime = UTCDateTime("2017-10-01 06:00:00").timestamp
+        endtime = UTCDateTime("2017-10-01 06:10:00").timestamp
+        anxcor_main = build_anxcor()
+        starttime_list = anxcor_main.get_starttimes(starttime, endtime, overlap)
+
+        pass
 
 
 

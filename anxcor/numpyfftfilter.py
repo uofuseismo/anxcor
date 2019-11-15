@@ -24,6 +24,8 @@ def xarray_crosscorrelate(source_xarray, receiver_xarray,
                                                 ('src_chan', src_channels),
                                                 ('rec_chan', rec_channels),
                                                 ('time',tau_array)))
+
+
     if max_tau_shift is not None:
         xarray = _slice_xarray_tau(xarray,max_tau_shift)
     return xarray
@@ -67,8 +69,8 @@ def _cross_correlate_xarray_data(source_xarray, receiver_xarray,**kwargs):
     rec_chan_size = receiver_xarray.data.shape[0]
     t_1           = source_xarray.data.shape[-1]
     t_2           = receiver_xarray.data.shape[-1]
-    src_data      = source_xarray.data.reshape(  src_chan_size, t_1)
-    receiver_data = receiver_xarray.data.reshape(rec_chan_size, t_2)
+    src_data      = source_xarray.data.reshape(src_chan_size,t_1)
+    receiver_data = receiver_xarray.data.reshape(src_chan_size,t_2)
 
     zero_mat = np.zeros((src_chan_size,
                          rec_chan_size,
@@ -76,7 +78,8 @@ def _cross_correlate_xarray_data(source_xarray, receiver_xarray,**kwargs):
 
     for src_chan in range(0,src_chan_size):
         for rec_chan in range(0,rec_chan_size):
-            zero_mat[src_chan,rec_chan]=fftconvolve( src_data[src_chan],np.flip(receiver_data[rec_chan]),mode='full')
+            result = fftconvolve( src_data[src_chan],np.flip(receiver_data[rec_chan]),mode='full')
+            zero_mat[src_chan,rec_chan,:]=result
 
     return zero_mat
 

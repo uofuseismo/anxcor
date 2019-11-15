@@ -22,19 +22,19 @@ class XArrayConverter(XArrayProcessor):
         self.writer = _XArrayWrite(None)
         self.reader = _XArrayRead(None)
 
-    def execute(self, stream, *args, **kwargs):
+    def execute(self, stream, *args, starttime=0,**kwargs):
         if stream is not None and len(stream)>0:
-            return self._convert_trace_2_xarray(stream)
+            return self._convert_trace_2_xarray(stream,starttime)
         return None
 
-    def _convert_trace_2_xarray(self, stream):
+    def _convert_trace_2_xarray(self, stream,starttime):
+        if len(stream[0].data)==30000:
+            print('here')
         timeseries   = self._get_timeseries(stream)
         coordinates  = self._get_coordinates(stream)
         delta        = self._get_delta(stream)
         station_code = self._get_station_id(stream)
         data_type    = self._get_datatype(stream)
-
-        starttime    = self._get_starttime(stream)
         channels     = self._get_channels(stream)
 
         data = self._create_numpy_data(channels, stream)
@@ -211,9 +211,10 @@ class XArrayTaper(XArrayProcessor):
 
     """
 
-    def __init__(self,taper=c.TAPER_DEFAULT,**kwargs):
+    def __init__(self,taper=0.05,type='hann',**kwargs):
         super().__init__(**kwargs)
-        self._kwargs = {'taper':taper}
+        self._kwargs['taper']=taper
+        self._kwargs['type']=type
 
     def execute(self, xarray: xr.DataArray, *args, **kwargs):
         filtered_array = xr.apply_ufunc(filt_ops.taper_func, xarray,

@@ -168,15 +168,18 @@ class AnxcorTask:
         return 'default name'
 
     def __call__(self, *args, dask_client=None, **kwargs):
-        key = self._get_operation_key(**kwargs)
-
         result = None
         if self._parent_can_process() and self._child_can_process(*args):
-            if dask_client is None:
-                result = self._prepare_launch_process(*args, **kwargs)
-            else:
-                result = dask_client.submit(self._prepare_launch_process, *args, key=key, **kwargs)
+            result = self._launch_dask_task(args, dask_client, kwargs, result)
         result = self._io_operations(dask_client=dask_client, result=result,**kwargs)
+        return result
+
+    def _launch_dask_task(self, args, dask_client, kwargs, result):
+        if dask_client is None:
+            result = self._prepare_launch_process(*args, **kwargs)
+        else:
+            key = self._get_operation_key(**kwargs)
+            result = dask_client.submit(self._prepare_launch_process, *args, key=key, **kwargs)
         return result
 
     def _prepare_launch_process(self, *args, **kwargs):
