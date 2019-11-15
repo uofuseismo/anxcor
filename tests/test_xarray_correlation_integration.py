@@ -236,7 +236,7 @@ def build_anxcor(tau):
 
 converter = XArrayConverter()
 correlate = XArrayXCorrelate(max_tau_shift=None)
-taper     = XArrayTaper(taper=0.05,type='hanning')
+taper     = XArrayTaper(taper=0.05,type='hann')
 def convert_xarray_to_np_array(xarray):
     xarray_sub = xarray.loc[dict(src_chan='z',rec_chan='z')].squeeze()
     return xarray_sub.data
@@ -261,25 +261,25 @@ class TestCorrelation(unittest.TestCase):
         np.testing.assert_allclose(correlated_source_np_array,correlated_target_np_array)
 
 
-    def test_obspy_taper_identical(self):
+    def test_obspy_taper_identical_ones(self):
         stream = yield_obspy_default_stream()
+        stream[0].data = np.ones(stream[0].data.shape)
         target_stream = stream.copy()
         source_xarray = converter(stream)
         source_xarray = taper(source_xarray)
-        target_stream.taper(0.05)
+        target_stream.taper(0.05,type='hann')
 
         source = source_xarray.data.squeeze()
-        #source /=np.amax(np.abs(source))
+        source /=np.amax(np.abs(source))
         target = target_stream[0].data
-        #target /=np.amax(np.abs(target))
+        target /=np.amax(np.abs(target))
 
         differece = target-source
-        print(np.amax(np.abs(differece)))
         differece/=np.amax(np.abs(differece))
         plt.figure()
         plt.plot(source,label='xarray')
         plt.plot(target,label='obspy')
-        #plt.plot(differece,label='differences')
+        plt.plot(differece,label='obspy - xarray')
         #plt.xlim([0,200])
         #plt.ylim([-0.25,-.15])
         plt.legend()
