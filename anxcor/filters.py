@@ -61,8 +61,7 @@ def bandpass_in_time_domain_filtfilt(data, lower_frequency=0.01, upper_frequency
 def taper_func(data, taper=0.1, axis=-1, type='hanning', taper_objective='zeros', constant=0.0, **kwargs):
     assert taper <= 1.0, 'taper is too big. Must be less than 1.0:{}'.format(taper)
     assert taper >= 0 , 'taper is too small. Must be bigger than 0.0:{}'.format(taper)
-    taper_length = int(taper*data.shape[axis]*2)
-
+    taper_length = int(taper*data.shape[axis]*2+1)
     full_window    = get_window(type,taper_length,fftbins=False)
     ones        = np.ones(data.shape[-1])
     center      = taper_length//2

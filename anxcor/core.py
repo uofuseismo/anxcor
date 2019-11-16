@@ -98,13 +98,15 @@ class _AnxcorProcessor:
                                                    station=corr_station,
                                                    starttime=starttime,
                                                    dask_client=dask_client)
+            if source=='UU.FORU':
+                XArrayXCorrelate(max_tau_shift=None)(source_ch_ops,receiver_ch_ops).plot(x='time')
+            correlation_stack.append(correlation)
 
             correlation = self._get_task('post-correlate')(correlation,
                                                           station=corr_station,
                                                           starttime=starttime,
                                                           dask_client=dask_client)
 
-            correlation_stack.append(correlation)
 
         combined_crosscorrelations = self._reduce(correlation_stack,
                                                   station=UTCDateTime(starttime).strftime(self.time_format),

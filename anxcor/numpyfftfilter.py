@@ -8,8 +8,7 @@ DELTA_MS_PRECISION     = 100.0/1
 import matplotlib.pyplot as plt
 ZERO                   = np.datetime64(UTCDateTime(0.0).datetime)
 
-def xarray_crosscorrelate(source_xarray, receiver_xarray,
-                          taper=0.1, max_tau_shift=None, dummy_task=False,**kwargs):
+def xarray_crosscorrelate(source_xarray, receiver_xarray, max_tau_shift=None, dummy_task=False,**kwargs):
     src_channels   = list(source_xarray['channel'].values)
     rec_channels   = list(receiver_xarray['channel'].values)
     pair = [list(source_xarray.coords['station_id'].values)[0],list(receiver_xarray.coords['station_id'].values)[0]]
@@ -78,7 +77,7 @@ def _cross_correlate_xarray_data(source_xarray, receiver_xarray,**kwargs):
 
     for src_chan in range(0,src_chan_size):
         for rec_chan in range(0,rec_chan_size):
-            result = fftconvolve( src_data[src_chan],np.flip(receiver_data[rec_chan]),mode='full')
+            result = fftconvolve( src_data[src_chan],receiver_data[rec_chan][::-1],mode='full')
             zero_mat[src_chan,rec_chan,:]=result
 
     return zero_mat

@@ -17,41 +17,19 @@ import matplotlib.pyplot as plt
 from obsplus.bank import WaveBank
 import pytest
 
+def get_dv():
+    stream =read('tests/test_data/correlation_integration_testing/DV/1/20171001000022180.1.EHZ.DV.sac.d')
+    stats = stream[0].stats
+    stats.delta = 0.02
+    stats.channel='z'
 
-class WavebankWrapper(AnxcorDatabase):
+    return Stream(traces=[Trace(stream[0].data,header=stats)])
 
-    def __init__(self, directory):
-        super().__init__()
-        self.bank = WaveBank(directory)
-        self.bank.update_index()
-
-    def get_waveforms(self, **kwargs):
-        stream =  self.bank.get_waveforms(**kwargs)
-        traces = []
-        for trace in stream:
-            data   = trace.data[:-1]
-            if isinstance(data,np.ma.MaskedArray):
-                data = np.ma.filled(data,fill_value=np.nan)
-            header = {'delta':   trace.stats.delta,
-                      'station': trace.stats.station,
-                      'starttime':trace.stats.starttime,
-                      'channel': trace.stats.channel,
-                      'network': trace.stats.network}
-            traces.append(Trace(data,header=header))
-        return Stream(traces=traces)
-
-    def get_stations(self):
-        df = self.bank.get_availability_df()
-        uptime = self.bank.get_uptime_df()
-
-        def create_seed(row):
-            network = row['network']
-            station = row['station']
-            return network + '.' + station
-
-        df['seed'] = df.apply(lambda row: create_seed(row), axis=1)
-        unique_stations = df['seed'].unique().tolist()
-        return unique_stations
+def get_FORU():
+    stream = read('tests/test_data/correlation_integration_testing/FORU/FORU/20171001.FORU.EHZ.sac')
+    stats = stream[0].stats
+    stats.channel = 'z'
+    return Stream(traces=[Trace(stream[0].data,header=stats)])
 
 
 class XArrayCustomComponentNormalizer(XArrayProcessor):
@@ -230,15 +208,16 @@ def build_anxcor(tau):
     anxcor_main.add_process(XArrayRemoveMeanTrend())
     anxcor_main.add_process(XArrayTaper(taper=taper_ratio))
     anxcor_main.set_task_kwargs('crosscorrelate',correlate_kwargs)
-    anxcor_main.set_task('post-correlate',XArrayCustomComponentNormalizer())
+   # anxcor_main.set_task('post-correlate',XArrayCustomComponentNormalizer())
     return anxcor_main
 
 
 converter = XArrayConverter()
 correlate = XArrayXCorrelate(max_tau_shift=None)
 taper     = XArrayTaper(taper=0.05,type='hann')
-def convert_xarray_to_np_array(xarray):
-    xarray_sub = xarray.loc[dict(src_chan='z',rec_chan='z')].squeeze()
+rmmean    = XArrayRemoveMeanTrend()
+def convert_xarray_to_np_array(xarray,src_chan='z',rec_chan='z'):
+    xarray_sub = xarray.loc[dict(src_chan=src_chan,rec_chan=rec_chan)].squeeze()
     return xarray_sub.data
 
 def yield_obspy_default_stream():
@@ -263,28 +242,401 @@ class TestCorrelation(unittest.TestCase):
 
     def test_obspy_taper_identical_ones(self):
         stream = yield_obspy_default_stream()
-        stream[0].data = np.ones(stream[0].data.shape)
         target_stream = stream.copy()
         source_xarray = converter(stream)
         source_xarray = taper(source_xarray)
         target_stream.taper(0.05,type='hann')
+        np.testing.assert_allclose(source_xarray.data.squeeze(),target_stream[0].data)
+
+
+    def test_obspy_taper_identical(self):
+        stream = yield_obspy_default_stream()
+        target_stream = stream.copy()
+        source_xarray = converter(stream)
+        source_xarray = taper(source_xarray)
+        target_stream.taper(0.05,type='hann')
+        np.testing.assert_allclose(source_xarray.data.squeeze(),target_stream[0].data)
+
+
+    def test_obspy_taper_demean_identical_ones(self):
+        stream = yield_obspy_default_stream()
+        stream[0].data = np.ones(stream[0].data.shape)
+        target_stream = stream.copy()
+        source_xarray = converter(stream)
+        source_xarray = taper(source_xarray)
+        source_xarray = rmmean(source_xarray)
+        source_xarray = taper(source_xarray)
+
+
+        target_stream.taper(0.05,type='hann')
+        target_stream.detrend(type='constant')
+        target_stream.detrend(type='linear')
+        target_stream.taper(0.05,type='hann')
 
         source = source_xarray.data.squeeze()
-        source /=np.amax(np.abs(source))
         target = target_stream[0].data
-        target /=np.amax(np.abs(target))
 
-        differece = target-source
-        differece/=np.amax(np.abs(differece))
-        plt.figure()
-        plt.plot(source,label='xarray')
-        plt.plot(target,label='obspy')
-        plt.plot(differece,label='obspy - xarray')
-        #plt.xlim([0,200])
-        #plt.ylim([-0.25,-.15])
-        plt.legend()
+        np.testing.assert_allclose(source,target)
+
+    def test_obspy_taper_demean_identical(self):
+        stream = yield_obspy_default_stream()
+        target_stream = stream.copy()
+        source_xarray = converter(stream)
+        source_xarray = taper(source_xarray)
+        source_xarray = rmmean(source_xarray)
+        source_xarray = taper(source_xarray)
+
+
+        target_stream.taper(0.05,type='hann')
+        target_stream.detrend(type='constant')
+        target_stream.detrend(type='linear')
+        target_stream.taper(0.05,type='hann')
+
+        source = source_xarray.data.squeeze()
+        target = target_stream[0].data
+
+        np.testing.assert_allclose(source,target)
+
+    def test_obspy_taper_demean_correlate_identical_ones(self):
+        stream = yield_obspy_default_stream()
+        stream[0].data = np.ones(stream[0].data.shape)
+        target_stream = stream.copy()
+
+        source_xarray = converter(stream)
+        source_xarray = taper(source_xarray)
+        source_xarray = rmmean(source_xarray)
+        source_xarray = taper(source_xarray)
+        correlate_array = correlate(source_xarray,source_xarray)
+        source = convert_xarray_to_np_array(correlate_array)
+
+        target_stream.taper(0.05,type='hann')
+        target_stream.detrend(type='linear')
+        target_stream.detrend(type='constant')
+        target_stream.taper(0.05,type='hann')
+        target = sig.correlate(target_stream[0].data, target_stream[0].data, mode='full')
+
+        np.testing.assert_allclose(source,target)
+
+
+    def test_obspy_taper_demean_correlate_identical(self):
+        stream = yield_obspy_default_stream()
+        stream[0].data = np.ones(stream[0].data.shape)
+        target_stream = stream.copy()
+
+        source_xarray = converter(stream)
+        source_xarray = taper(source_xarray)
+        source_xarray = rmmean(source_xarray)
+        source_xarray = taper(source_xarray)
+        correlate_array = correlate(source_xarray,source_xarray)
+        source = convert_xarray_to_np_array(correlate_array)
+
+        target_stream.taper(0.05,type='hann')
+        target_stream.detrend(type='linear')
+        target_stream.detrend(type='constant')
+        target_stream.taper(0.05,type='hann')
+        target = sig.correlate(target_stream[0].data, target_stream[0].data, mode='full')
+
+        np.testing.assert_allclose(source,target)
+
+
+    def test_obspy_taper_demean_correlate_DV(self):
+        stream = get_dv()
+        stream[0].data = np.ones(stream[0].data.shape)
+        target_stream = stream.copy()
+
+        source_xarray = converter(stream)
+        source_xarray = taper(source_xarray)
+        source_xarray = rmmean(source_xarray)
+        source_xarray = taper(source_xarray)
+        correlate_array = correlate(source_xarray,source_xarray)
+        source = convert_xarray_to_np_array(correlate_array)
+
+        target_stream.taper(0.05,type='hann')
+        target_stream.detrend(type='linear')
+        target_stream.detrend(type='constant')
+        target_stream.taper(0.05,type='hann')
+        target = sig.correlate(target_stream[0].data, target_stream[0].data, mode='full')
+
+        np.testing.assert_allclose(source,target)
+
+
+    def test_obspy_taper_demean_correlate_different_ones(self):
+        dv   = get_dv()
+        dv[0].data=np.sin(np.linspace(0,2*np.pi,num=100))
+        foru = get_FORU()
+        foru[0].data = np.cos(np.linspace(0, 2 * np.pi, num=100))
+
+        dv_xarray     = converter(dv.copy())
+        foru_xarray   = converter(foru.copy())
+
+        foru_xarray = taper(foru_xarray)
+        foru_xarray = rmmean(foru_xarray)
+        foru_xarray = taper(foru_xarray)
+
+        dv_xarray   = taper(dv_xarray)
+        dv_xarray   = rmmean(dv_xarray)
+        dv_xarray   = taper(dv_xarray)
+
+        dv.taper(0.05)
+        dv.detrend(type='linear')
+        dv.detrend(type='constant')
+        dv.taper(0.05)
+
+        foru.taper(0.05)
+        foru.detrend(type='linear')
+        foru.detrend(type='constant')
+        foru.taper(0.05)
+
+        correlation_xarray = correlate(foru_xarray,dv_xarray)
+        numpy_source_array = convert_xarray_to_np_array(correlation_xarray)
+
+        correlation_target = sig.fftconvolve(foru[0].data,dv[0].data[::-1])
+
+        np.testing.assert_allclose(numpy_source_array,correlation_target)
+
+
+    def test_obspy_taper_demean_correlate_long_vector(self):
+        dv   = get_dv()
+        dv[0].data=np.sin(np.linspace(0,200*np.pi,num=10000))
+        foru = get_FORU()
+        foru[0].data = np.cos(np.linspace(0, 200 * np.pi, num=10000))
+
+        dv_xarray     = converter(dv.copy())
+        foru_xarray   = converter(foru.copy())
+
+        foru_xarray = taper(foru_xarray)
+        foru_xarray = rmmean(foru_xarray)
+        foru_xarray = taper(foru_xarray)
+
+        dv_xarray   = taper(dv_xarray)
+        dv_xarray   = rmmean(dv_xarray)
+        dv_xarray   = taper(dv_xarray)
+
+        dv.taper(0.05)
+        dv.detrend(type='linear')
+        dv.detrend(type='constant')
+        dv.taper(0.05)
+
+        foru.taper(0.05)
+        foru.detrend(type='linear')
+        foru.detrend(type='constant')
+        foru.taper(0.05)
+
+        correlation_xarray = correlate(foru_xarray,dv_xarray)
+        numpy_source_array = convert_xarray_to_np_array(correlation_xarray)
+
+        correlation_target = sig.fftconvolve(foru[0].data,dv[0].data[::-1])
+
+        plt.figure(figsize=(10,4))
+        plt.plot(numpy_source_array)
+        plt.plot(correlation_target)
         plt.show()
-        np.testing.assert_allclose(source_xarray.data.squeeze(),target_stream[0].data)
+
+        np.testing.assert_allclose(numpy_source_array,correlation_target)
+
+    def test_obspy_taper_demean_correlate_long_vector(self):
+        dv   = get_dv()
+        foru = get_FORU()
+        #foru[0].data = np.cos(np.linspace(0, 200 * np.pi, num=10000))
+
+        dv_xarray     = converter(dv.copy())
+        foru_xarray   = converter(foru.copy())
+
+        foru_xarray = taper(foru_xarray)
+        foru_xarray = rmmean(foru_xarray)
+        foru_xarray = taper(foru_xarray)
+
+        dv_xarray   = taper(dv_xarray)
+        dv_xarray   = rmmean(dv_xarray)
+        dv_xarray   = taper(dv_xarray)
+
+        dv.taper(0.05)
+        dv.detrend(type='linear')
+        dv.detrend(type='constant')
+        dv.taper(0.05)
+
+        foru.taper(0.05)
+        foru.detrend(type='linear')
+        foru.detrend(type='constant')
+        foru.taper(0.05)
+
+        correlation_xarray = correlate(foru_xarray,dv_xarray)
+        numpy_source_array = convert_xarray_to_np_array(correlation_xarray)
+        #numpy_source_array/= np.amax(np.abs(numpy_source_array))
+
+        correlation_target = sig.fftconvolve(foru[0].data,dv[0].data[::-1],mode='full')
+        #correlation_target/= np.amax(np.abs(correlation_target))
+
+        plt.figure(figsize=(10,4))
+        plt.plot(numpy_source_array)
+        plt.plot(correlation_target)
+
+        plt.xlim([4320400,4320600])
+        plt.show()
+
+        np.testing.assert_allclose(numpy_source_array,correlation_target)
+
+
+    def test_obspy_trim_taper_demean_correlate_time_window(self):
+        starttime = UTCDateTime("2017-10-01 06:00:00")
+        endtime = UTCDateTime("2017-10-01 06:10:00")
+        dv   = get_dv().trim(starttime,endtime)
+        foru = get_FORU().trim(starttime,endtime)
+        #foru[0].data = np.cos(np.linspace(0, 200 * np.pi, num=10000))
+
+        dv_xarray     = converter(dv.copy())
+        foru_xarray   = converter(foru.copy())
+
+        foru_xarray = taper(foru_xarray)
+        foru_xarray = rmmean(foru_xarray)
+        foru_xarray = taper(foru_xarray)
+
+        dv_xarray   = taper(dv_xarray)
+        dv_xarray   = rmmean(dv_xarray)
+        dv_xarray   = taper(dv_xarray)
+
+        dv.taper(0.05)
+        dv.detrend(type='linear')
+        dv.detrend(type='constant')
+        dv.taper(0.05)
+
+        foru.taper(0.05)
+        foru.detrend(type='linear')
+        foru.detrend(type='constant')
+        foru.taper(0.05)
+
+        correlation_xarray = correlate(foru_xarray,dv_xarray)
+        numpy_source_array = convert_xarray_to_np_array(correlation_xarray)
+        #numpy_source_array/= np.amax(np.abs(numpy_source_array))
+
+        correlation_target = sig.fftconvolve(foru[0].data,dv[0].data[::-1],mode='full')
+        #correlation_target/= np.amax(np.abs(correlation_target))
+
+        plt.figure(figsize=(10,4))
+        plt.plot(numpy_source_array)
+        plt.plot(correlation_target)
+        plt.xlim([30000,40000])
+        plt.show()
+
+        np.testing.assert_allclose(numpy_source_array,correlation_target)
+
+
+    def test_obspy_trim_taper_demean_correlate_with_process(self):
+        starttime = UTCDateTime("2017-10-01 06:00:00")
+        endtime = UTCDateTime("2017-10-01 06:10:00")
+        dv   = get_dv().trim(starttime,endtime)
+        foru = get_FORU().trim(starttime,endtime)
+        #foru[0].data = np.cos(np.linspace(0, 200 * np.pi, num=10000))
+
+        anxcor_main = build_anxcor(None)
+        dv_xarray   = anxcor_main._station_window_operations(dv,starttime=starttime.timestamp)
+        foru_xarray = anxcor_main._station_window_operations(foru, starttime=starttime.timestamp)
+
+        dv.taper(0.05)
+        dv.detrend(type='linear')
+        dv.detrend(type='constant')
+        dv.taper(0.05)
+
+        foru.taper(0.05)
+        foru.detrend(type='linear')
+        foru.detrend(type='constant')
+        foru.taper(0.05)
+
+        correlation_xarray = correlate(foru_xarray,dv_xarray)
+        numpy_source_array = convert_xarray_to_np_array(correlation_xarray)
+        #numpy_source_array/= np.amax(np.abs(numpy_source_array))
+
+        correlation_target = sig.fftconvolve(foru[0].data,dv[0].data[::-1],mode='full')
+        #correlation_target/= np.amax(np.abs(correlation_target))
+
+        plt.figure(figsize=(10,4))
+        plt.plot(numpy_source_array,label='1')
+        plt.plot(correlation_target,label='2',alpha=0.5)
+        plt.legend()
+        plt.xlim([30000,40000])
+        plt.show()
+
+        np.testing.assert_allclose(numpy_source_array,correlation_target)
+
+
+    def test_autocorrelation_with_anxcor_data_scheme(self):
+        tau=None
+        starttime = UTCDateTime("2017-10-01 06:00:00").timestamp
+        endtime   = UTCDateTime("2017-10-01 06:10:00").timestamp
+        starttime_utc = UTCDateTime("2017-10-01 06:00:00")
+        endtime_utc = UTCDateTime("2017-10-01 06:10:00")
+        #test this with anxcor functions outside of anxcor
+        anxcor_main = build_anxcor(tau)
+        foru_data = anxcor_main._get_task('data')(starttime=starttime,
+                                                  station='DV.1')
+        foru_xarray = anxcor_main._station_window_operations(foru_data,starttime=starttime)
+
+        foru_corr  = correlate(foru_xarray,foru_xarray)
+        foru_numpy = convert_xarray_to_np_array(foru_corr)
+
+        foru = get_dv().trim(starttime_utc, endtime_utc)
+        foru.taper(0.05)
+        foru.detrend(type='linear')
+        foru.detrend(type='constant')
+        foru.taper(0.05)
+        correlation_target = sig.fftconvolve(foru[0].data, foru[0].data[::-1], mode='full')
+
+        np.testing.assert_allclose(foru_data[0].data,foru[0].data)
+
+
+    def test_correlation_with_anxcor_data_scheme(self):
+        tau=None
+        starttime = UTCDateTime("2017-10-01 06:00:00").timestamp
+        endtime   = UTCDateTime("2017-10-01 06:10:00").timestamp
+        starttime_utc = UTCDateTime("2017-10-01 06:00:00")
+        endtime_utc = UTCDateTime("2017-10-01 06:10:00")
+        #test this with anxcor functions outside of anxcor
+        anxcor_main = build_anxcor(tau)
+        foru_data = anxcor_main._get_task('data')(starttime=starttime,
+                                                  station='UU.FORU')
+        dv_data = anxcor_main._get_task('data')(starttime=starttime,
+                                                  station='DV.1')
+        foru_xarray = anxcor_main._station_window_operations(foru_data,starttime=starttime)
+        dv_xarray   = anxcor_main._station_window_operations(dv_data, starttime=starttime)
+
+        corr  = correlate(foru_xarray,dv_xarray)
+        foru_numpy = convert_xarray_to_np_array(corr)
+
+        foru = get_FORU().trim(starttime_utc, endtime_utc)
+        foru.taper(0.05)
+        foru.detrend(type='linear')
+        foru.detrend(type='constant')
+        foru.taper(0.05)
+
+        dv = get_dv().trim(starttime_utc, endtime_utc)
+        dv.taper(0.05)
+        dv.detrend(type='linear')
+        dv.detrend(type='constant')
+        dv.taper(0.05)
+        correlation_target = sig.fftconvolve(foru[0].data, dv[0].data[::-1], mode='full')
+
+        np.testing.assert_allclose(foru_data[0].data,foru[0].data)
+
+
+    def test_passband_2_obspy_equivlanet(self):
+        overlap = 0.0
+        starttime = UTCDateTime("2017-10-01 06:00:00").timestamp
+        endtime = UTCDateTime("2017-10-01 06:10:00").timestamp
+        anxcor_main = build_anxcor()
+        starttime_list = anxcor_main.get_starttimes(starttime, endtime, overlap)
+
+        pass
+
+    def test_passband_3_obspy_equivalent(self):
+        overlap = 0.0
+        starttime = UTCDateTime("2017-10-01 06:00:00").timestamp
+        endtime = UTCDateTime("2017-10-01 06:10:00").timestamp
+        anxcor_main = build_anxcor()
+        starttime_list = anxcor_main.get_starttimes(starttime, endtime, overlap)
+        pass
+
+
+
 
 
 

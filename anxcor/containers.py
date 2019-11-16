@@ -87,9 +87,10 @@ class AnxcorDatabase:
 
 class DataLoader(ab.AnxcorDataTask):
 
-    def __init__(self):
+    def __init__(self,interp_method='nearest'):
         super().__init__()
         self._kwargs['window_length'] =3600.0
+        self._kwargs['interp_method']=interp_method
         self._seconds_buffer = 1.0
         self._datasets = {}
 
@@ -154,7 +155,7 @@ class DataLoader(ab.AnxcorDataTask):
                 npts = int(rate*self._kwargs['window_length'])+1
                 end_time = UTCDateTime(starttime+npts*trace.stats.delta)
                 if self._not_none_condition(trace,starttime,end_time):
-                    trace.interpolate(rate,starttime=starttime,npts=npts)
+                    trace.interpolate(rate,starttime=starttime,npts=npts,method=self._kwargs['interp_method'])
                 else:
                     stream.remove(trace)
             traces = self._combine(traces, stream, name)

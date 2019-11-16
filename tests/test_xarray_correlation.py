@@ -533,51 +533,7 @@ class TestCorrelation(unittest.TestCase):
         slice_data /= max(slice_data)
         assert np.cumsum(trace.data - result_data.ravel())[-1]==pytest.approx(0,abs=1e-2)
 
-    def test_absolute_scipy_equality_integration(self):
-        overlap = 0.0
-        tau=120
-        delta=50
-        starttime = UTCDateTime("2017-10-01 06:00:00").timestamp
-        endtime   = UTCDateTime("2017-10-01 06:10:00").timestamp
-        #test this with anxcor functions outside of anxcor
-        anxcor_main = build_anxcor(tau)
-        starttime_list = anxcor_main.get_starttimes(starttime, endtime, overlap)
 
-        result = anxcor_main.process(starttime_list)
-
-        source = result.loc[dict(src='UU.FORU',rec='DV.1')]['src:BB rec:DV']
-        #source.loc[dict(src_chan='z',rec_chan='z')].plot(x='time')
-        source_stream = Stream(traces=[Trace(source.loc[dict(src_chan='z',rec_chan='z')].data.ravel(),
-                               header={'starttime':UTCDateTime(-tau*delta),'delta': result.attrs['df']['delta'].values[0]})])
-
-        foru = read('tests/test_data/correlation_integration_testing/FORU/FORU/20171001.FORU.EHZ.sac').trim(UTCDateTime(starttime),
-                                                                                                            UTCDateTime(endtime))\
-            .detrend('linear').detrend('constant').taper(0.05).taper(0.05)
-        dv_1 = read('tests/test_data/correlation_integration_testing/DV/1/2017*EHZ*').trim(UTCDateTime(starttime),
-                                                                                            UTCDateTime(endtime))\
-            .detrend('linear').detrend('constant').taper(0.05).taper(0.05)
-        foru.plot()
-        dv_1.plot()
-        target_numpy_array = sig.fftconvolve(foru[0].data,dv_1[0].data[::-1],mode='full')
-        plt.figure()
-        plt.plot(target_numpy_array)
-        plt.show()
-        target_numpy_array = np.correlate(dv_1[0].data, foru[0].data, mode='full')
-        plt.figure()
-        plt.plot(target_numpy_array)
-        plt.show()
-        center_of_array    = target_numpy_array[len(target_numpy_array)//2 -delta*tau: len(target_numpy_array)//2+delta*tau+1]
-        center_of_array/=np.amax(np.abs(center_of_array))
-        # get result
-        # do it with scipy
-        # passband w obspy
-        # assert allclose
-        plt.figure()
-        plt.plot(center_of_array,label='scipy')
-        plt.plot(source_stream[0].data,label='anxcor')
-        plt.legend()
-        plt.show()
-        np.testing.assert_allclose(center_of_array,source_stream[0].data)
 
     def test_passband_2_obspy_equivlanet(self):
         overlap = 0.0
@@ -594,10 +550,6 @@ class TestCorrelation(unittest.TestCase):
         endtime = UTCDateTime("2017-10-01 06:10:00").timestamp
         anxcor_main = build_anxcor()
         starttime_list = anxcor_main.get_starttimes(starttime, endtime, overlap)
-
         pass
 
 
-
-if __name__ == '__main__':
-    unittest.main()
