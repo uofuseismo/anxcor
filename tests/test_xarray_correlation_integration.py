@@ -1,11 +1,8 @@
 import unittest
-#from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
-from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
-from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter, XArrayRemoveMeanTrend, XArrayResample, XArrayTaper, XArrayProcessor
+from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter, XArrayRemoveMeanTrend, XArrayTaper, XArrayProcessor
 import os
-from anxcor.containers import XArrayStack, AnxcorDatabase, XArrayCombine
+from anxcor.containers import  AnxcorDatabase
 import glob
-from anxcor.numpyfftfilter import xarray_crosscorrelate
 from anxcor.core import Anxcor
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -14,7 +11,6 @@ import numpy as np
 import xarray as xr
 from obspy.core import  UTCDateTime, Trace, Stream, read
 import matplotlib.pyplot as plt
-from obsplus.bank import WaveBank
 import pytest
 
 def get_dv():

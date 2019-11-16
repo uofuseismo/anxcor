@@ -551,7 +551,26 @@ class XArrayWhiten(XArrayRolling):
         return op
 
 
+class XArrayPZResponse(XArrayProcessor):
+    """
+    uses a pole zero file and a given gain to remove instrument response
+    """
 
+    def __init__(self,pz_file, gain=1.0, **kwargs):
+        super().__init__(**kwargs)
+        self.set_kwargs({'pz_info':None,'gain':gain})
+
+    def execute(self, xarray, *args, **kwargs):
+        # TODO: use https://docs.scipy.org/doc/scipy-0.18.1/reference/generated/scipy.signal.zpk2sos.html
+        # to apply pole zero correction
+        # TODO: look at pole zero file and apply correct parsing
+        return xarray
+
+    def _add_operation_string(self):
+        return 'apply_pole_zero_correction'
+
+    def get_name(self):
+        return 'pz correction'
 
 
 
