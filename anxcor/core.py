@@ -98,7 +98,7 @@ class _AnxcorProcessor:
                                                    station=corr_station,
                                                    starttime=starttime,
                                                    dask_client=dask_client)
-            if source=='UU.FORU':
+            if source=='UU.Broadband':
                 XArrayXCorrelate(max_tau_shift=None)(source_ch_ops,receiver_ch_ops).plot(x='time')
             correlation_stack.append(correlation)
 

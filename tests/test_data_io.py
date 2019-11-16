@@ -9,7 +9,7 @@ import numpy as np
 from obspy.core import  UTCDateTime, Trace, Stream, read
 
 def get_dv():
-    stream =read('tests/test_data/correlation_integration_testing/DV/1/20171001000022180.1.EHZ.DV.sac.d')
+    stream =read('tests/test_data/correlation_integration_testing/Nodal/1/20171001000022180.1.EHZ.Nodal.sac.d')
     stats = stream[0].stats
     stats.delta = 0.02
     stats.channel='z'
@@ -17,7 +17,7 @@ def get_dv():
     return Stream(traces=[Trace(stream[0].data,header=stats)])
 
 def get_FORU():
-    stream = read('tests/test_data/correlation_integration_testing/FORU/FORU/20171001.FORU.EHZ.sac')
+    stream = read('tests/test_data/correlation_integration_testing/Broadband/Broadband/20171001.Broadband.EHZ.sac')
     stats = stream[0].stats
     stats.channel = 'z'
     return Stream(traces=[Trace(stream[0].data,header=stats)])
@@ -171,22 +171,22 @@ class DWellsDecimatedReader(AnxcorDatabase):
 
 
 def build_anxcor(tau):
-    broadband_data_dir               = 'tests/test_data/correlation_integration_testing/FORU'
+    broadband_data_dir               = 'tests/test_data/correlation_integration_testing/Broadband'
     broadband_station_location_file  = 'tests/test_data/correlation_integration_testing/bbstationlist.txt'
-    nodal_data_dir               =     'tests/test_data/correlation_integration_testing/DV'
+    nodal_data_dir               =     'tests/test_data/correlation_integration_testing/Nodal'
     nodal_station_location_file  =     'tests/test_data/correlation_integration_testing/DV_stationlst.lst'
 
     broadband_database = DWellsDecimatedReader(broadband_data_dir, broadband_station_location_file)
     nodal_database     = DWellsDecimatedReader(nodal_data_dir,     nodal_station_location_file,extension='d')
     window_length = 10*60.0
 
-    include_stations = ['UU.FORU','DV.1','DV.2']
+    include_stations = ['UU.Broadband','Nodal.1','Nodal.2']
 
     anxcor_main = Anxcor()
     anxcor_main.set_window_length(window_length)
     anxcor_main.set_must_only_include_station_pairs(include_stations)
     anxcor_main.add_dataset(broadband_database,'BB')
-    anxcor_main.add_dataset(nodal_database, 'DV')
+    anxcor_main.add_dataset(nodal_database, 'Nodal')
     return anxcor_main
 
 
@@ -199,7 +199,7 @@ class TestCorrelation(unittest.TestCase):
         starttime_utc = UTCDateTime("2017-10-01 06:00:00")
         endtime_utc = UTCDateTime("2017-10-01 06:10:00")
         anxcor_main = build_anxcor(None)
-        stream_source = anxcor_main._get_task('data')(starttime=starttime, station='UU.FORU')
+        stream_source = anxcor_main._get_task('data')(starttime=starttime, station='UU.Broadband')
         stream_target = get_FORU().trim(starttime_utc,endtime_utc)
 
         np.testing.assert_allclose(stream_source[0].data,stream_target[0])

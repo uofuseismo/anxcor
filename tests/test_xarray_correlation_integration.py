@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import pytest
 
 def get_dv():
-    stream =read('tests/test_data/correlation_integration_testing/DV/1/20171001000022180.1.EHZ.DV.sac.d')
+    stream =read('tests/test_data/correlation_integration_testing/Nodal/1/20171001000022180.1.EHZ.Nodal.sac.d')
     stats = stream[0].stats
     stats.delta = 0.02
     stats.channel='z'
@@ -22,7 +22,7 @@ def get_dv():
     return Stream(traces=[Trace(stream[0].data,header=stats)])
 
 def get_FORU():
-    stream = read('tests/test_data/correlation_integration_testing/FORU/FORU/20171001.FORU.EHZ.sac')
+    stream = read('tests/test_data/correlation_integration_testing/Broadband/Broadband/20171001.Broadband.EHZ.sac')
     stats = stream[0].stats
     stats.channel = 'z'
     return Stream(traces=[Trace(stream[0].data,header=stats)])
@@ -179,16 +179,16 @@ class DWellsDecimatedReader(AnxcorDatabase):
 
 
 def build_anxcor(tau):
-    broadband_data_dir               = 'tests/test_data/correlation_integration_testing/FORU'
-    broadband_station_location_file  = 'tests/test_data/correlation_integration_testing/bbstationlist.txt'
-    nodal_data_dir               =     'tests/test_data/correlation_integration_testing/DV'
-    nodal_station_location_file  =     'tests/test_data/correlation_integration_testing/DV_stationlst.lst'
+    broadband_data_dir               = 'tests/test_data/correlation_integration_testing/Broadband'
+    broadband_station_location_file  = 'tests/test_data/correlation_integration_testing/broadband_stationlist.txt'
+    nodal_data_dir               =     'tests/test_data/correlation_integration_testing/Nodal'
+    nodal_station_location_file  =     'tests/test_data/correlation_integration_testing/nodal_stationlist.txt'
 
     broadband_database = DWellsDecimatedReader(broadband_data_dir, broadband_station_location_file)
     nodal_database     = DWellsDecimatedReader(nodal_data_dir,     nodal_station_location_file,extension='d')
     window_length = 10*60.0
-    #include_stations = ['DV.{}'.format(x) for x in range(1,10)]
-    include_stations = ['UU.FORU','DV.1','DV.2']
+    #include_stations = ['Nodal.{}'.format(x) for x in range(1,10)]
+    include_stations = ['UU.Broadband','Nodal.1','Nodal.2']
 
     taper_ratio     = 0.05
     target_rate     = 50.0
@@ -199,7 +199,7 @@ def build_anxcor(tau):
     anxcor_main.set_window_length(window_length)
     anxcor_main.set_must_only_include_station_pairs(include_stations)
     anxcor_main.add_dataset(broadband_database,'BB')
-    anxcor_main.add_dataset(nodal_database, 'DV')
+    anxcor_main.add_dataset(nodal_database, 'Nodal')
     anxcor_main.add_process(XArrayTaper(taper=taper_ratio))
     anxcor_main.add_process(XArrayRemoveMeanTrend())
     anxcor_main.add_process(XArrayTaper(taper=taper_ratio))
@@ -564,7 +564,7 @@ class TestCorrelation(unittest.TestCase):
         #test this with anxcor functions outside of anxcor
         anxcor_main = build_anxcor(tau)
         foru_data = anxcor_main._get_task('data')(starttime=starttime,
-                                                  station='DV.1')
+                                                  station='Nodal.1')
         foru_xarray = anxcor_main._station_window_operations(foru_data,starttime=starttime)
 
         foru_corr  = correlate(foru_xarray,foru_xarray)
@@ -589,9 +589,9 @@ class TestCorrelation(unittest.TestCase):
         #test this with anxcor functions outside of anxcor
         anxcor_main = build_anxcor(tau)
         foru_data = anxcor_main._get_task('data')(starttime=starttime,
-                                                  station='UU.FORU')
+                                                  station='UU.Broadband')
         dv_data = anxcor_main._get_task('data')(starttime=starttime,
-                                                  station='DV.1')
+                                                  station='Nodal.1')
         foru_xarray = anxcor_main._station_window_operations(foru_data,starttime=starttime)
         dv_xarray   = anxcor_main._station_window_operations(dv_data, starttime=starttime)
 

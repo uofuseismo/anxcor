@@ -205,16 +205,16 @@ class DWellsDecimatedReader(AnxcorDatabase):
 
 
 def build_anxcor(tau):
-    broadband_data_dir               = 'tests/test_data/correlation_integration_testing/FORU'
-    broadband_station_location_file  = 'tests/test_data/correlation_integration_testing/bbstationlist.txt'
-    nodal_data_dir               =     'tests/test_data/correlation_integration_testing/DV'
-    nodal_station_location_file  =     'tests/test_data/correlation_integration_testing/DV_stationlst.lst'
+    broadband_data_dir               = 'tests/test_data/correlation_integration_testing/Broadband'
+    broadband_station_location_file  = 'tests/test_data/correlation_integration_testing/broadband_stationlist.txt'
+    nodal_data_dir               =     'tests/test_data/correlation_integration_testing/Nodal'
+    nodal_station_location_file  =     'tests/test_data/correlation_integration_testing/nodal_stationlist.txt'
 
     broadband_database = DWellsDecimatedReader(broadband_data_dir, broadband_station_location_file)
     nodal_database     = DWellsDecimatedReader(nodal_data_dir,     nodal_station_location_file,extension='d')
     window_length = 10*60.0
-    #include_stations = ['DV.{}'.format(x) for x in range(1,10)]
-    include_stations = ['UU.FORU','DV.1','DV.2']
+    #include_stations = ['Nodal.{}'.format(x) for x in range(1,10)]
+    include_stations = ['UU.Broadband','Nodal.1','Nodal.2']
 
     taper_ratio     = 0.05
     target_rate     = 50.0
@@ -225,7 +225,7 @@ def build_anxcor(tau):
     anxcor_main.set_window_length(window_length)
     anxcor_main.set_must_only_include_station_pairs(include_stations)
     anxcor_main.add_dataset(broadband_database,'BB')
-    anxcor_main.add_dataset(nodal_database, 'DV')
+    anxcor_main.add_dataset(nodal_database, 'Nodal')
     anxcor_main.add_process(XArrayTaper(taper=taper_ratio))
     anxcor_main.add_process(XArrayRemoveMeanTrend())
     anxcor_main.add_process(XArrayTaper(taper=taper_ratio))
