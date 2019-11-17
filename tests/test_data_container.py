@@ -17,7 +17,7 @@ def get_dv():
     return Stream(traces=[Trace(stream[0].data,header=stats)])
 
 def get_FORU():
-    stream = read('tests/test_data/correlation_integration_testing/Broadband/Broadband/20171001.Broadband.EHZ.sac')
+    stream = read('tests/test_data/correlation_integration_testing/Broadband/FORU/20171001.FORU.EHZ.sac')
     stats = stream[0].stats
     stats.channel = 'z'
     return Stream(traces=[Trace(stream[0].data,header=stats)])
@@ -172,9 +172,9 @@ class DWellsDecimatedReader(AnxcorDatabase):
 
 def build_anxcor(tau):
     broadband_data_dir               = 'tests/test_data/correlation_integration_testing/Broadband'
-    broadband_station_location_file  = 'tests/test_data/correlation_integration_testing/bbstationlist.txt'
+    broadband_station_location_file  = 'tests/test_data/correlation_integration_testing/broadband_stationlist.txt'
     nodal_data_dir               =     'tests/test_data/correlation_integration_testing/Nodal'
-    nodal_station_location_file  =     'tests/test_data/correlation_integration_testing/DV_stationlst.lst'
+    nodal_station_location_file  =     'tests/test_data/correlation_integration_testing/nodal_stationlist.txt'
 
     broadband_database = DWellsDecimatedReader(broadband_data_dir, broadband_station_location_file)
     nodal_database     = DWellsDecimatedReader(nodal_data_dir,     nodal_station_location_file,extension='d')
@@ -199,7 +199,7 @@ class TestCorrelation(unittest.TestCase):
         starttime_utc = UTCDateTime("2017-10-01 06:00:00")
         endtime_utc = UTCDateTime("2017-10-01 06:10:00")
         anxcor_main = build_anxcor(None)
-        stream_source = anxcor_main._get_task('data')(starttime=starttime, station='UU.Broadband')
+        stream_source = anxcor_main._get_task('data')(starttime=starttime, station='UU.FORU')
         stream_target = get_FORU().trim(starttime_utc,endtime_utc)
 
         np.testing.assert_allclose(stream_source[0].data,stream_target[0])

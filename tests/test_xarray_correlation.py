@@ -515,7 +515,6 @@ class TestCorrelation(unittest.TestCase):
         starttime=df['starttime'].min()
         anxcor.add_dataset(bank, 'nodals')
         result      = anxcor.process([starttime])['src:nodals rec:nodals']
-        full_time   = result.coords['time'].values
         result_data = result.data.ravel()
         result_data/=max(result_data)
 
@@ -524,32 +523,12 @@ class TestCorrelation(unittest.TestCase):
         trace.resample(20.0)
         trace.data/=max(trace.data)
 
-
-
         anxcor.set_task_kwargs('crosscorrelate',{'max_tau_shift':20.0})
         result_slice = anxcor.process([starttime])['src:nodals rec:nodals']
-        slice_time   = result_slice.coords['time'].values
         slice_data = result_slice.data.ravel()
         slice_data /= max(slice_data)
         assert np.cumsum(trace.data - result_data.ravel())[-1]==pytest.approx(0,abs=1e-2)
 
 
-
-    def test_passband_2_obspy_equivlanet(self):
-        overlap = 0.0
-        starttime = UTCDateTime("2017-10-01 06:00:00").timestamp
-        endtime = UTCDateTime("2017-10-01 06:10:00").timestamp
-        anxcor_main = build_anxcor()
-        starttime_list = anxcor_main.get_starttimes(starttime, endtime, overlap)
-
-        pass
-
-    def test_passband_3_obspy_equivalent(self):
-        overlap = 0.0
-        starttime = UTCDateTime("2017-10-01 06:00:00").timestamp
-        endtime = UTCDateTime("2017-10-01 06:10:00").timestamp
-        anxcor_main = build_anxcor()
-        starttime_list = anxcor_main.get_starttimes(starttime, endtime, overlap)
-        pass
 
 
