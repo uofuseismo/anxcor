@@ -16,7 +16,7 @@ from obspy.core import  UTCDateTime, Trace, Stream, read
 import matplotlib.pyplot as plt
 from obsplus.bank import WaveBank
 import pytest
-
+import timeit
 
 class WavebankWrapper(AnxcorDatabase):
 
@@ -239,27 +239,27 @@ def shift_trace(data,time=1.0,delta=0.1):
     new_data      = np.concatenate((random_data,data),axis=2)[:,:,:data.shape[2]]
     return new_data
 
-def create_example_xarrays():
-    e1 = create_sinsoidal_trace_w_decay(decay=0.9, station='h', network='v', channel='e', duration=20)
-    n1 = create_sinsoidal_trace_w_decay(decay=0.3, station='h', network='v', channel='n', duration=20)
-    z1 = create_sinsoidal_trace_w_decay(decay=0.4, station='h', network='v', channel='z', duration=20)
+def create_example_xarrays(duration=20):
+    e1 = create_sinsoidal_trace_w_decay(decay=0.9, station='h', network='v', channel='e', duration=duration)
+    n1 = create_sinsoidal_trace_w_decay(decay=0.3, station='h', network='v', channel='n', duration=duration)
+    z1 = create_sinsoidal_trace_w_decay(decay=0.4, station='h', network='v', channel='z', duration=duration)
 
-    e2 = create_sinsoidal_trace_w_decay(decay=0.8, station='k', network='v', channel='e', duration=20)
-    n2 = create_sinsoidal_trace_w_decay(decay=0.7, station='k', network='v', channel='n', duration=20)
-    z2 = create_sinsoidal_trace_w_decay(decay=0.6, station='k', network='v', channel='z', duration=20)
+    e2 = create_sinsoidal_trace_w_decay(decay=0.8, station='k', network='v', channel='e', duration=duration)
+    n2 = create_sinsoidal_trace_w_decay(decay=0.7, station='k', network='v', channel='n', duration=duration)
+    z2 = create_sinsoidal_trace_w_decay(decay=0.6, station='k', network='v', channel='z', duration=duration)
 
     syth_trace1 = converter(e1.copy() + z1.copy() + n1.copy())
     syth_trace2 = converter(e2.copy() + z2.copy() + n2.copy())
     return syth_trace1, syth_trace2
 
 
-def create_example_xarrays_missing_channel():
-    e1 = create_sinsoidal_trace_w_decay(decay=0.9, station='h', network='v', channel='e', duration=20)
-    z1 = create_sinsoidal_trace_w_decay(decay=0.4, station='h', network='v', channel='z', duration=20)
+def create_example_xarrays_missing_channel(duration=20):
+    e1 = create_sinsoidal_trace_w_decay(decay=0.9, station='h', network='v', channel='e', duration=duration)
+    z1 = create_sinsoidal_trace_w_decay(decay=0.4, station='h', network='v', channel='z', duration=duration)
 
-    e2 = create_sinsoidal_trace_w_decay(decay=0.8, station='k', network='v', channel='e', duration=20)
-    n2 = create_sinsoidal_trace_w_decay(decay=0.7, station='k', network='v', channel='n', duration=20)
-    z2 = create_sinsoidal_trace_w_decay(decay=0.6, station='k', network='v', channel='z', duration=20)
+    e2 = create_sinsoidal_trace_w_decay(decay=0.8, station='k', network='v', channel='e', duration=duration)
+    n2 = create_sinsoidal_trace_w_decay(decay=0.7, station='k', network='v', channel='n', duration=duration)
+    z2 = create_sinsoidal_trace_w_decay(decay=0.6, station='k', network='v', channel='z', duration=duration)
 
     syth_trace1 = converter(e1.copy() + z1.copy())
     syth_trace2 = converter(e2.copy() + z2.copy() + n2.copy())
@@ -496,13 +496,13 @@ class TestCorrelation(unittest.TestCase):
         assert 0 == np.sum(result_1.data)
 
 
-
     def test_nonetype_in_out(self):
         correlator = XArrayXCorrelate()
         result = correlator(None,None, starttime=0, station=0)
         assert result == None
 
     def test_autocorrelation_combined(self):
+        # TODO: fix
         source_dir = 'tests/test_data/test_anxcor_database/test_auto_correlation/src_auto'
         target_dir = 'tests/test_data/test_anxcor_database/test_auto_correlation/expected_result_corr/target_auto_corr.sac'
         anxcor = Anxcor()
@@ -527,7 +527,11 @@ class TestCorrelation(unittest.TestCase):
         result_slice = anxcor.process([starttime])['src:nodals rec:nodals']
         slice_data = result_slice.data.ravel()
         slice_data /= max(slice_data)
-        assert np.cumsum(trace.data - result_data.ravel())[-1]==pytest.approx(0,abs=1e-2)
+        np.testing.assert_allclose(trace.data,result_data.ravel())
+
+
+
+
 
 
 

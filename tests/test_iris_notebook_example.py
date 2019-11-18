@@ -4,7 +4,7 @@ from obspy.core import UTCDateTime, Stream, Trace
 from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter, XArrayResample
 import numpy as np
 from anxcor.core import Anxcor
-from anxcor.xarray_routines import XArrayProcessor, XArrayRemoveMeanTrend, XArrayComponentNormalizer
+from anxcor.xarray_routines import XArrayProcessor, XArrayRemoveMeanTrend
 from anxcor.containers import AnxcorDatabase
 
 class IRISWrapper(AnxcorDatabase):

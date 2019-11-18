@@ -294,6 +294,7 @@ class XArrayXCorrelate(XArrayProcessor):
         self._kwargs['max_tau_shift']=max_tau_shift
         self._kwargs['taper'] = taper
 
+
     def execute(self, source_xarray: xr.DataArray, receiver_xarray: xr.DataArray, *args, **kwargs):
         if source_xarray is not None and receiver_xarray is not None:
             correlation = npfilt_ops.xarray_crosscorrelate(source_xarray,

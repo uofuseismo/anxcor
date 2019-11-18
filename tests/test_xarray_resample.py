@@ -26,7 +26,7 @@ class TestDownsample(unittest.TestCase):
         result = converter(None)
         assert result == None
 
-    def test_not_null(self):
+    def test_client_returns_not_null(self):
         client = Client("IRIS")
         t = UTCDateTime("2018-12-25 12:00:00").timestamp
         st = client.get_waveforms("UU", "SPU", "*", "H*", t, t + 6 * 60 * 60, attach_response=True)

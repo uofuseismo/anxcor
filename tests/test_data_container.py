@@ -6,10 +6,11 @@ import glob
 from anxcor.core import Anxcor
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from obspy.core import  UTCDateTime, Trace, Stream, read
 
 def get_dv():
-    stream =read('tests/test_data/correlation_integration_testing/Nodal/1/20171001000022180.1.EHZ.Nodal.sac.d')
+    stream =read('tests/test_data/correlation_integration_testing/Nodal/1/20171001000022180.1.EHZ.DV.sac.d')
     stats = stream[0].stats
     stats.delta = 0.02
     stats.channel='z'
@@ -170,7 +171,7 @@ class DWellsDecimatedReader(AnxcorDatabase):
         return list(self.df[self.df['valid_station'] == True]['station_id'].values)
 
 
-def build_anxcor(tau):
+def build_anxcor(tau,interpolation_method='nearest'):
     broadband_data_dir               = 'tests/test_data/correlation_integration_testing/Broadband'
     broadband_station_location_file  = 'tests/test_data/correlation_integration_testing/broadband_stationlist.txt'
     nodal_data_dir               =     'tests/test_data/correlation_integration_testing/Nodal'
@@ -179,14 +180,21 @@ def build_anxcor(tau):
     broadband_database = DWellsDecimatedReader(broadband_data_dir, broadband_station_location_file)
     nodal_database     = DWellsDecimatedReader(nodal_data_dir,     nodal_station_location_file,extension='d')
     window_length = 10*60.0
+    #include_stations = ['Nodal.{}'.format(x) for x in range(1,10)]
+    include_stations = ['UU.FORU','DV.1']
 
-    include_stations = ['UU.Broadband','Nodal.1','Nodal.2']
+    taper_ratio     = 0.05
+    target_rate     = 50.0
+    correlate_kwargs= dict(max_tau_shift=tau,taper=taper_ratio)
+    resample_kwargs = dict(target_rate=target_rate,lowpass=False)
 
-    anxcor_main = Anxcor()
+    anxcor_main = Anxcor(interp_method=interpolation_method)
     anxcor_main.set_window_length(window_length)
     anxcor_main.set_must_only_include_station_pairs(include_stations)
     anxcor_main.add_dataset(broadband_database,'BB')
     anxcor_main.add_dataset(nodal_database, 'Nodal')
+    anxcor_main.set_task_kwargs('crosscorrelate',correlate_kwargs)
+   # anxcor_main.set_task('post-correlate',XArrayCustomComponentNormalizer())
     return anxcor_main
 
 
@@ -198,10 +206,27 @@ class TestCorrelation(unittest.TestCase):
 
         starttime_utc = UTCDateTime("2017-10-01 06:00:00")
         endtime_utc = UTCDateTime("2017-10-01 06:10:00")
-        anxcor_main = build_anxcor(None)
+        anxcor_main = build_anxcor(None,interpolation_method='nearest')
         stream_source = anxcor_main._get_task('data')(starttime=starttime, station='UU.FORU')
         stream_target = get_FORU().trim(starttime_utc,endtime_utc)
+        source_times = np.linspace(stream_source[0].stats.starttime.timestamp, stream_source[0].stats.endtime.timestamp,
+                                   num=stream_source[0].stats.npts)
+        target_times = np.linspace(stream_target[0].stats.starttime.timestamp, stream_target[0].stats.endtime.timestamp,
+                                   num=stream_target[0].stats.npts)
 
+        difference = stream_source[0].data - stream_target[0].data
+        print('mean {} median {} max {} std: {}'.format(np.mean(np.abs(difference)),np.median(np.abs(difference)),
+                                                np.amax(np.abs(difference)),np.std(difference)))
+        print(difference)
+        difference = 1e-7*difference/np.amax(np.abs(difference))
+        plt.figure(figsize=(7, 5))
+        plt.title('interpolation approach in data FORU')
+        plt.plot(target_times, stream_source[0].data, label='anxcor data load, norm, & trim')
+        plt.plot(target_times, stream_target[0].data, label='obspy data load, norm, & trim')
+        plt.legend()
+        plt.xlim([stream_source[0].stats.starttime.timestamp,stream_target[0].stats.endtime.timestamp])
+        plt.xlabel('time')
+        plt.show()
         np.testing.assert_allclose(stream_source[0].data,stream_target[0])
 
 

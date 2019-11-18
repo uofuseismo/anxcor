@@ -15,7 +15,7 @@ class _AnxcorProcessor:
 
     time_format = '%d-%m-%Y_T%H:%M:%S'
     CORR_FORMAT = 'src:{} rec:{}'
-    def __init__(self):
+    def __init__(self,**kwargs):
         pass
 
     def _station_window_operations(self, channels, dask_client=None, starttime=None, station=None):
@@ -169,14 +169,14 @@ class _AnxcorData:
              'crosscorrelate','post-correlate',
              'combine','post-combine',
              'pre-stack','stack','post-stack']
-    def __init__(self):
+    def __init__(self,**kwargs):
         self._single_station_include = []
         self._station_pair_include   = []
         self._station_pair_exclude   = []
         self._single_station_exclude = []
         self._window_length=60*60.0
         self._tasks = {
-            'data': DataLoader(),
+            'data': DataLoader(**kwargs),
             'xconvert': XArrayConverter(),
             'process' : {},
             'crosscorrelate': XArrayXCorrelate(),
@@ -375,7 +375,7 @@ class _AnxcorData:
 
 class _AnxcorConfig:
 
-    def __init__(self):
+    def __init__(self,**kwargs):
         pass
 
     def save_config(self, file):
@@ -424,7 +424,7 @@ class _AnxcorConfig:
 class _AnxcorConverter:
 
 
-    def __init__(self):
+    def __init__(self,**kwargs):
         pass
 
     def get_starttimes(self, starttime, endtime, overlap):
@@ -631,4 +631,4 @@ class Anxcor(_AnxcorData, _AnxcorProcessor, _AnxcorConverter, _AnxcorConfig):
 
 
     def __init__(self,*args,**kwargs):
-        super().__init__()
+        super().__init__(**kwargs)
