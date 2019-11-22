@@ -41,7 +41,7 @@ class AnxcorDatabase:
         network and station as strings, and starttime, endtime as UTCDateTime timestamps
     """
 
-    def __init__(self):
+    def __init__(self,**kwargs):
         pass
 
     def get_stations(self)-> List[str]:
@@ -87,7 +87,7 @@ class AnxcorDatabase:
 
 class DataLoader(ab.AnxcorDataTask):
 
-    def __init__(self,interp_method='nearest'):
+    def __init__(self,interp_method='nearest',**kwargs):
         super().__init__()
         self._kwargs['window_length'] =3600.0
         self._kwargs['interp_method']=interp_method
@@ -152,8 +152,10 @@ class DataLoader(ab.AnxcorDataTask):
             stream = dataset.get_waveforms(**kwarg_execute)
             for trace in stream:
                 rate = trace.stats.sampling_rate
+                # requires 2 points so as to match obspy's trim
                 npts = int(rate*self._kwargs['window_length'])+1
                 end_time = UTCDateTime(starttime+npts*trace.stats.delta)
+                trace.stats.name=name
                 if self._not_none_condition(trace,starttime,end_time):
                     trace.interpolate(rate,starttime=starttime,npts=npts,method=self._kwargs['interp_method'])
                 else:
@@ -174,14 +176,14 @@ class DataLoader(ab.AnxcorDataTask):
             path     = os_utils.make_path_from_list([self._file, source, time])
 
             trace.write(path + os_utils.sep + trace_id + '.' + format, format=format)
-            type_dict[trace_id]=trace.stats.data_type
+            type_dict[trace_id]=trace.stats.name
 
         new_result = read(path + os_utils.sep + '*.' + format)
         pass_on = []
         for trace in new_result:
             trace_id = trace.get_id()
             if trace_id in type_dict:
-                trace.stats.data_type = type_dict[trace_id]
+                trace.stats.name = type_dict[trace_id]
                 pass_on.append(trace)
 
         return pass_on

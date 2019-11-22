@@ -28,13 +28,11 @@ class XArrayConverter(XArrayProcessor):
         return None
 
     def _convert_trace_2_xarray(self, stream,starttime):
-        if len(stream[0].data)==30000:
-            print('here')
         timeseries   = self._get_timeseries(stream)
         coordinates  = self._get_coordinates(stream)
         delta        = self._get_delta(stream)
         station_code = self._get_station_id(stream)
-        data_type    = self._get_datatype(stream)
+        name         = self._get_dataname(stream)
         channels     = self._get_channels(stream)
 
         data = self._create_numpy_data(channels, stream)
@@ -42,7 +40,7 @@ class XArrayConverter(XArrayProcessor):
         metadata={'coords': {'time'    :timeseries,
                              'channels':channels,
                              'station_id':[station_code]},
-                  'data_type':data_type,
+                  'name':name,
                   'geographic_coordinates':coordinates,
                   'delta':delta,
                   'starttime':starttime
@@ -55,7 +53,7 @@ class XArrayConverter(XArrayProcessor):
                                              metadata['coords']['station_id'],
                                              metadata['coords']['time']],
                               dims=['channel', 'station_id', 'time'])
-        xarray.name = metadata['data_type']
+        xarray.name = metadata['name']
         xarray.attrs['delta'] =  metadata['delta']
         xarray.attrs['starttime'] =  metadata['starttime']
         xarray.attrs['operations'] = 'xconvert'
@@ -78,11 +76,11 @@ class XArrayConverter(XArrayProcessor):
         station = stream[0].stats.station
         return network + '.' + station
 
-    def _get_datatype(self,stream):
-        data_type = 'default'
-        if hasattr(stream[0].stats,'data_type'):
-            data_type = stream[0].stats.data_type
-        return data_type
+    def _get_dataname(self, stream):
+        name = 'default'
+        if hasattr(stream[0].stats,'name'):
+            name = stream[0].stats.name
+        return name
 
     def _get_delta(self,stream):
         return stream[0].stats.delta
@@ -126,13 +124,13 @@ class XArrayBandpass(XArrayProcessor):
     applies a bandpass filter to a provided xarray
     """
 
-    def __init__(self,upper_frequency=10.0,
-                    lower_frequency=0.001,
-                    order=2,
-                    taper=0.01,**kwargs):
+    def __init__(self, freqmax=10.0,
+                 freqmin=0.001,
+                 order=2,
+                 taper=0.01, **kwargs):
         super().__init__(**kwargs)
-        self._kwargs = {'upper_frequency':upper_frequency,
-                        'lower_frequency':lower_frequency,
+        self._kwargs = {'freqmax':freqmax,
+                        'freqmin':freqmin,
                         'order':order,
                         'taper':taper}
 
@@ -144,14 +142,11 @@ class XArrayBandpass(XArrayProcessor):
         sampling_rate = 1.0 / delta
         ufunc_kwargs = {**self._kwargs}
 
-        if self._kwargs['upper_frequency'] > sampling_rate / 2:
-            ufunc_kwargs['upper_frequency'] = sampling_rate / 2
+        if self._kwargs['freqmax'] > sampling_rate / 2:
+            ufunc_kwargs['freqmax'] = sampling_rate / 2
 
-        filtered_array = xr.apply_ufunc(filt_ops.taper_func, xarray,
-                                        input_core_dims=[['time']],
-                                        output_core_dims=[['time']],
-                                        kwargs={**self._kwargs})
-        filtered_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain_sos, filtered_array,
+
+        filtered_array = xr.apply_ufunc(filt_ops.bandpass_in_time_domain_sos,xarray,
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={**ufunc_kwargs,**{
@@ -160,8 +155,8 @@ class XArrayBandpass(XArrayProcessor):
         return filtered_array
 
     def _add_operation_string(self):
-        return 'bandpass@{}<x(t)<{}'.format(self._kwargs['lower_frequency'],
-                                       self._kwargs['upper_frequency'])
+        return 'bandpass@{}<x(t)<{}'.format(self._kwargs['freqmin'],
+                                       self._kwargs['freqmax'])
 
     def get_name(self):
         return 'bandpass'

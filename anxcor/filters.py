@@ -1,4 +1,4 @@
-from scipy.signal import butter, sosfiltfilt, sosfreqz, get_window, detrend,filtfilt
+from scipy.signal import butter, sosfilt,sosfiltfilt, sosfreqz, get_window, detrend, iirfilter,zpk2sos
 import xarray as xr
 from obspy.core import UTCDateTime
 import numpy as np
@@ -20,8 +20,8 @@ helper methods contained in this module:
 - xarray frequency to time
 
 """
-#################################################### filters ###########################################################
-def lowpass_filter(data, upper_frequency=0.5, sample_rate=1, order=2, axis=-1,padtype='odd',**kwargs):
+######################## filters ###########################################################
+def lowpass_filter(data, freqmax=0.5, sample_rate=1, order=2,zerophase=True,axis=-1, **kwargs):
     """
      lowpass filter for n-dimensional arrays
     Parameters
@@ -41,21 +41,66 @@ def lowpass_filter(data, upper_frequency=0.5, sample_rate=1, order=2, axis=-1,pa
     -------
         a filtered nd array of same dimensions as the input data
     """
-    sos = _butter_lowpass(upper_frequency, sample_rate, order=order)
-    y = sosfiltfilt(sos, data,axis=axis,padtype=padtype)
-    return y
+    fe = 0.5 * sample_rate
+    norm_max_freq = freqmax / fe
+    # raise for some bad scenarios
+    if norm_max_freq - 1.0 > -1e-6:
+        print("freqmax ({}) of bandpass is at or above Nyquist ({}). Ignoring.").format(freqmax, fe)
+        return data
 
-def bandpass_in_time_domain_sos(data, lower_frequency=0.01, upper_frequency=1.0, sample_rate=0.5,
-                                order=2, axis=-1, padtype='odd', **kwargs):
-    sos = _butter_bandpass(lower_frequency, upper_frequency, sample_rate, order=order)
-    y = sosfiltfilt(sos, data,axis=axis,padtype=padtype)
-    return y
+    if norm_max_freq > 1:
+        print("Selected freqmax ({}) is above Nyquist. Ignoring".format(norm_max_freq))
+        return data
+    z, p, k = iirfilter(order, [norm_max_freq], btype='lowpass', ftype='butter', output='zpk')
+    sos = zpk2sos(z, p, k)
+    if zerophase:
+        result = sosfilt(sos, data)
+        return np.flip(sosfilt(sos, np.flip(result, axis=axis)), axis=axis)
+    else:
+        return sosfilt(sos, data)
 
-def bandpass_in_time_domain_filtfilt(data, lower_frequency=0.01, upper_frequency=1.0, sample_rate=0.5,
-                                order=2, axis=-1, padtype='odd', **kwargs):
-    b,a = _butter_bandpass_filtfilt(lower_frequency, upper_frequency, sample_rate, order=order)
-    y = filtfilt(b,a, data,axis=axis,padtype=padtype)
-    return y
+def bandpass_in_time_domain_sos(data, freqmin=0.01, freqmax=1.0, sample_rate=0.5,
+                                order=2, axis=-1,taper=None,zerophase=True, **kwargs):
+    fe = 0.5 * sample_rate
+    low = freqmin / fe
+    high = freqmax / fe
+    # raise for some bad scenarios
+    if high - 1.0 > -1e-6:
+        print("freqmax ({}) of bandpass is at or above Nyquist ({}). Ignoring.").format(freqmax, fe)
+        return data
+
+    if low > 1:
+        print("Selected freqmin ({}) is above Nyquist. Ignoring".format(freqmin))
+        return data
+    z, p, k = iirfilter(order, [low, high], btype='band',ftype='butter', output='zpk')#,fs=sample_rate)
+    sos = zpk2sos(z, p, k)
+    if zerophase:
+        result = sosfilt(sos, data)
+        return np.flip(sosfilt(sos, np.flip(result,axis=axis)),axis=axis)
+    else:
+        return sosfilt(sos, data,axis=axis)
+
+
+def bandpass_in_time_domain_filtfilt(data, freqmin=0.01, freqmax=1.0, sample_rate=0.5,
+                                     order=2, axis=-1, zerophase=True, **kwargs):
+    fe = 0.5 * sample_rate
+    low = freqmin / fe
+    high = freqmax / fe
+    # raise for some bad scenarios
+    if high - 1.0 > -1e-6:
+        print("freqmax ({}) of bandpass is at or above Nyquist ({}). Ignoring.").format(freqmax, fe)
+        return data
+
+    if low > 1:
+        print("Selected freqmin ({}) is above Nyquist. Ignoring".format(freqmin))
+        return data
+    z, p, k = iirfilter(order, [low, high], btype='band', ftype='butter', output='zpk')
+    sos = zpk2sos(z, p, k)
+    if zerophase:
+        firstpass = sosfilt(sos, data)
+        return sosfilt(sos, firstpass[::-1])[::-1]
+    else:
+        return sosfilt(sos, data)
 
 
 def taper_func(data, taper=0.1, axis=-1, type='hanning', taper_objective='zeros', constant=0.0, **kwargs):
@@ -157,19 +202,6 @@ def original_slice_extract(padded_data,original_data):
     return padded_data.take(indices=range(pad_length,pad_length+original_data.shape[-1]),axis=-1)
 
 ################################################# helper methods #######################################################
-
-
-def _butter_lowpass(cutoff, fs, order=5,**kwargs):
-    sos = butter(order, cutoff, btype='lowpass',output='sos',analog=False,fs=fs*1.00000001)
-    return sos
-
-def _butter_bandpass(lowcut, highcut, fs, order=5):
-    sos = butter(order, [lowcut, highcut], btype='bandpass',output='sos',analog=False,fs=fs*1.00000001)
-    return sos
-
-def _butter_bandpass_filtfilt(lowcut, highcut, fs, order=5):
-    b,a = butter(order, [lowcut, highcut], btype='bandpass',analog=False,fs=fs*1.00000001)
-    return b,a
 
 
 def _into_frequency_domain(array,axis=-1,minimum_size=None):

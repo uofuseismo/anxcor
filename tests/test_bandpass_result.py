@@ -69,7 +69,7 @@ class TestConfig(unittest.TestCase):
         _clean_files_in_dir(target_dir)
 
     def test_bandpass_result(self):
-        bp = XArrayBandpass(lower_frequency=0.1,upper_frequency=10.0)
+        bp = XArrayBandpass(freqmin=0.1, freqmax=10.0)
         anxcor = Anxcor()
         anxcor.set_window_length(120.0)
         times = anxcor.get_starttimes(starttime_stamp, endtime_stamp, 0.5)

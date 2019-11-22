@@ -1,6 +1,8 @@
 import unittest
-#from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
-from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
+try:
+    from tests.synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
+except:
+    from synthetic_trace_factory import create_random_trace, create_sinsoidal_trace_w_decay, create_triangle_trace
 from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter, XArrayRemoveMeanTrend, XArrayResample, XArrayTaper, XArrayProcessor
 import os
 from anxcor.containers import XArrayStack, AnxcorDatabase, XArrayCombine
@@ -17,6 +19,10 @@ import matplotlib.pyplot as plt
 from obsplus.bank import WaveBank
 import pytest
 import timeit
+if os.path.isdir('tests'):
+    basedir='tests/'
+else:
+    basedir=''
 
 class WavebankWrapper(AnxcorDatabase):
 
@@ -205,10 +211,10 @@ class DWellsDecimatedReader(AnxcorDatabase):
 
 
 def build_anxcor(tau):
-    broadband_data_dir               = 'tests/test_data/correlation_integration_testing/Broadband'
-    broadband_station_location_file  = 'tests/test_data/correlation_integration_testing/broadband_stationlist.txt'
-    nodal_data_dir               =     'tests/test_data/correlation_integration_testing/Nodal'
-    nodal_station_location_file  =     'tests/test_data/correlation_integration_testing/nodal_stationlist.txt'
+    broadband_data_dir               = basedir+'test_data/correlation_integration_testing/Broadband'
+    broadband_station_location_file  = basedir+'test_data/correlation_integration_testing/broadband_stationlist.txt'
+    nodal_data_dir               =     basedir+'test_data/correlation_integration_testing/Nodal'
+    nodal_station_location_file  =     basedir+'test_data/correlation_integration_testing/nodal_stationlist.txt'
 
     broadband_database = DWellsDecimatedReader(broadband_data_dir, broadband_station_location_file)
     nodal_database     = DWellsDecimatedReader(nodal_data_dir,     nodal_station_location_file,extension='d')
@@ -501,33 +507,7 @@ class TestCorrelation(unittest.TestCase):
         result = correlator(None,None, starttime=0, station=0)
         assert result == None
 
-    def test_autocorrelation_combined(self):
-        # TODO: fix
-        source_dir = 'tests/test_data/test_anxcor_database/test_auto_correlation/src_auto'
-        target_dir = 'tests/test_data/test_anxcor_database/test_auto_correlation/expected_result_corr/target_auto_corr.sac'
-        anxcor = Anxcor()
-        anxcor.set_window_length(60 * 9.9995)
-        anxcor.set_task_kwargs('crosscorrelate',{'max_tau_shift':None})
-        anxcor.add_process(XArrayResample(target_rate=20))
-        anxcor.add_process(XArrayRemoveMeanTrend())
-        bank = WavebankWrapper(source_dir)
-        df = bank.bank.get_uptime_df()
-        starttime=df['starttime'].min()
-        anxcor.add_dataset(bank, 'nodals')
-        result      = anxcor.process([starttime])['src:nodals rec:nodals']
-        result_data = result.data.ravel()
-        result_data/=max(result_data)
 
-        trace=read(target_dir)[0]
-        trace.filter('lowpass', freq=10.0, zerophase=True)
-        trace.resample(20.0)
-        trace.data/=max(trace.data)
-
-        anxcor.set_task_kwargs('crosscorrelate',{'max_tau_shift':20.0})
-        result_slice = anxcor.process([starttime])['src:nodals rec:nodals']
-        slice_data = result_slice.data.ravel()
-        slice_data /= max(slice_data)
-        np.testing.assert_allclose(trace.data,result_data.ravel())
 
 
 

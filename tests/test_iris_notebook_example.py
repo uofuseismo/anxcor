@@ -4,6 +4,7 @@ from obspy.core import UTCDateTime, Stream, Trace
 from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter, XArrayResample
 import numpy as np
 from anxcor.core import Anxcor
+import anxcor.anxcor_utils as anxcor_utils
 from anxcor.xarray_routines import XArrayProcessor, XArrayRemoveMeanTrend
 from anxcor.containers import AnxcorDatabase
 
@@ -18,7 +19,7 @@ class IRISWrapper(AnxcorDatabase):
     def get_waveforms(self,starttime=0,endtime=0,station=0,network=0, **kwargs):
         traces = []
         stream =  self.client.get_waveforms(network, station, "*", "H*", starttime,endtime,attach_response=True)
-        stream.remove_response(output='DISP', pre_filt=self.pre_filter)
+        stream = anxcor_utils.remove_response(stream,output='DISP', pre_filt=self.pre_filter)
         for trace in stream:
             data = trace.data[:-1]
             header = {'delta':   trace.stats.delta,
@@ -58,9 +59,7 @@ class TestNotebookUsageExample(unittest.TestCase):
     def test_expected_pair_amount(self):
         anxcor_main = Anxcor(60 * 10.0)
         anxcor_main.add_dataset(IRISWrapper(), 'IMUSH_ST_HELLENS_DATA')
-        resample_kwargs  = dict(taper=0.05, target_rate=20.0)
         correlate_kwargs = dict(taper=0.1, max_tau_shift=50.0)
-        anxcor_main.add_process(XArrayResample(**resample_kwargs))
         anxcor_main.set_task_kwargs('crosscorrelate', correlate_kwargs)
         anxcor_main.add_process(XArrayRemoveMeanTrend())
         anxcor_main.add_process(XArrayOneBit())

@@ -5,8 +5,12 @@ from anxcor.core import Anxcor
 import anxcor.utils as utils
 from anxcor.xarray_routines import XArrayTemporalNorm
 import json
+if os.path.isdir('tests'):
+    basedir='tests/'
+else:
+    basedir=''
 
-save_dir = 'tests/test_data/test_anxcor_database/test_save_config'
+save_dir = basedir+'test_data/test_anxcor_database/test_save_config'
 if not utils.folder_exists(save_dir):
     os.mkdir(save_dir)
 

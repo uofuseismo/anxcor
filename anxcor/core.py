@@ -169,12 +169,12 @@ class _AnxcorData:
              'crosscorrelate','post-correlate',
              'combine','post-combine',
              'pre-stack','stack','post-stack']
-    def __init__(self,**kwargs):
+    def __init__(self,window_length=None,**kwargs):
         self._single_station_include = []
         self._station_pair_include   = []
         self._station_pair_exclude   = []
         self._single_station_exclude = []
-        self._window_length=60*60.0
+        self._window_length=window_length
         self._tasks = {
             'data': DataLoader(**kwargs),
             'xconvert': XArrayConverter(),

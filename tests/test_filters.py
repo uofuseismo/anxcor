@@ -11,7 +11,6 @@ import pytest
 import xarray as xr
 import anxcor.filters as filt_ops
 import anxcor.numpyfftfilter as npfilt_ops
-
 import numpy as np
 
 convert = XArrayConverter()
@@ -21,13 +20,22 @@ class TestSimpleRelations(unittest.TestCase):
         data = np.random.uniform(0,1,1000)
         result = filt_ops.taper_func(data, taper=0.1)
         assert result[0]==0
-        assert result[-1]==0
+
+    def test_zero_begin_taper(self):
+        data = np.random.uniform(0, 1, 1000)
+        result = filt_ops.taper_func(data, taper=0.1)
+        assert result[-1] == 0
 
     def test_zero_ended_taper_odd(self):
-        data = np.random.uniform(0,1,1000)
+        data = np.random.uniform(0,1,1001)
         result = filt_ops.taper_func(data, taper=0.1)
         assert result[0]==0
+
+    def test_zero_begin_taper_odd(self):
+        data = np.random.uniform(0,1,1001)
+        result = filt_ops.taper_func(data, taper=0.1)
         assert result[-1]==0
+
 
 
 class TestImpulseDecays(unittest.TestCase):
@@ -68,10 +76,10 @@ class TestImpulseDecays(unittest.TestCase):
 
     def test_into_freq_and_back(self):
         stream = synthfactory.create_sinsoidal_trace(duration=3)
-        xarray = convert(stream)
-        xarray_freq = filt_ops.xarray_time_2_freq(xarray)
-        xarray_time = filt_ops.xarray_freq_2_time(xarray_freq,xarray)
-        assert np.allclose(xarray_time.data,xarray.data)
+        target_xarray = convert(stream)
+        xarray_freq = filt_ops.xarray_time_2_freq(target_xarray.copy())
+        source_xarray = filt_ops.xarray_freq_2_time(xarray_freq,target_xarray.copy())
+        np.testing.assert_allclose(source_xarray.data,target_xarray.data,atol=1e-15)
 
 
     def test_crosscorrelate_farfield_impulse(self):
@@ -120,8 +128,8 @@ class TestZeroPhaseFilter(unittest.TestCase):
                                         input_core_dims=[['time']],
                                         output_core_dims=[['time']],
                                         kwargs={'sample_rate': 40.0,
-                                                'upper_frequency': 5.0,
-                                                'lower_frequency': 0.01},
+                                                'freqmax': 5.0,
+                                                'freqmin': 0.01},
                                         keep_attrs=True)
         a = xarray.data[0, 0, :]
         b = filtered_array.data[0, 0, :]

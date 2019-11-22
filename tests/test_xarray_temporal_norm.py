@@ -1,4 +1,6 @@
 import unittest
+
+from anxcor import anxcor_utils
 from anxcor.xarray_routines import XArrayWhiten, XArrayConverter, \
     XArrayTemporalNorm, XArrayResample, XArrayXCorrelate, XArrayRolling
 # travis import
@@ -145,9 +147,10 @@ class TestBasicTemporalNormalization(unittest.TestCase):
     def test_jupyter_example(self):
         client = Client("IRIS")
         t = UTCDateTime("2018-12-25 12:00:00").timestamp
-        st = client.get_waveforms("UU", "SPU", "*", "H*", t, t + 6 * 60 * 60, attach_response=True)
-        pre_filt = (0.003, 0.005, 40.0, 45.0)
-        st.remove_response(output='DISP', pre_filt=pre_filt)
+        st = client.get_waveforms("UU", "SPU", "*", "H*", t, t + 10* 60, attach_response=True)
+        pre_filt = (0.01, 0.03, 40.0, 45.0)
+        st = anxcor_utils.remove_response(st, output='DISP', pre_filt=pre_filt,
+                                          zero_mean=True, taper=True)
         converter = XArrayConverter()
         resampler = XArrayResample(target_rate=10.0)
         rmmean_trend = XArrayRemoveMeanTrend()

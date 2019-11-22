@@ -2,6 +2,11 @@ import xarray as xr
 import pandas as pd
 import itertools
 from obspy.core import Stream, Trace, UTCDateTime
+import numpy as np
+from obspy.core.inventory import PolynomialResponseStage
+import warnings
+from obspy.signal.invsim import cosine_taper, cosine_sac_taper, invert_spectrum
+from obspy.signal.util import _npts2nfft
 
 def xarray_3D_to_2D( xdataset: xr.Dataset):
     # get vars
@@ -101,3 +106,78 @@ def align_station_pairs( xdataset: xr.Dataset):
         df                = xarray.attrs['df']#unsure how this works
         rot_array,new_coords = _create_rotation_matrix(coords,df)
         xarray.data       = rot_array.T @ xarray.data @ rot_array
+
+def remove_response(input_obj, **kwargs):
+    """
+        Deconvolve instrument response. Adapted from Obspy
+        https://docs.obspy.org/_modules/obspy/core/trace.html#Trace.remove_response
+        with updates to retain compatibility with Numpy 1.17
+
+    """
+    if isinstance(input_obj,Trace):
+        return _remove_response_trace(input_obj,**kwargs)
+    else:
+        traces = []
+        for trace in input_obj:
+            traces.append(_remove_response_trace(trace,**kwargs))
+        return Stream(traces=traces)
+
+
+def _remove_response_trace(trace,inventory=None, output="VEL", pre_filt=None, zero_mean=True, taper=True,
+                        taper_fraction=0.05, **kwargs):
+    response = trace._get_response(inventory)
+    # polynomial response using blockette 62 stage 0
+    if not response.response_stages and response.instrument_polynomial:
+        coefficients = response.instrument_polynomial.coefficients
+        trace.data = np.poly1d(coefficients[::-1])(trace.data)
+        return trace
+
+        # polynomial response using blockette 62 stage 1 and no other stages
+    if len(response.response_stages) == 1 and isinstance(response.response_stages[0], PolynomialResponseStage):
+        # check for gain
+        if response.response_stages[0].stage_gain is None:
+            msg = 'Stage gain not defined for %s - setting it to 1.0'
+            warnings.warn(msg % trace.id)
+            gain = 1
+        else:
+            gain = response.response_stages[0].stage_gain
+        coefficients = response.response_stages[0].coefficients[:]
+        for i in range(len(coefficients)):
+            coefficients[i] /= np.pow(gain, i)
+        trace.data = np.poly1d(coefficients[::-1])(trace.data)
+        return trace
+
+        # use evalresp
+    data = trace.data.astype(np.float64)
+    npts = len(data)
+    # time domain pre-processing
+    if zero_mean:
+        data -= data.mean()
+    if taper:
+        data *= cosine_taper(npts, taper_fraction,
+                             sactaper=True, halfcosine=False)
+
+    nfft = _npts2nfft(npts)
+    # Transform data to Frequency domain
+    data = np.fft.rfft(data, n=nfft)
+    # calculate and apply frequency response,
+    # optionally prefilter in frequency domain and/or apply water level
+    freq_response, freqs = response.get_evalresp_response(trace.stats.delta, nfft,
+                                                          output=output, **kwargs)
+
+    if pre_filt:
+        freq_domain_taper = cosine_sac_taper(freqs, flimit=pre_filt)
+        data *= freq_domain_taper
+
+    freq_response[0] = 0.0
+    freq_response[1:] = 1.0 / freq_response[1:]
+
+    data *= freq_response
+    data[-1] = abs(data[-1]) + 0.0j
+
+    # transform data back into the time domain
+    data = np.fft.irfft(data)[0:npts]
+
+    # assign processed data and store processing information
+    trace.data = data
+    return trace

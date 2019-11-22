@@ -85,12 +85,4 @@ class TestIntegratedIOOps(unittest.TestCase):
         stations = anxcor.get_station_combinations()
         assert len(stations.index) == 3, 'too many stations retained'
 
-    def test_filter_receiver_source(self):
-        assert False, 'not implemented'
-
-    def test_multiple_datasets(self):
-        assert False, 'not implemented'
-
-    def test_multiple_datasets_filter_receiver(self):
-        assert False, 'not implemented'
 

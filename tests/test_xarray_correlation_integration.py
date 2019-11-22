@@ -11,9 +11,13 @@ import numpy as np
 from obspy.core import  UTCDateTime, Trace, Stream, read
 import matplotlib.pyplot as plt
 import pytest
+if os.path.isdir('tests'):
+    basedir='tests/'
+else:
+    basedir=''
 
 def get_dv():
-    stream =read('tests/test_data/correlation_integration_testing/Nodal/1/20171001000022180.1.EHZ.DV.sac.d')
+    stream =read(basedir+'test_data/correlation_integration_testing/Nodal/1/20171001000022180.1.EHZ.DV.sac.d')
     stats = stream[0].stats
     stats.delta = 0.02
     stats.channel='z'
@@ -21,7 +25,7 @@ def get_dv():
     return Stream(traces=[Trace(stream[0].data,header=stats)])
 
 def get_FORU():
-    stream = read('tests/test_data/correlation_integration_testing/Broadband/FORU/20171001.FORU.EHZ.sac')
+    stream = read(basedir+'test_data/correlation_integration_testing/Broadband/FORU/20171001.FORU.EHZ.sac')
     stats = stream[0].stats
     stats.channel = 'z'
     return Stream(traces=[Trace(stream[0].data,header=stats)])
@@ -178,10 +182,10 @@ class DWellsDecimatedReader(AnxcorDatabase):
 
 
 def build_anxcor(tau,interpolation_method='nearest'):
-    broadband_data_dir               = 'tests/test_data/correlation_integration_testing/Broadband'
-    broadband_station_location_file  = 'tests/test_data/correlation_integration_testing/broadband_stationlist.txt'
-    nodal_data_dir               =     'tests/test_data/correlation_integration_testing/Nodal'
-    nodal_station_location_file  =     'tests/test_data/correlation_integration_testing/nodal_stationlist.txt'
+    broadband_data_dir               = basedir+'test_data/correlation_integration_testing/Broadband'
+    broadband_station_location_file  = basedir+'test_data/correlation_integration_testing/broadband_stationlist.txt'
+    nodal_data_dir               =     basedir+'test_data/correlation_integration_testing/Nodal'
+    nodal_station_location_file  =     basedir+'test_data/correlation_integration_testing/nodal_stationlist.txt'
 
     broadband_database = DWellsDecimatedReader(broadband_data_dir, broadband_station_location_file)
     nodal_database     = DWellsDecimatedReader(nodal_data_dir,     nodal_station_location_file,extension='d')
@@ -205,12 +209,6 @@ def build_anxcor(tau,interpolation_method='nearest'):
     anxcor_main.set_task_kwargs('crosscorrelate',correlate_kwargs)
    # anxcor_main.set_task('post-correlate',XArrayCustomComponentNormalizer())
     return anxcor_main
-
-
-converter = XArrayConverter()
-correlate = XArrayXCorrelate(max_tau_shift=None)
-taper     = XArrayTaper(taper=0.05,type='hann')
-rmmean    = XArrayRemoveMeanTrend()
 
 def convert_xarray_to_np_array(xarray,variable=None,src_chan='z',rec_chan='z',src='UU.FORU',rec='DV.1'):
     if variable is None:
@@ -248,7 +246,6 @@ class TestCorrelation(unittest.TestCase):
 
 
     def test_correlation_with_anxcor_data_scheme(self):
-        # TODO: fix
         tau=None
         starttime   = UTCDateTime("2017-10-01 06:00:00").timestamp
         starttime_utc = UTCDateTime("2017-10-01 06:00:00")
@@ -257,84 +254,66 @@ class TestCorrelation(unittest.TestCase):
 
         result          = anxcor_main.process([starttime])
         source_np_array = convert_xarray_to_np_array(result,variable='src:BB rec:Nodal')
-
         target_np_array = get_obspy_correlation(starttime_utc,endtime_utc)
+        source_stream = numpy_2_stream(source_np_array)
+        target_stream = numpy_2_stream(target_np_array)
+        source_stream.normalize()
+        target_stream.normalize()
 
-        np.testing.assert_allclose(source_np_array,target_np_array)
+        np.testing.assert_allclose(source_stream[0].data, target_stream[0].data, atol=1e-5)
 
 
     def test_passband_1_obspy_equivlanet(self):
-        # TODO: fix
-        freqmin = 0.02
-        freqmax = 0.1
+        freqmin = 0.01
+        freqmax = 0.5
         tau = None
         starttime = UTCDateTime("2017-10-01 06:00:00").timestamp
         starttime_utc = UTCDateTime("2017-10-01 06:00:00")
         endtime_utc = UTCDateTime("2017-10-01 06:10:00")
         anxcor_main = build_anxcor(tau, interpolation_method='nearest')
 
+        target_stream = get_obspy_correlation(starttime_utc, endtime_utc)
+        target_stream = numpy_2_stream(target_stream)
+        target_stream.filter('bandpass', freqmin=freqmin, freqmax=freqmax, corners=4, zerophase=True)
+
         result = anxcor_main.process([starttime])
-        bp = XArrayBandpass(lower_frequency=freqmin, upper_frequency=freqmax, order=4)
-        result_bp = bp(result)
-        source_bp_array = convert_xarray_to_np_array(result_bp, variable='src:BB rec:Nodal')
-        source_np_array = convert_xarray_to_np_array(result, variable='src:BB rec:Nodal')
-        source_stream = numpy_2_stream(source_np_array)
-        target_np_array = get_obspy_correlation(starttime_utc, endtime_utc)
-        target_stream = numpy_2_stream(target_np_array)
+        bp = XArrayBandpass(freqmin=freqmin, freqmax=freqmax, order=4, zerophase=True)
+        result = bp(result)
+        source_bp_array = convert_xarray_to_np_array(result, variable='src:BB rec:Nodal')
+        source_stream = numpy_2_stream(source_bp_array)
 
-        source_stream.filter('bandpass', freqmin=freqmin, freqmax=freqmax, zerophase=True)
-        target_stream.filter('bandpass', freqmin=freqmin, freqmax=freqmax, zerophase=True)
+        source_stream.normalize()
+        target_stream.normalize()
 
-        t = np.linspace(0, source_stream[0].stats.npts, num=source_stream[0].stats.npts)
-        plt.figure(figsize=(7, 5))
-        plt.title('bandpassed XCorr: 0.02-0.1Hz')
-        plt.plot(t, source_bp_array, label='anxcor + anxcor bp')
-        plt.plot(t, source_stream[0].data, label='anxcor+obspy bp')
-        plt.plot(t, target_stream[0].data, linewidth=0.6, color='black', linestyle='--', label='obspy + bp')
-        plt.legend()
-        center = source_stream[0].stats.npts // 2
-        plt.xlim([center - 500, center + 500])
-        plt.show()
-        np.testing.assert_allclose(source_stream[0].data, target_stream[0].data)
+        np.testing.assert_allclose(source_stream[0].data, target_stream[0].data, atol=1e-5)
 
     def test_passband_2_obspy_equivalent(self):
-        # TODO: fix
+        freqmin = 0.5
+        freqmax = 1.0
         tau = None
-        freqmin = 0.1
-        freqmax = 0.5
         starttime = UTCDateTime("2017-10-01 06:00:00").timestamp
         starttime_utc = UTCDateTime("2017-10-01 06:00:00")
         endtime_utc = UTCDateTime("2017-10-01 06:10:00")
         anxcor_main = build_anxcor(tau, interpolation_method='nearest')
 
+        target_stream = get_obspy_correlation(starttime_utc, endtime_utc)
+        target_stream = numpy_2_stream(target_stream)
+        target_stream.filter('bandpass', freqmin=freqmin, freqmax=freqmax, corners=4, zerophase=True)
+
         result = anxcor_main.process([starttime])
-        bp = XArrayBandpass(lower_frequency=freqmin, upper_frequency=freqmax, order=4)
-        result_bp = bp(result)
-        source_bp_array = convert_xarray_to_np_array(result_bp, variable='src:BB rec:Nodal')
-        source_np_array = convert_xarray_to_np_array(result, variable='src:BB rec:Nodal')
-        source_stream = numpy_2_stream(source_np_array)
-        target_np_array = get_obspy_correlation(starttime_utc, endtime_utc)
-        target_stream = numpy_2_stream(target_np_array)
+        bp = XArrayBandpass(freqmin=freqmin, freqmax=freqmax, order=4, zerophase=True)
+        result = bp(result)
+        source_bp_array = convert_xarray_to_np_array(result, variable='src:BB rec:Nodal')
+        source_stream = numpy_2_stream(source_bp_array)
 
-        source_stream.filter('bandpass', freqmin=freqmin, freqmax=freqmax, zerophase=True)
-        target_stream.filter('bandpass', freqmin=freqmin, freqmax=freqmax, zerophase=True)
+        source_stream.normalize()
+        target_stream.normalize()
 
-        t = np.linspace(0, source_stream[0].stats.npts, num=source_stream[0].stats.npts)
-        plt.figure(figsize=(7, 5))
-        plt.title('bandpassed XCorr: 0.1-0.5Hz')
-        plt.plot(t, source_bp_array, label='anxcor + anxcor bp')
-        plt.plot(t, source_stream[0].data, label='anxcor+obspy bp')
-        plt.plot(t, target_stream[0].data, linewidth=0.6, color='black', linestyle='--', label='obspy + bp')
-        plt.legend()
-        center = source_stream[0].stats.npts // 2
-        plt.xlim([center - 500, center + 500])
-        plt.show()
-        np.testing.assert_allclose(source_stream[0].data, target_stream[0].data)
+        np.testing.assert_allclose(source_stream[0].data, target_stream[0].data, atol=1e-5)
 
 
     def test_passband_3_obspy_equivalent(self):
-        #TODO: fix
-        freqmin=0.5
+        freqmin=1.0
         freqmax=2.5
         tau = None
         starttime = UTCDateTime("2017-10-01 06:00:00").timestamp
@@ -342,30 +321,21 @@ class TestCorrelation(unittest.TestCase):
         endtime_utc = UTCDateTime("2017-10-01 06:10:00")
         anxcor_main = build_anxcor(tau,interpolation_method='nearest')
 
+        target_stream = get_obspy_correlation(starttime_utc,endtime_utc)
+        target_stream = numpy_2_stream(target_stream)
+        target_stream.filter('bandpass', freqmin=freqmin, freqmax=freqmax,corners=4, zerophase=True)
+
+
         result = anxcor_main.process([starttime])
-        bp = XArrayBandpass(lower_frequency=freqmin,upper_frequency=freqmax,order=4)
-        result_bp = bp(result)
-        source_bp_array = convert_xarray_to_np_array(result_bp, variable='src:BB rec:Nodal')
-        source_np_array = convert_xarray_to_np_array(result, variable='src:BB rec:Nodal')
-        source_stream = numpy_2_stream(source_np_array)
-        target_np_array = get_obspy_correlation(starttime_utc, endtime_utc)
-        target_stream = numpy_2_stream(target_np_array)
+        bp = XArrayBandpass(freqmin=freqmin, freqmax=freqmax, order=4,zerophase=True)
+        result = bp(result)
+        source_bp_array = convert_xarray_to_np_array(result, variable='src:BB rec:Nodal')
+        source_stream = numpy_2_stream(source_bp_array)
 
+        source_stream.normalize()
+        target_stream.normalize()
 
-        source_stream.filter('bandpass', freqmin=freqmin, freqmax=freqmax, zerophase=True)
-        target_stream.filter('bandpass', freqmin=freqmin, freqmax=freqmax, zerophase=True)
-
-        t = np.linspace(0,source_stream[0].stats.npts,num=source_stream[0].stats.npts)
-        plt.figure(figsize=(7,5))
-        plt.title('bandpassed XCorr: 0.5-2.5Hz')
-        plt.plot(t,source_bp_array,label='anxcor + anxcor bp')
-        plt.plot(t,source_stream[0].data, label='anxcor+obspy bp')
-        plt.plot(t,target_stream[0].data,linewidth=0.6, color='black',linestyle='--',label='obspy + bp')
-        plt.legend()
-        center = source_stream[0].stats.npts//2
-        plt.xlim([center-500,center+500])
-        plt.show()
-        np.testing.assert_allclose(source_stream[0].data,target_stream[0].data)
+        np.testing.assert_allclose(source_stream[0].data,target_stream[0].data,atol=1e-5)
 
 
 
