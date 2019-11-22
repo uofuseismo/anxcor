@@ -180,8 +180,9 @@ class AnxcorTask:
             if key in self._kwargs.keys():
                 self._kwargs[key]=value
             else:
-                print('key [{}] is not a assignable parameter for {}\n'.format(key,self.get_name())+\
-                    'skipping...')
+                print('key [{}] is not a assignable parameter for {}\n'.format(key, self.get_name()) + \
+                      'skipping...')
+
 
     def get_kwargs(self):
         return {**self._kwargs}
