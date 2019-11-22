@@ -1,6 +1,3 @@
-
-import unittest
-# travis execution
 try:
     from tests.synthetic_trace_factory import create_sinsoidal_trace
 except:

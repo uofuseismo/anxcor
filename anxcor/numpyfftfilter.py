@@ -6,9 +6,7 @@ from scipy.signal import fftconvolve
 from scipy.fftpack import next_fast_len
 STARTTIME_NS_PRECISION = 100.0
 DELTA_MS_PRECISION     = 100.0/1
-import matplotlib.pyplot as plt
 ZERO                   = np.datetime64(UTCDateTime(0.0).datetime)
-from numba import jit
 
 def xarray_crosscorrelate(source_xarray, receiver_xarray, max_tau_shift=None,**kwargs):
     src_channels   = list(source_xarray['channel'].values)
@@ -66,25 +64,6 @@ def _slice_xarray_tau(xarray,max_tau_shift):
     delta=pd.Timedelta(max_tau_shift * 1e9, unit='N').to_timedelta64()
     return xarray.sel(time=slice(ZERO - delta, ZERO + delta))
 
-@jit
-def _cross_correlate_xarray_data_scipy_fftconvolve_jit(source_xarray, receiver_xarray):
-    src_chan_size = source_xarray.data.shape[0]
-    rec_chan_size = receiver_xarray.data.shape[0]
-    t_1           = source_xarray.data.shape[-1]
-    t_2           = receiver_xarray.data.shape[-1]
-    src_data      = source_xarray.data.reshape(src_chan_size,t_1)
-    receiver_data = receiver_xarray.data.reshape(rec_chan_size,t_2)
-
-    zero_mat = np.zeros((src_chan_size,
-                         rec_chan_size,
-                         t_1+t_2-1))
-
-    for src_chan in range(0,src_chan_size):
-        for rec_chan in range(0,rec_chan_size):
-            result = fftconvolve( src_data[src_chan],receiver_data[rec_chan][::-1],mode='full')
-            zero_mat[src_chan,rec_chan,:]=result
-
-    return zero_mat
 
 def _cross_correlate_xarray_data_scipy_fftconvolve(source_xarray, receiver_xarray):
     src_chan_size = source_xarray.data.shape[0]
@@ -106,56 +85,6 @@ def _cross_correlate_xarray_data_scipy_fftconvolve(source_xarray, receiver_xarra
     return zero_mat
 
 
-@jit
-def _cross_correlate_xarray_data_numpy_fft_jit(source_xarray, receiver_xarray):
-    src_chan_size = source_xarray.data.shape[0]
-    rec_chan_size = receiver_xarray.data.shape[0]
-    t_1 = source_xarray.data.shape[-1]
-    t_2 = receiver_xarray.data.shape[-1]
-    src_data = source_xarray.data.reshape(src_chan_size, t_1)
-    rec_data = receiver_xarray.data.reshape(rec_chan_size, t_2)
-    corr_len = t_1 + t_2 - 1
-    target_length = next_fast_len(corr_len)
-    src_chan_freq = np.fft.rfft(src_data, n=target_length, axis=-1)
-    rec_chan_freq = np.conj(np.fft.rfft(rec_data, n=target_length, axis=-1))
-    zero_freq_mat = np.zeros((src_chan_size,
-                              rec_chan_size,
-                              src_chan_freq.shape[-1]), dtype=np.complex64)
-
-    for rec_chan in range(0, rec_chan_size):
-        zero_freq_mat[:, rec_chan, :] = src_chan_freq
-
-    for src_chan in range(0, src_chan_size):
-        zero_freq_mat[src_chan, :, :] *= rec_chan_freq
-
-    zero_time_mat = np.fft.fftshift(np.fft.irfft(zero_freq_mat, corr_len, axis=-1), axes=-1)
-
-    return zero_time_mat
-
-def _cross_correlate_xarray_data_numpy_fft(source_xarray, receiver_xarray):
-    src_chan_size = source_xarray.data.shape[0]
-    rec_chan_size = receiver_xarray.data.shape[0]
-    t_1           = source_xarray.data.shape[-1]
-    t_2           = receiver_xarray.data.shape[-1]
-    src_data      = source_xarray.data.reshape(src_chan_size,t_1)
-    rec_data      = receiver_xarray.data.reshape(rec_chan_size,t_2)
-    corr_len      = t_1+t_2-1
-    target_length = next_fast_len(corr_len)
-    src_chan_freq = np.fft.rfft(src_data, n=target_length, axis=-1)
-    rec_chan_freq = np.conj(np.fft.rfft(rec_data, n=target_length, axis=-1))
-    zero_freq_mat = np.zeros((src_chan_size,
-                              rec_chan_size,
-                              src_chan_freq.shape[-1]), dtype=np.complex64)
-
-    for rec_chan in range(0, rec_chan_size):
-        zero_freq_mat[:, rec_chan, :] = src_chan_freq
-
-    for src_chan in range(0, src_chan_size):
-        zero_freq_mat[src_chan, :, :]*= rec_chan_freq
-
-    zero_time_mat = np.fft.fftshift(np.fft.irfft(zero_freq_mat,corr_len, axis=-1), axes=-1)
-
-    return zero_time_mat
 
 
 def _check_if_inputs_make_sense(source_array,  max_tau_shift):

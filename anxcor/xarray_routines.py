@@ -2,7 +2,6 @@
 xarray.DataArray operations for use with Anxcor processing routines
 
 """
-import anxcor.constants as c
 import numpy as np
 import xarray as xr
 import anxcor.filters as filt_ops
@@ -10,6 +9,31 @@ import anxcor.numpyfftfilter as npfilt_ops
 import copy
 import pandas as pd
 from anxcor.abstractions import XArrayRolling, XArrayProcessor, _XArrayRead, _XArrayWrite
+
+
+TAPER_DEFAULT   =0.05
+RESAMPLE_DEFAULT=10.0
+UPPER_CUTOFF_FREQ=5.0
+LOWER_CUTOFF_FREQ=0.01
+MAX_TAU_DEFAULT=100.0
+FILTER_ORDER_BANDPASS=4
+SECONDS_2_NANOSECONDS = 1e9
+OPERATIONS_SEPARATION_CHARACTER = '->:'
+
+## t-norm constants
+T_NORM_TYPE='reduce_metric'
+T_NORM_ROLLING_METRIC= 'mean'
+T_NORM_REDUCE_METRIC = 'max'
+T_NORM_WINDOW=10.0
+T_NORM_LOWER_FREQ=0.001
+T_NORM_UPPER_FREQ=0.05
+
+## Whitening constants
+WHITEN_REDUCE_METRIC = None
+WHITEN_ROLLING_METRIC='mean'
+WHITEN_WINDOW_RATIO=0.01
+FILTER_ORDER_WHITEN=3
+WHITEN_TYPE='reduce_metric'
 
 class XArrayConverter(XArrayProcessor):
     """
@@ -231,8 +255,8 @@ class XArrayResample(XArrayProcessor):
     resamples the provided xarray to a lower frequency
     """
 
-    def __init__(self, target_rate=c.RESAMPLE_DEFAULT,
-                 taper=c.TAPER_DEFAULT,order=1,**kwargs):
+    def __init__(self, target_rate=RESAMPLE_DEFAULT,
+                 taper=TAPER_DEFAULT,order=1,**kwargs):
         super().__init__(**kwargs)
         self._kwargs['target_rate'] = target_rate
         self._kwargs['taper']       = taper
@@ -243,7 +267,7 @@ class XArrayResample(XArrayProcessor):
         order = self._kwargs['order']
         sampling_rate = 1.0 / delta
         nyquist       = self._kwargs['target_rate'] / 2.0
-        target_rule = str(int((1.0 /self._kwargs['target_rate']) * c.SECONDS_2_NANOSECONDS)) + 'N'
+        target_rule = str(int((1.0 /self._kwargs['target_rate']) * SECONDS_2_NANOSECONDS)) + 'N'
 
         mean_array     = xarray.mean(dim=['time'])
         demeaned_array = xarray - mean_array
@@ -283,8 +307,8 @@ class XArrayXCorrelate(XArrayProcessor):
 
     """
 
-    def __init__(self,max_tau_shift=c.MAX_TAU_DEFAULT,
-                 taper=c.TAPER_DEFAULT,**kwargs):
+    def __init__(self,max_tau_shift=MAX_TAU_DEFAULT,
+                 taper=TAPER_DEFAULT,**kwargs):
         super().__init__(**kwargs)
         self._kwargs['max_tau_shift']=max_tau_shift
         self._kwargs['taper'] = taper
@@ -312,7 +336,7 @@ class XArrayXCorrelate(XArrayProcessor):
                 'rec':list(xarray_2.coords['station_id'].values)[0],
                 'delta'         : xarray_1.attrs['delta'],
                 'stacks'        : 1,
-                'operations'    : xarray_1.attrs['operations'] + c.OPERATIONS_SEPARATION_CHARACTER + \
+                'operations'    : xarray_1.attrs['operations'] + OPERATIONS_SEPARATION_CHARACTER + \
                                'correlated@{}<t<{}'.format(self._kwargs['max_tau_shift'],self._kwargs['max_tau_shift'])}
         if 'location' in xarray_1.attrs.keys() and 'location' in xarray_2.attrs.keys():
             if len(xarray_1.attrs['location'].keys()) > 2:

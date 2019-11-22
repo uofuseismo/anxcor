@@ -2,6 +2,5 @@ from anxcor.abstractions import XArrayProcessor
 from anxcor.xarray_routines import XArrayBandpass, XArrayConverter, XArrayRemoveMeanTrend, \
     XArrayWhiten, XArrayTaper, XArrayTemporalNorm
 from anxcor.core import Anxcor
-import numpy as np
 
-__version__='0.0.3'
+__version__='0.1.3'
