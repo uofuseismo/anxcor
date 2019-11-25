@@ -12,13 +12,12 @@
 
 ## ANXCOR: Ambient Noise X (cross) Correlation
 
-## *CURRENTLY IN DEVELOPMENT/UNSTABLE*
+## *Currently in Beta!*
 
 **ANXCOR** is a python library for performing seismic ambient noise crosscorrelations.
 
-ANXCOR's goal is to provide a framework for rapid workflow prototyping
-and small-batch production of seismic ambient noise cross-correlations. Designed with readability and explicit documentation in mind, all algorithms are well documented, grounded in
-research, and written following most of the practices outlined in the [Clean Code Handbook by Robert C. Martin](https://www.amazon.com/Clean-Code-Handbook-Software-Craftsmanship/dp/0132350882).
+ANXCOR's goal is to provide a framework to reproduce academic studies, rapididly prototype experimental workflows,
+and produce medium-sized arrays of seismic noise cross-correlations. Anxcor was designed from the outset with readability and explicit documentation in mind, with the overall architecture following most of the practices outlined in the [Clean Code Handbook by Robert C. Martin](https://www.amazon.com/Clean-Code-Handbook-Software-Craftsmanship/dp/0132350882).
 
 
 ANXCOR integrates seamlessly into the current python datascience stack by leveraging common datascience packages 
@@ -34,9 +33,10 @@ learn more about ANXCOR at the [wiki](https://github.com/uofuseismo/anxcor/wiki)
 
 
 ## Acknowledgements
-Kevin A. Mendoza served as chief architect and programmer of ANXCOR. Development of the project was inspired by Dr. Fan-Chi Lin's work in Ambient Noise Seismic Tomography. Many of the routines implemented here were written after careful consultation with him and his Graduate Student work group (However, none of their code was copied or directly translated into anxcor). Ph.D. Candidate Elizableth Berg especially was integral to the success of this project.
+Kevin A. Mendoza served as chief architect and programmer of ANXCOR. Development of the project was inspired by Dr. Fan-Chi Lin's work in Ambient Noise Seismic Tomography. Many of the routines implemented here were written after careful consultation with him and his Graduate Student work group (However, none of their code was copied or directly translated into anxcor). 
 
 ## Attribution
+Mendoza, Kevin Anthony, Ben Baker, and Kristine L. Pankow. "ANXCOR: Ambient Noise Cross-Correlation with Python." AGU Fall Meeting 2019. AGU, 2019.
 
 ## Known Issues
 
@@ -45,11 +45,7 @@ Kevin A. Mendoza served as chief architect and programmer of ANXCOR. Development
 * Returned DataSet requires some unravelling to properly plot. 
 ## Planned Enhancements
 
-- Component Rotation along azimuth and backazimuth
 - FTAN and beamforming routines
-- Port of CPU FFt transformations to the [xrft](https://xrft.readthedocs.io/en/latest/index.html) module
-- Custom crosscorrelation preprocessing functions
-- GPU implementations of crosscorrelation
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
@@ -58,8 +54,6 @@ Please make sure to update tests as appropriate.
 
 ## Contributors
 - PhD Student Kevin A. Mendoza was the primary developer, and is responsible for the original architecture of the project.
-- PhD Student Daniel Wells contributed a number of test suites.
-
 
 ## LICENSE
 
