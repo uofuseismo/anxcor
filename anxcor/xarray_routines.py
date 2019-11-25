@@ -373,6 +373,7 @@ class XArrayXCorrelate(XArrayProcessor):
 class XArrayRemoveMeanTrend(XArrayProcessor):
     """
     removes the mean and trend of an xarray timeseries
+
     """
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
