@@ -1,3 +1,6 @@
+
+![](https://github.com/uofuseismo/anxcor/blob/master/git_images/anxcor_title.png)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.png)](https://opensource.org/licenses/MIT)
 [![Build Status](https://travis-ci.org/uofuseismo/anxcor.png?branch=master)](https://travis-ci.org/uofuseismo/anxcor)
 ![PyPI](https://img.shields.io/pypi/v/anxcor.png?color=blue&style=plastic)
