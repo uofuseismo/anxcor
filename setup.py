@@ -16,7 +16,7 @@ URL = 'https://github.com/uofuseismo/anxcor'
 setuptools.setup(
     name=DISTNAME,
     license = LICENSE,
-    version="0.0.3",
+    version='0.1.0',
     author=AUTHOR,
     author_email=AUTHOR_EMAIL,
     description="ANXCOR is a python library for performing seismic ambient noise crosscorrelations",

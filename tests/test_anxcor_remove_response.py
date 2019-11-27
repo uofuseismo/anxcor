@@ -5,7 +5,7 @@ except:
 #ide testing
 #from synthetic_trace_factory import create_sinsoidal_trace
 import numpy as np
-from anxcor.xarray_routines import XArrayResample, XArrayConverter
+from anxcor.xarray_routines import  XArrayConverter
 import anxcor.anxcor_utils as anxcor_utils
 from obspy.clients.fdsn import Client
 from obspy.core import UTCDateTime

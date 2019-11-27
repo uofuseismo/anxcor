@@ -95,7 +95,6 @@ class TestIntegratedIOOps(unittest.TestCase):
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         result = anxcor.process(times,dask_client=c)
-        result = result.result()
         pairs  = list(result.coords['rec'].values)+ list(result.coords['src'].values)
         c.close()
         cluster.close()
@@ -114,11 +113,28 @@ class TestIntegratedIOOps(unittest.TestCase):
         bank = WavebankWrapper(source_dir)
         anxcor.set_must_exclude_single_stations('AX.1')
         anxcor.add_dataset(bank, 'nodals')
-        result = anxcor.process(times,dask_client=c,stack_immediately=True)
+        result = anxcor.process(times, dask_client=c, stack=True)
         pairs  = list(result.coords['rec'].values)+ list(result.coords['src'].values)
         c.close()
         cluster.close()
         assert 4 ==len(pairs)
+
+    def test_dask_execution_exclude_with_stack_number(self):
+        from distributed import Client, LocalCluster
+        cluster = LocalCluster(n_workers=1, threads_per_worker=1)
+        c = Client(cluster)
+        anxcor = Anxcor()
+        anxcor.set_window_length(120)
+        anxcor.set_task_kwargs('crosscorrelate', dict(max_tau_shift=20.0))
+        times = anxcor.get_starttimes(starttime_stamp, endtime_stamp, 0.5)
+        bank = WavebankWrapper(source_dir)
+        anxcor.set_must_exclude_single_stations('AX.1')
+        anxcor.add_dataset(bank, 'nodals')
+        result = anxcor.process(times, dask_client=c, stack=10)
+        pairs = list(result.coords['rec'].values) + list(result.coords['src'].values)
+        c.close()
+        cluster.close()
+        assert 4 == len(pairs)
 
     def test_dask_execution_exclude_stack_immediately(self):
 
@@ -132,7 +148,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         bank = WavebankWrapper(source_dir)
         anxcor.set_must_exclude_single_stations('AX.1')
         anxcor.add_dataset(bank, 'nodals')
-        result = anxcor.process(times,dask_client=c,stack_immediately=True)
+        result = anxcor.process(times,dask_client=c,stack=True)
         pairs  = list(result.coords['rec'].values)+ list(result.coords['src'].values)
         c.close()
         cluster.close()
@@ -149,7 +165,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         bank = WavebankWrapper(source_dir)
         anxcor.set_must_exclude_single_stations('AX.1')
         anxcor.add_dataset(bank, 'nodals')
-        result = anxcor.process(times,dask_client=c,stack_immediately=True)
+        result = anxcor.process(times,dask_client=c,stack=True)
         pairs  = list(result.coords['rec'].values)+ list(result.coords['src'].values)
         c.close()
         cluster.close()
@@ -169,7 +185,6 @@ class TestIntegratedIOOps(unittest.TestCase):
     def test_dask_read_combine(self):
 
         from distributed import Client, LocalCluster
-        from dask.distributed import wait
         cluster = LocalCluster(n_workers=1, threads_per_worker=1)
         c = Client(cluster)
         anxcor = Anxcor()
@@ -180,15 +195,12 @@ class TestIntegratedIOOps(unittest.TestCase):
 
         anxcor.save_at_task(target_dir, 'combine')
         result = anxcor.process(times,dask_client=c)
-        wait(result)
-        result.result()
         anxcor = Anxcor()
         anxcor.set_window_length(120.0)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.load_at_task(target_dir, 'combine')
         result = anxcor.process(times,dask_client=c)
-        result.result()
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
         c.close()
@@ -208,14 +220,14 @@ class TestIntegratedIOOps(unittest.TestCase):
         anxcor.add_dataset(bank, 'nodals')
 
         anxcor.save_at_task(target_dir, 'combine')
-        result = anxcor.process(times,dask_client=c,stack_immediately=True)
+        result = anxcor.process(times,dask_client=c,stack=True)
 
         anxcor = Anxcor()
         anxcor.set_window_length(120.0)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.load_at_task(target_dir, 'combine')
-        result = anxcor.process(times,dask_client=c,stack_immediately=True)
+        result = anxcor.process(times,dask_client=c,stack=True)
 
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
@@ -233,14 +245,14 @@ class TestIntegratedIOOps(unittest.TestCase):
         anxcor.add_dataset(bank, 'nodals')
 
         anxcor.save_at_task(target_dir, 'combine')
-        result = anxcor.process(times,stack_immediately=True)
+        result = anxcor.process(times, stack=True)
 
         anxcor = Anxcor()
         anxcor.set_window_length(120.0)
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.load_at_task(target_dir, 'combine')
-        result = anxcor.process(times,stack_immediately=True)
+        result = anxcor.process(times,stack=True)
 
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
@@ -259,7 +271,6 @@ class TestIntegratedIOOps(unittest.TestCase):
         anxcor.add_process(XArrayTemporalNorm(time_window=5.0, lower_frequency=0.02))
         anxcor.save_at_process(target_dir,'temp_norm:0')
         result = anxcor.process(times,dask_client=c)
-        result.result()
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
         assert 20 == how_many_nc
@@ -403,7 +414,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         result = anxcor.process(times)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
-        assert 9 == how_many_nc
+        assert 2 == how_many_nc
 
     def test_read_stack(self):
         anxcor = Anxcor()
@@ -422,7 +433,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         result = anxcor.process(times)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
-        assert 9 == how_many_nc
+        assert 2 == how_many_nc
 
     def test_read_every_stack(self):
         anxcor = Anxcor()
@@ -438,10 +449,10 @@ class TestIntegratedIOOps(unittest.TestCase):
         bank = WavebankWrapper(source_dir)
         anxcor.add_dataset(bank, 'nodals')
         anxcor.load_at_task(target_dir,'stack')
-        result = anxcor.process(times,stack_immediately=True)
+        result = anxcor.process(times,stack=4)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
-        assert 9 == how_many_nc
+        assert 2 == how_many_nc
 
 
     def test_write_combine(self):

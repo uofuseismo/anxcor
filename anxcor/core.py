@@ -31,7 +31,7 @@ class _AnxcorProcessor:
         return tasks[0]
 
 
-    def process(self,starttimes, dask_client=None,stack_immediately=False,**kwargs):
+    def process(self,starttimes, dask_client=None,stack=False,**kwargs):
 
         station_pairs = self.get_station_combinations()
         if station_pairs.empty:
@@ -44,29 +44,29 @@ class _AnxcorProcessor:
             print('processing window {}'.format(UTCDateTime(starttime)))
             correlation_dataset  = self._iterate_over_pairs(starttime, station_pairs, dask_client=dask_client)
             futures.append(correlation_dataset)
-            if stack_immediately:
-                stacked_result = self._prepare_results(dask_client, futures)
-                if dask_client is not None and \
-                    stacked_result is not None \
-                    and not isinstance(stacked_result,xr.Dataset):
-                    stacked_result = stacked_result.result()
-                futures=[stacked_result]
+            futures = self._stack_futures(futures,stack,dask_client)
 
         combined_crosscorrelations = self._prepare_results(dask_client, futures)
 
-        return combined_crosscorrelations
+        return combined_crosscorrelations[0]
+
+    def _stack_futures(self,futures,stack,dask_client):
+        if isinstance(stack, int):
+            if len(futures)>=stack:
+                return self._prepare_results(dask_client, futures)
+        else:
+            if len(futures)>=2 and stack:
+                return self._prepare_results(dask_client, futures)
+        return futures
 
     def _prepare_results(self, dask_client, futures):
-        if len(futures) >= 2:
-            if dask_client is not None:
-                dask_client.scatter(futures)
-            combined_crosscorrelations = self._reduce(futures,
-                                                      station='stack',
-                                                      reducing_func=self._get_task('stack'),
-                                                      dask_client=dask_client)
+        if len(futures)>=2:
+            result = self._reduce(futures,station='stack',reducing_func=self._get_task('stack'),dask_client=dask_client)
         else:
-            combined_crosscorrelations = futures[0]
-        return combined_crosscorrelations
+            return futures
+        if dask_client is not None:
+            result = result.result()
+        return [result]
 
     def _iterate_over_pairs(self, starttime, station_pairs, dask_client=None):
         correlation_stack = []
@@ -116,8 +116,6 @@ class _AnxcorProcessor:
                                                   starttime=starttime,
                                                   dask_client=dask_client)
 
-        if dask_client is not None:
-            combined_crosscorrelations = combined_crosscorrelations.result()
 
         return combined_crosscorrelations
 
