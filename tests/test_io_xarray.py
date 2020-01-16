@@ -271,6 +271,7 @@ class TestIntegratedIOOps(unittest.TestCase):
         anxcor.add_process(XArrayTemporalNorm(time_window=5.0, lower_frequency=0.02))
         anxcor.save_at_process(target_dir,'temp_norm:0')
         result = anxcor.process(times,dask_client=c)
+        print(result)
         how_many_nc = _how_many_fmt(target_dir, format='.nc')
         _clean_files_in_dir(target_dir)
         assert 20 == how_many_nc

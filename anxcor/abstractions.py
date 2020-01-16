@@ -1,6 +1,7 @@
 import  anxcor.utils as utils
 from obspy.core import UTCDateTime
 import xarray as xr
+from dask.delayed import delayed
 import pandas as pd
 import numpy as np
 import json
@@ -202,7 +203,7 @@ class AnxcorTask:
             result = self._prepare_launch_process(*args, **kwargs)
         else:
             key = self._get_operation_key(**kwargs)
-            result = dask_client.submit(self._prepare_launch_process, *args, key=key, **kwargs)
+            result = delayed(self._prepare_launch_process)(*args, dask_key_name=key, **kwargs)
         return result
 
     def _prepare_launch_process(self, *args, **kwargs):
@@ -258,23 +259,19 @@ class AnxcorTask:
     def execute(self, *args, **kwargs):
         pass
 
-    def _read_execute(self, *args, dask_client=None, process=None, folder=None, file=None, **kwargs):
+    def _read_execute(self, *args, dask_client=None, process=None, folder=None, file=None,key=None, **kwargs):
         if dask_client is None:
             result = self.read_execute(process=process, folder=folder, file=file)
         else:
-            result = dask_client.submit(self.read_execute, process=process, folder=folder, file=file)
+            result = delayed(self.read_execute)( process=process, folder=folder, file=file,dask_key_name='reading: ' + key)
         return result
 
     def _write_execute(self, dask_client=None, result=None, process=None, folder=None, file=None, key=None, **kwargs):
         if dask_client is None:
             self.write_execute(result, process, folder, file)
         else:
-            if self._fire_and_forget is None:
-                from dask.distributed import fire_and_forget
-                self._fire_and_forget = fire_and_forget
-            end = dask_client.submit(self.write_execute, result, process, folder, file, key='writing: ' + key)
-            if self._fire_and_forget is not None:
-                self._fire_and_forget(end)
+            end = delayed(self.write_execute)( result, process, folder, file,dask_key_name='writing: ' + key)
+            end.compute()
 
     def __metadata_to_persist(self,*param,**kwargs):
         if param is None or (len(param)==1 and param[0] is None):

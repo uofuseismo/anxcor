@@ -65,7 +65,7 @@ class _AnxcorProcessor:
         else:
             return futures
         if dask_client is not None:
-            result = result.result()
+            result = result.compute()
         return [result]
 
     def _iterate_over_pairs(self, starttime, station_pairs, dask_client=None):
