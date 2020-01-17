@@ -1,7 +1,11 @@
 import  anxcor.utils as utils
 from obspy.core import UTCDateTime
 import xarray as xr
-from dask.delayed import delayed
+try:
+    from dask.delayed import delayed
+except:
+    print('dask is not installed. Anxcor will now operate without dask in single threaded mode')
+    pass
 import pandas as pd
 import numpy as np
 import json

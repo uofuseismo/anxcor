@@ -113,6 +113,16 @@ def remove_response(input_obj, **kwargs):
         https://docs.obspy.org/_modules/obspy/core/trace.html#Trace.remove_response
         with updates to retain compatibility with Numpy 1.17
 
+        Parameters
+        ----------
+        input_obj :  Stream or Trace
+
+        Returns
+        -------
+        Stream or Trace
+            with response removed
+
+
     """
     if isinstance(input_obj,Trace):
         return _remove_response_trace(input_obj,**kwargs)
