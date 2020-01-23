@@ -150,13 +150,13 @@ class XArrayBandpass(XArrayProcessor):
 
     def __init__(self, freqmax=10.0,
                  freqmin=0.001,
-                 order=2,
+                 order=4,
+                 zerophase=True,
                  taper=0.01, **kwargs):
         super().__init__(**kwargs)
         self._kwargs = {'freqmax':freqmax,
                         'freqmin':freqmin,
-                        'order':order,
-                        'taper':taper}
+                        'order':order}
 
     def execute(self, xarray: xr.DataArray, *args, **kwargs):
         if 'delta' in xarray.attrs.keys():
@@ -438,11 +438,11 @@ class XArrayTemporalNorm(XArrayRolling):
     applies a temporal norm operation to an xarray timeseries
     """
 
-    def __init__(self,lower_frequency=0.01,upper_frequency=5.0,taper=0.1, **kwargs):
+    def __init__(self, freqmin=0.01, freqmax=5.0, taper=0.1, **kwargs):
         super().__init__(**kwargs)
-        self._kwargs['lower_frequency']     = lower_frequency
-        self._kwargs['upper_frequency']     = upper_frequency
-        self._kwargs['taper']               = taper
+        self._kwargs['freqmin']     = freqmin
+        self._kwargs['freqmax']     = freqmax
+        self._kwargs['taper']       = taper
 
 
     def _pre_rolling_process(self,processed_array : xr.DataArray, xarray : xr.DataArray):
@@ -493,8 +493,8 @@ class XArrayTemporalNorm(XArrayRolling):
             self._kwargs['rolling_metric'],
             self._kwargs['reduce_metric'],
             self._kwargs['taper'],
-            self._kwargs['lower_frequency'],
-            self._kwargs['upper_frequency'])
+            self._kwargs['freqmin'],
+            self._kwargs['freqmax'])
         else:
             op = 'temporal_norm@approach:{} ' \
                  'window: {},' \
@@ -505,8 +505,8 @@ class XArrayTemporalNorm(XArrayRolling):
                 self._kwargs['window'],
                 self._kwargs['rolling_metric'],
                 self._kwargs['taper'],
-                self._kwargs['lower_frequency'],
-                self._kwargs['upper_frequency'])
+                self._kwargs['freqmin'],
+                self._kwargs['freqmax'])
         return op
 
 
@@ -516,11 +516,11 @@ class XArrayWhiten(XArrayRolling):
 
     see XArrayRolling for general rolling kwargs
     """
-    def __init__(self, lower_frequency=0.01,upper_frequency=5.0,order=3,taper=0.1,
+    def __init__(self, freqmin=0.01, freqmax=5.0, order=3, taper=0.1,
                  **kwargs):
         super().__init__(**kwargs)
-        self._kwargs['lower_frequency'] = lower_frequency
-        self._kwargs['upper_frequency'] = upper_frequency
+        self._kwargs['freqmin'] = freqmin
+        self._kwargs['freqmax'] = freqmax
         self._kwargs['order'] = order
         self._kwargs['taper'] = taper
 
@@ -559,16 +559,16 @@ class XArrayWhiten(XArrayRolling):
                 self._kwargs['rolling_metric'],
                 self._kwargs['reduce_metric'],
                 self._kwargs['taper'],
-                self._kwargs['lower_frequency'],
-                self._kwargs['upper_frequency'])
+                self._kwargs['freqmin'],
+                self._kwargs['freqmax'])
         else:
             op = 'Whiten@type:{} window_ratio: {},rolling_metric: {},taper: {},bandpass: {}<x(t)<{}'.format(
                 self._kwargs['approach'],
                 self._kwargs['window'],
                 self._kwargs['rolling_metric'],
                 self._kwargs['taper'],
-                self._kwargs['lower_frequency'],
-                self._kwargs['upper_frequency'])
+                self._kwargs['freqmin'],
+                self._kwargs['freqmax'])
         return op
 
 

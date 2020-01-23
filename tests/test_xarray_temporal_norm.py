@@ -18,7 +18,7 @@ from obspy.clients.fdsn import Client
 from obspy.core import UTCDateTime
 import numpy as np
 import xarray as xr
-whiten    = XArrayWhiten(smoothing_window_ratio=0.025, upper_frequency=25.0, lower_frequency=0.001, order=2)
+whiten    = XArrayWhiten(smoothing_window_ratio=0.025, freqmax=25.0, freqmin=0.001, order=2)
 convert   = XArrayConverter()
 xarraycorrelate = XArrayXCorrelate(max_tau_shift=40)
 source_file = 'tests/test_data/test_teleseism/test_teleseism.BHE.SAC'
@@ -155,7 +155,7 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         resampler = XArrayResample(target_rate=10.0)
         rmmean_trend = XArrayRemoveMeanTrend()
         temp_normalizer = XArrayTemporalNorm(t_norm_type='reduce_metric',
-                                             lower_frequency=0.001, upper_frequency=0.1,
+                                             freqmin=0.001, freqmax=0.1,
                                              time_window=2.0, rolling_procedure='mean',
                                              reduce_metric='max')
         xarray = converter(st)
@@ -170,9 +170,9 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         converter = XArrayConverter()
         xarray = converter(stream)
         t_norm_op = XArrayTemporalNorm(t_norm_type='reduce_metric',
-                                             lower_frequency=0.001, upper_frequency=4,
-                                             time_window=2.0, rolling_procedure='mean',
-                                             reduce_metric='max')
+                                       freqmin=0.001, freqmax=4,
+                                       time_window=2.0, rolling_procedure='mean',
+                                       reduce_metric='max')
 
         whitened_array = t_norm_op(xarray)
         a = whitened_array.data[0,0,:].squeeze()
@@ -196,7 +196,7 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         stream[0].data += stream1[0].data
         xarray = converter(stream)
         t_norm_op = XArrayTemporalNorm(t_norm_type='reduce_metric', taper=0.1,
-                                       lower_frequency=0.02, upper_frequency=3.0,
+                                       freqmin=0.02, freqmax=3.0,
                                        window=5.0, rolling_procedure='mean',
                                        reduce_metric='max')
         t_normed_array = t_norm_op(xarray)

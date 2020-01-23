@@ -14,8 +14,8 @@ import pytest
 from obspy.core import UTCDateTime, Stream
 import numpy as np
 import anxcor.filters as filts
-whiten = XArrayWhiten(window=0.1, upper_frequency=20.0, lower_frequency=0.001,
-                      order=2,rolling_metric='mean')
+whiten = XArrayWhiten(window=0.1, freqmax=20.0, freqmin=0.001,
+                      order=2, rolling_metric='mean')
 convert = XArrayConverter()
 
 def plot_spectrum(xarray):
@@ -90,8 +90,8 @@ class TestSpectralWhitening(unittest.TestCase):
         xarray = converter(st)
         resampled_array = resampler(xarray)
         rmm_array = rmmean_trend(resampled_array)
-        whitening_op = XArrayWhiten(taper=0.05, whiten_type='cross_component', upper_frequency=3.0,
-                                    lower_frequency=0.01, smoothing_window_ratio=0.01)
+        whitening_op = XArrayWhiten(taper=0.05, whiten_type='cross_component', freqmax=3.0,
+                                    freqmin=0.01, smoothing_window_ratio=0.01)
 
         whitened_array = whitening_op(rmm_array)
         assert whitened_array.data[0,0,0]==pytest.approx(0,abs=1e-2)
@@ -107,8 +107,8 @@ class TestSpectralWhitening(unittest.TestCase):
         taper=0.1
         center=False
         ratio = 0.01
-        whitening_op = XArrayWhiten(taper=0.1,window=0.05, whiten_type='cross_component', upper_frequency=20.0,
-                                    lower_frequency=0.01, center=center,order=2)
+        whitening_op = XArrayWhiten(taper=0.1, window=0.05, whiten_type='cross_component', freqmax=20.0,
+                                    freqmin=0.01, center=center, order=2)
 
         whitened_array = whitening_op(xarray)
         a = whitened_array.data[0,0,:].squeeze()
@@ -137,8 +137,8 @@ class TestSpectralWhitening(unittest.TestCase):
         converter = XArrayConverter()
         xarray = converter(stream)
         center = True
-        whitening_op = XArrayWhiten(taper=0.1, window=0.05, whiten_type='cross_component', upper_frequency=20.0,
-                                    lower_frequency=0.01, center=center, order=2)
+        whitening_op = XArrayWhiten(taper=0.1, window=0.05, whiten_type='cross_component', freqmax=20.0,
+                                    freqmin=0.01, center=center, order=2)
         whitened_array = whitening_op(xarray)
         xarray_squeezed = whitened_array[0, 0, :].data.squeeze()
         difference  = xarray_squeezed[:center_index]- xarray_squeezed[-center_index:]
