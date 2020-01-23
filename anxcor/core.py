@@ -38,10 +38,12 @@ class _AnxcorProcessor:
             print('no possible station pairs detected. Exiting')
             return None
         else:
-            print('correlating {} station-pairs'.format(len(station_pairs.index)))
+            if self._verbose >= 1:
+                print('correlating {} station-pairs'.format(len(station_pairs.index)))
         futures = []
         for starttime in starttimes:
-            print('processing window {}'.format(UTCDateTime(starttime)))
+            if self._verbose >=2:
+                print('processing window {}'.format(UTCDateTime(starttime)))
             correlation_dataset  = self._iterate_over_pairs(starttime, station_pairs, dask_client=dask_client)
             futures.append(correlation_dataset)
             futures = self._stack_futures(futures,stack,dask_client)
@@ -51,8 +53,11 @@ class _AnxcorProcessor:
         return combined_crosscorrelations[0]
 
     def _stack_futures(self,futures,stack,dask_client):
+        result=None
         if isinstance(stack, int):
             if len(futures)>=stack:
+                if self._verbose >= 1:
+                    print('submitted {} stacks to scheduler'.format(stack))
                 return self._prepare_results(dask_client, futures)
         else:
             if len(futures)>=2 and stack:
@@ -61,6 +66,8 @@ class _AnxcorProcessor:
 
     def _prepare_results(self, dask_client, futures):
         if len(futures)>=2:
+            if self._verbose >=1:
+                print('executing stack')
             result = self._reduce(futures,station='stack',reducing_func=self._get_task('stack'),dask_client=dask_client)
         else:
             return futures
@@ -127,8 +134,6 @@ class _AnxcorProcessor:
                 dask_client=None):
 
         tree_depth = 1
-        if dask_client is not None:
-            dask_client.scatter(future_stack)
         while len(future_stack) > 1:
             new_future_list = []
 
@@ -628,5 +633,8 @@ class Anxcor(_AnxcorData, _AnxcorProcessor, _AnxcorConverter, _AnxcorConfig):
 
 
 
-    def __init__(self,*args,**kwargs):
+    def __init__(self,*args,verbose=0,**kwargs):
         super().__init__(**kwargs)
+        self._verbose = verbose
+
+
