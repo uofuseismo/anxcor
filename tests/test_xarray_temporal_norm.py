@@ -2,7 +2,7 @@ import unittest
 
 from anxcor import anxcor_utils
 from anxcor.xarray_routines import XArrayWhiten, XArrayConverter, \
-    XArrayTemporalNorm, XArrayResample, XArrayXCorrelate, XArrayRolling
+    XArrayTemporalNorm, XArrayResample, XArrayXCorrelate, XArrayRolling, XArrayTaper
 # travis import
 try:
     from tests.synthetic_trace_factory import  create_random_trace, create_sinsoidal_trace
@@ -29,6 +29,9 @@ def source_earthquake():
     earthquake_trace.stats.data_type='eq'
     earthquake_trace.data /= max(earthquake_trace.data)
     earthquake_trace.stats.starttime=0
+    earthquake_trace.detrend(type='linear')
+    earthquake_trace.detrend(type='constant')
+    earthquake_trace.taper(max_percentage=0.05)
     earthquake_trace.stats.channel='Z'
     earthquake_trace.stats.station = 'test'
     earthquake_trace.stats.network = ''
@@ -55,7 +58,6 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         duration = 400
         shift = 3
         noise_loc_1 = create_random_trace(sampling_rate=40, duration=duration)
-        noise_loc_1[0].data+= create_random_trace(sampling_rate=40, duration=duration)[0].data
         noise_loc_1 = convert(noise_loc_1,starttime=0,station=0)
         noise_loc_2 = xr.apply_ufunc(shift_trace, noise_loc_1, input_core_dims=[['time']],
                                      output_core_dims=[['time']],
@@ -80,7 +82,7 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         # downsample both to 10hz sampling rate
 
         down   = XArrayResample(10)
-        t_norm =XArrayTemporalNorm(time_window=2.0)
+        t_norm = XArrayTemporalNorm(time_window=2.0)
 
         noise_loc_1_eq = down(noise_loc_1_eq)
         noise_loc_2_eq = down(noise_loc_2_eq)
@@ -88,14 +90,23 @@ class TestBasicTemporalNormalization(unittest.TestCase):
         noise_loc_2_eq_tnorm = t_norm(noise_loc_2_eq.copy())
         noise_loc_1_eq_tnorm = t_norm(noise_loc_1_eq.copy())
 
+        noise_loc_1_eq       = XArrayTaper()(XArrayRemoveMeanTrend()(noise_loc_1_eq))
+        noise_loc_2_eq       = XArrayTaper()(XArrayRemoveMeanTrend()(noise_loc_2_eq))
+        noise_loc_1_eq_tnorm = XArrayTaper()(XArrayRemoveMeanTrend()(noise_loc_1_eq_tnorm))
+        noise_loc_2_eq_tnorm = XArrayTaper()(XArrayRemoveMeanTrend()(noise_loc_2_eq_tnorm))
 
-        x_corr_eq      = self.max_corr_norm(noise_loc_1_eq, noise_loc_2_eq)
-        x_corr_eq_tnorm= self.max_corr_norm(noise_loc_1_eq_tnorm, noise_loc_2_eq_tnorm)
+        x_corr_eq      = xarraycorrelate(noise_loc_1_eq, noise_loc_2_eq).squeeze()
+        x_corr_eq     /= max(abs(x_corr_eq))
+        x_corr_eq_tnorm= xarraycorrelate(noise_loc_1_eq_tnorm, noise_loc_2_eq_tnorm).squeeze()
+        x_corr_eq_tnorm/=max(abs(x_corr_eq_tnorm))
+
 
         zero_index     = len(x_corr_eq)//2
 
+        assert self.get_snr(x_corr_eq,zero_index-int(10*shift)) < self.get_snr(x_corr_eq_tnorm,zero_index-int(10*shift))
 
-        assert x_corr_eq[zero_index+int(40*shift)] < x_corr_eq_tnorm[zero_index+int(40*shift)]
+    def get_snr(self,corr,location):
+        return corr[location] / corr.mean()
 
     def test_variable_type(self):
         # first, make a noise trace and shift it by tau * sampling rate\

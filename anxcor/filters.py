@@ -66,7 +66,7 @@ def bandpass_in_time_domain_sos(data, freqmin=0.01, freqmax=1.0, sample_rate=0.5
     high = freqmax / fe
     # raise for some bad scenarios
     if high - 1.0 > -1e-6:
-        print("freqmax ({}) of bandpass is at or above Nyquist ({}). Ignoring.").format(freqmax, fe)
+        print("freqmax ({}) of bandpass is at or above Nyquist ({}). Ignoring.".format(freqmax, fe))
         return data
 
     if low > 1:
