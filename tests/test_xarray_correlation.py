@@ -7,15 +7,12 @@ from anxcor.xarray_routines import XArrayXCorrelate, XArrayConverter, XArrayRemo
 import os
 from anxcor.containers import XArrayStack, AnxcorDatabase, XArrayCombine
 import glob
-from anxcor.numpyfftfilter import xarray_crosscorrelate
 from anxcor.core import Anxcor
 import pandas as pd
-import matplotlib.pyplot as plt
 import scipy.signal as sig
 import numpy as np
 import xarray as xr
 from obspy.core import  UTCDateTime, Trace, Stream, read
-import matplotlib.pyplot as plt
 from obsplus.bank import WaveBank
 import pytest
 import timeit
@@ -452,8 +449,8 @@ class TestCorrelation(unittest.TestCase):
 
         test_correlation =  sig.correlate(np.asarray(synth_trace_1.sel(dict(channel=src_chan)).expand_dims('channel').data).squeeze(),
                                       np.asarray(synth_trace_2.sel(dict(channel=rec_chan)).expand_dims('channel').data).squeeze(),mode='full')
-        corr_source    = np.asarray(correlation_source.loc[dict(src='v.h',rec='v.k',src_chan=src_chan, rec_chan=rec_chan)].data)
-        assert np.sum(np.abs(test_correlation-corr_source))==0
+        corr_source    = correlation_source.loc[dict(src='v.h',rec='v.k',src_chan=src_chan, rec_chan=rec_chan)].data
+        np.testing.assert_allclose(test_correlation,corr_source,atol=1e-14)
 
 
     def test_correct_pair_ez(self):

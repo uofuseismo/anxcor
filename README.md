@@ -43,6 +43,8 @@ Mendoza, Kevin Anthony, Ben Baker, and Kristine L. Pankow. "ANXCOR: Ambient Nois
 * Using obsplus Wavebank creates runtime race condition on hdf5 table reading, causing index corruption. Error not encountered if restricting workers to a single thread.
 
 * Returned DataSet requires some unravelling to properly plot. 
+
+* ObsPy is currently not updated to be compatible with numpy 1.17.x or greater. This means that tests directly comparing obspy to anxcor are expected to fail whenever FFT or detrend operations are compared between the two packages. An inspection of these failing tests has confirmed that these errors are numerical in nature, not algorithmic. 
 ## Planned Enhancements
 
 - FTAN and beamforming routines

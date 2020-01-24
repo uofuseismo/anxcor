@@ -260,7 +260,7 @@ class TestCorrelation(unittest.TestCase):
         source_stream.normalize()
         target_stream.normalize()
 
-        np.testing.assert_allclose(source_stream[0].data, target_stream[0].data, atol=1e-5)
+        np.assert_allclose(source_stream[0].data, target_stream[0].data, atol=1e-5)
 
 
     def test_passband_1_obspy_equivlanet(self):
