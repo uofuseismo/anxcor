@@ -56,7 +56,7 @@ class AnxcorDatabase:
         """
         raise NotImplementedError('Method: \'get_stations()\' method is not implemented')
 
-    def get_waveforms(self,**kwarg_execute)->Stream:
+    def get_waveforms(self,network: str = None, station: str = None, starttime: float = 0, endtime: float = 0,**kwargs)->Stream:
         """
         returns an obspy Stream of waveforms
 
